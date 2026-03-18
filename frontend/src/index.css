@@ -36,3 +36,14 @@ body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* React Flow handle flash animation for rejected connections */
+@keyframes handle-flash {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
+  50% { box-shadow: 0 0 8px 4px rgba(239, 68, 68, 0.6); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.handle-flash-red {
+  animation: handle-flash 0.6s ease-out;
+}
