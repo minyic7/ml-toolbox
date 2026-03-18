@@ -22,6 +22,8 @@ def _get_output_path() -> Path:
 @node(
     outputs={"df": PortType.TABLE},
     params={"rows": Slider(min=10, max=1000, step=10, default=100)},
+    label="Generate Data",
+    description="Generate a random DataFrame and write it to parquet.",
 )
 def run(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     """Generate a random DataFrame and write it to parquet."""

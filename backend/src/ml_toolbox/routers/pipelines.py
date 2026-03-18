@@ -208,7 +208,7 @@ async def add_node(pipeline_id: str, body: AddNodeRequest) -> dict:
         "type": body.type,
         "position": body.position.model_dump(),
         "params": body.params if body.params is not None else list(template["params"]),
-        "code": template["code"],
+        "code": template["default_code"],
         "inputs": list(template["inputs"]),
         "outputs": list(template["outputs"]),
     }
