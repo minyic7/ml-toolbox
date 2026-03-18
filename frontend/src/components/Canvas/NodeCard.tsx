@@ -24,6 +24,7 @@ export interface NodeCardData {
   definition: NodeDefinition;
   status: NodeStatus | "idle";
   params: Record<string, string | number | boolean>;
+  code?: string;
   onTabClick?: (nodeId: string, tab: NodeTab) => void;
   [key: string]: unknown;
 }
