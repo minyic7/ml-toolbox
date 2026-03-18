@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ml_toolbox.protocol import PortType, Select, Text, node
+from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -27,6 +27,8 @@ _ESTIMATOR_MAP = {
     "KNeighborsClassifier": ("sklearn.neighbors", "KNeighborsClassifier"),
     "DecisionTreeClassifier": ("sklearn.tree", "DecisionTreeClassifier"),
 }
+
+_REGRESSION_OBJECTIVES = {"reg:squarederror"}
 
 
 @node(
@@ -123,3 +125,104 @@ def sklearn_train(inputs: dict, params: dict) -> dict:
     metrics_path.write_text(json.dumps(metrics))
 
     return {"model": str(model_path), "metrics": str(metrics_path)}
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "objective": Select(
+            [
+                "reg:squarederror",
+                "binary:logistic",
+                "multi:softmax",
+                "multi:softprob",
+            ],
+            default="binary:logistic",
+        ),
+        "target_column": Text(default="target"),
+        "n_estimators": Slider(min=10, max=1000, step=10, default=100),
+        "max_depth": Slider(min=1, max=20, step=1, default=6),
+        "learning_rate": Slider(min=0.001, max=1, step=0.01, default=0.1),
+    },
+    label="Train XGBoost",
+    category="Train",
+    description="Train an XGBoost classifier or regressor and output the fitted model with evaluation metrics.",
+)
+def xgb_train(inputs: dict, params: dict) -> dict:
+    """Train an XGBoost classifier or regressor."""
+    import json
+
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+
+    df = pd.read_parquet(inputs["train"])
+
+    target_col = params.get("target_column", "target")
+    objective = params.get("objective", "binary:logistic")
+    n_estimators = int(params.get("n_estimators", 100))
+    max_depth = int(params.get("max_depth", 6))
+    learning_rate = float(params.get("learning_rate", 0.1))
+
+    y = df[target_col]
+    X = df.drop(columns=[target_col])
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    if objective in _REGRESSION_OBJECTIVES:
+        from xgboost import XGBRegressor
+
+        model = XGBRegressor(
+            objective=objective,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            random_state=42,
+        )
+        model.fit(X_train, y_train)
+
+        from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+        preds = model.predict(X_test)
+        metrics = {
+            "objective": objective,
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "learning_rate": learning_rate,
+            "r2": float(r2_score(y_test, preds)),
+            "mse": float(mean_squared_error(y_test, preds)),
+            "mae": float(mean_absolute_error(y_test, preds)),
+        }
+    else:
+        from xgboost import XGBClassifier
+
+        model = XGBClassifier(
+            objective=objective,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            random_state=42,
+            eval_metric="logloss",
+        )
+        model.fit(X_train, y_train)
+
+        from sklearn.metrics import accuracy_score, f1_score
+
+        preds = model.predict(X_test)
+        metrics = {
+            "objective": objective,
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "learning_rate": learning_rate,
+            "accuracy": float(accuracy_score(y_test, preds)),
+            "f1": float(f1_score(y_test, preds, average="weighted")),
+        }
+
+    # Save metrics as JSON
+    metrics_path = _get_output_path("xgb_metrics", ext=".json")
+    metrics_path.write_text(json.dumps(metrics))
+
+    # Return raw model object — sandbox runner auto-serializes via joblib
+    return {"model": model, "metrics": str(metrics_path)}
