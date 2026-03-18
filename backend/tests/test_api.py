@@ -96,7 +96,7 @@ class TestPipelineLifecycle:
 
         # Verify update
         resp = client.get(f"/api/pipelines/{pid}")
-        assert resp.json()["nodes"] == [{"id": "n1"}]
+        assert resp.json()["nodes"][0]["id"] == "n1"
         assert resp.json()["settings"]["keep_outputs"] is False
 
         # List
@@ -144,7 +144,7 @@ class TestPipelineDuplicate:
         # Verify independent copy
         resp = client.get(f"/api/pipelines/{dup['id']}")
         clone = resp.json()
-        assert clone["nodes"] == [{"id": "n1"}, {"id": "n2"}]
+        assert [n["id"] for n in clone["nodes"]] == ["n1", "n2"]
         assert clone["edges"] == [{"source": "n1", "target": "n2"}]
 
         # Modify original, clone unchanged
@@ -291,6 +291,52 @@ class TestDeleteNode:
 
         resp = client.delete(f"/api/pipelines/{pid}/nodes/nonexistent")
         assert resp.status_code == 404
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+class TestPutPreservesNodeFields:
+    """Simulate real frontend flow: add node → auto-save PUT with partial fields → verify code survives."""
+
+    def test_put_with_partial_node_preserves_code(self):
+        """Frontend auto-save only sends id/type/position/params — code must not be lost."""
+        resp = client.post("/api/pipelines", json={"name": "Roundtrip Test"})
+        pid = resp.json()["id"]
+
+        # Add node — backend returns full node including code
+        resp = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        full_node = resp.json()
+        assert full_node["code"]  # code should be non-empty
+        assert full_node["inputs"] is not None
+        assert full_node["outputs"]
+
+        # Simulate frontend auto-save: PUT with only the fields React Flow tracks
+        client.put(
+            f"/api/pipelines/{pid}",
+            json={
+                "id": pid,
+                "name": "Roundtrip Test",
+                "nodes": [
+                    {
+                        "id": full_node["id"],
+                        "type": full_node["type"],
+                        "position": {"x": 100, "y": 50},
+                        "params": {"rows": 200},
+                    }
+                ],
+                "edges": [],
+            },
+        )
+
+        # Read back — code, inputs, outputs must still be present
+        pipeline = client.get(f"/api/pipelines/{pid}").json()
+        saved_node = pipeline["nodes"][0]
+        assert saved_node["code"], "Node code was lost after PUT!"
+        assert saved_node["inputs"] is not None, "Node inputs were lost after PUT!"
+        assert saved_node["outputs"], "Node outputs were lost after PUT!"
 
         client.delete(f"/api/pipelines/{pid}")
 

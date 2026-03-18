@@ -144,6 +144,23 @@ async def update_pipeline(pipeline_id: str, body: dict) -> dict:
     if not store.exists(pipeline_id):
         raise HTTPException(status_code=404, detail="Pipeline not found")
     body["id"] = pipeline_id
+
+    # Backfill node fields that frontend may not include (code, inputs, outputs).
+    # First try existing saved data, then fall back to NODE_REGISTRY defaults.
+    existing = store.load(pipeline_id)
+    existing_nodes = {n["id"]: n for n in existing.get("nodes", [])}
+    for node in body.get("nodes", []):
+        prev = existing_nodes.get(node["id"], {})
+        node_type = node.get("type", prev.get("type", ""))
+        template = NODE_REGISTRY.get(node_type, {})
+        for field, registry_key in [
+            ("code", "default_code"),
+            ("inputs", "inputs"),
+            ("outputs", "outputs"),
+        ]:
+            if field not in node:
+                node[field] = prev.get(field) or template.get(registry_key, [])
+
     store.save(pipeline_id, body)
     return body
 
