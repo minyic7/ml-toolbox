@@ -47,6 +47,9 @@ jobs:
       - name: Install deps
         run: uv sync --frozen
 
+      - name: Build sandbox-base image
+        run: docker build -t ghcr.io/minyic7/ml-toolbox/sandbox-base:latest -f sandbox/Dockerfile.base sandbox/
+
       - name: Build sandbox image
         run: docker build -t ml-toolbox-sandbox sandbox/
 

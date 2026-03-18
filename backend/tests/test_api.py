@@ -1,4 +1,4 @@
-"""Tests for the node library and pipeline CRUD API endpoints."""
+"""Tests for the node library, pipeline CRUD, and edge-case API endpoints."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +6,18 @@ from fastapi.testclient import TestClient
 from ml_toolbox.main import app
 
 client = TestClient(app)
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+
+def _add_node(pid: str, node_type: str, x: float = 0, y: float = 0) -> dict:
+    resp = client.post(
+        f"/api/pipelines/{pid}/nodes",
+        json={"type": node_type, "position": {"x": x, "y": y}},
+    )
+    assert resp.status_code == 201
+    return resp.json()
 
 
 # ── Node Library API ──────────────────────────────────────────────
@@ -669,3 +681,66 @@ class TestPipeline404:
     def test_delete_missing(self):
         resp = client.delete("/api/pipelines/does_not_exist")
         assert resp.status_code == 404
+
+    def test_run_missing(self):
+        resp = client.post("/api/pipelines/nonexistent/run")
+        assert resp.status_code == 404
+
+    def test_status_missing(self):
+        resp = client.get("/api/pipelines/nonexistent/status")
+        assert resp.status_code == 404
+
+    def test_run_from_nonexistent_node(self):
+        resp = client.post("/api/pipelines", json={"name": "Run From Bad Node"})
+        pid = resp.json()["id"]
+        resp = client.post(f"/api/pipelines/{pid}/run/nonexistent-node")
+        assert resp.status_code == 404
+        client.delete(f"/api/pipelines/{pid}")
+
+
+# ── WebSocket Integration ────────────────────────────────────────
+
+
+class TestWebSocket:
+    def test_websocket_connects(self):
+        """Verify WebSocket endpoint is functional."""
+        with client.websocket_connect("/ws/pipelines/e2e-test") as ws:
+            pass
+
+    def test_websocket_receives_broadcast(self):
+        """Verify WebSocket receives broadcast messages."""
+        from ml_toolbox.routers.ws import broadcast_sync
+
+        with client.websocket_connect("/ws/pipelines/e2e-ws-test") as ws:
+            broadcast_sync("e2e-ws-test", {"status": "running", "node_id": "n1"})
+            msg = ws.receive_json()
+            assert msg["status"] == "running"
+            assert msg["node_id"] == "n1"
+
+
+# ── Concurrent Run Prevention ────────────────────────────────────
+
+
+class TestConcurrentRunAPI:
+    def test_concurrent_run_returns_409(self):
+        """Starting a second run while one is active returns 409."""
+        from ml_toolbox.services.executor import (
+            PipelineExecutor,
+            remove_active_executor,
+            try_set_active_executor,
+        )
+
+        resp = client.post("/api/pipelines", json={"name": "Concurrency Test"})
+        pid = resp.json()["id"]
+
+        executor = PipelineExecutor()
+        try_set_active_executor(pid, executor)
+
+        try:
+            resp = client.post(f"/api/pipelines/{pid}/run")
+            assert resp.status_code == 409
+            assert "already running" in resp.json()["detail"].lower()
+        finally:
+            remove_active_executor(pid)
+
+        client.delete(f"/api/pipelines/{pid}")

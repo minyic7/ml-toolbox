@@ -65,7 +65,7 @@ class TestSandboxIntegration:
     """Tests that actually create sandbox containers and run node code."""
 
     def test_single_node_pipeline(self, client: TestClient):
-        """Create pipeline with generate_data node, run it, verify output."""
+        """Create pipeline with generate_data node, run it, verify output content."""
         # Create pipeline
         resp = client.post("/api/pipelines", json={"name": "Integration Test"})
         assert resp.status_code == 201
@@ -93,13 +93,37 @@ class TestSandboxIntegration:
         assert run["status"] == "done", f"Run failed: {run}"
         assert run["id"] == run_id
 
-        # Verify output file exists
+        # Verify status
         resp = client.get(f"/api/pipelines/{pid}/status")
         assert resp.status_code == 200
         assert resp.json()["is_running"] is False
 
+        # Verify output metadata via API
+        resp = client.get(
+            f"/api/pipelines/{pid}/outputs/{node_id}?run_id={run_id}"
+        )
+        assert resp.status_code == 200
+        output = resp.json()
+        assert output["node_id"] == node_id
+        assert output["type"] == "parquet"
+        assert output["size"] > 0
+
+        # Verify output content — download the parquet and check schema
+        resp = client.get(
+            f"/api/pipelines/{pid}/outputs/{node_id}/download?run_id={run_id}"
+        )
+        assert resp.status_code == 200
+        assert len(resp.content) > 0
+
+        import io
+        import pyarrow.parquet as pq
+
+        table = pq.read_table(io.BytesIO(resp.content))
+        assert table.num_rows == 100  # default rows param
+        assert set(table.column_names) == {"id", "value_a", "value_b", "category"}
+
     def test_two_node_pipeline(self, client: TestClient):
-        """Generate data → clean data, verify both nodes execute."""
+        """Generate data → clean data, verify both nodes execute and produce output."""
         resp = client.post("/api/pipelines", json={"name": "Two Node Test"})
         pid = resp.json()["id"]
 
@@ -135,9 +159,29 @@ class TestSandboxIntegration:
         # Run
         resp = client.post(f"/api/pipelines/{pid}/run")
         assert resp.status_code == 200
+        run_id = resp.json()["run_id"]
 
         run = _wait_for_run(client, pid)
         assert run["status"] == "done", f"Run failed: {run}"
+
+        # Verify both nodes produced output
+        for node_id in (gen["id"], clean["id"]):
+            resp = client.get(
+                f"/api/pipelines/{pid}/outputs/{node_id}?run_id={run_id}"
+            )
+            assert resp.status_code == 200, f"No output for node {node_id}"
+            assert resp.json()["type"] == "parquet"
+
+        # Verify clean_data output has same row count (no nulls in generated data)
+        import io
+        import pyarrow.parquet as pq
+
+        resp = client.get(
+            f"/api/pipelines/{pid}/outputs/{clean['id']}/download?run_id={run_id}"
+        )
+        table = pq.read_table(io.BytesIO(resp.content))
+        assert table.num_rows == 100
+        assert set(table.column_names) == {"id", "value_a", "value_b", "category"}
 
     def test_concurrent_run_rejected(self, client: TestClient):
         """A second run on the same pipeline should return 409."""

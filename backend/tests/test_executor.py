@@ -403,78 +403,45 @@ class TestExecutionAPI:
     """Test execution, status, run history, and output API endpoints."""
 
     @pytest.fixture(autouse=True)
-    def _setup(self, tmp_path: Path, monkeypatch):
+    def _setup(self, tmp_path: Path):
         self.tmp_path = tmp_path
-        projects = tmp_path / "projects"
-        monkeypatch.setattr("ml_toolbox.services.store.PROJECTS_DIR", projects)
-        monkeypatch.setattr("ml_toolbox.services.file_store.PROJECTS_DIR", projects)
 
-    def _create_pipeline(self, client) -> str:
-        resp = client.post("/api/pipelines", json={"name": "Exec Test"})
-        return resp.json()["id"]
-
-    def test_run_pipeline_returns_run_id(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
-
-        # Mock the _run_pipeline to avoid needing Docker
+    def test_run_pipeline_returns_run_id(self, client, create_pipeline):
+        pid = create_pipeline("Exec Test")
         with patch("ml_toolbox.routers.pipelines._run_pipeline", return_value="test-run-123"):
             resp = client.post(f"/api/pipelines/{pid}/run")
             assert resp.status_code == 200
             assert resp.json()["run_id"] == "test-run-123"
 
-    def test_run_pipeline_404(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
+    def test_run_pipeline_404(self, client):
         resp = client.post("/api/pipelines/nonexistent/run")
         assert resp.status_code == 404
 
-    def test_cancel_pipeline(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+    def test_cancel_pipeline(self, client, create_pipeline):
+        pid = create_pipeline("Exec Test")
         resp = client.post(f"/api/pipelines/{pid}/cancel")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
-    def test_pipeline_status(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+    def test_pipeline_status(self, client, create_pipeline):
+        pid = create_pipeline("Exec Test")
         resp = client.get(f"/api/pipelines/{pid}/status")
         assert resp.status_code == 200
         data = resp.json()
         assert data["is_running"] is False
         assert data["last_run_id"] is None
 
-    def test_list_runs_empty(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+    def test_list_runs_empty(self, client, create_pipeline):
+        pid = create_pipeline("Exec Test")
         resp = client.get(f"/api/pipelines/{pid}/runs")
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_list_and_delete_run(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
+    def test_list_and_delete_run(self, client, create_pipeline):
         from ml_toolbox.services import file_store
 
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+        pid = create_pipeline("Exec Test")
 
-        # Create a run directory manually
         run_dir = file_store.make_run_dir(pid, "run-abc")
         status_file = run_dir / "_status.json"
         status_file.write_text(json.dumps({"status": "done", "run_id": "run-abc"}))
@@ -486,36 +453,24 @@ class TestExecutionAPI:
         assert runs[0]["id"] == "run-abc"
         assert runs[0]["status"] == "done"
 
-        # Delete the run
         resp = client.delete(f"/api/pipelines/{pid}/runs/run-abc")
         assert resp.status_code == 204
 
-        # Verify it's gone
         resp = client.get(f"/api/pipelines/{pid}/runs")
         assert resp.json() == []
 
-    def test_delete_run_not_found(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+    def test_delete_run_not_found(self, client, create_pipeline):
+        pid = create_pipeline("Exec Test")
         resp = client.delete(f"/api/pipelines/{pid}/runs/nonexistent")
         assert resp.status_code == 404
 
-    def test_output_metadata_and_download(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
+    def test_output_metadata_and_download(self, client, create_pipeline):
         from ml_toolbox.services import file_store
 
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
-
-        # Create a run with a fake output file
+        pid = create_pipeline("Exec Test")
         run_dir = file_store.make_run_dir(pid, "run-out")
         (run_dir / "nodeA_output.csv").write_text("col1,col2\n1,2\n3,4")
 
-        # Get output metadata
         resp = client.get(f"/api/pipelines/{pid}/outputs/nodeA?run_id=run-out")
         assert resp.status_code == 200
         data = resp.json()
@@ -523,19 +478,14 @@ class TestExecutionAPI:
         assert data["type"] == "csv"
         assert data["size"] > 0
 
-        # Download
         resp = client.get(f"/api/pipelines/{pid}/outputs/nodeA/download?run_id=run-out")
         assert resp.status_code == 200
         assert b"col1,col2" in resp.content
 
-    def test_output_from_specific_run(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
+    def test_output_from_specific_run(self, client, create_pipeline):
         from ml_toolbox.services import file_store
 
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
-
+        pid = create_pipeline("Exec Test")
         run_dir = file_store.make_run_dir(pid, "run-specific")
         (run_dir / "nodeB_output.csv").write_text("a,b\n1,2")
 
@@ -547,24 +497,17 @@ class TestExecutionAPI:
         assert resp.status_code == 200
         assert b"a,b" in resp.content
 
-    def test_output_not_found(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
+    def test_output_not_found(self, client, create_pipeline):
         from ml_toolbox.services import file_store
 
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+        pid = create_pipeline("Exec Test")
         file_store.make_run_dir(pid, "run-empty")
 
         resp = client.get(f"/api/pipelines/{pid}/outputs/nonexistent?run_id=run-empty")
         assert resp.status_code == 404
 
-    def test_run_from_node_404(self):
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
-
-        client = TestClient(app)
-        pid = self._create_pipeline(client)
+    def test_run_from_node_404(self, client, create_pipeline):
+        pid = create_pipeline("Exec Test")
         resp = client.post(f"/api/pipelines/{pid}/run/nonexistent")
         assert resp.status_code == 404
 
@@ -573,21 +516,10 @@ class TestExecutionAPI:
 
 
 class TestWebSocket:
-    def test_websocket_connect_and_receive(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setattr(
-            "ml_toolbox.services.store.PROJECTS_DIR", tmp_path / "projects"
-        )
-        monkeypatch.setattr(
-            "ml_toolbox.services.file_store.PROJECTS_DIR", tmp_path / "projects"
-        )
-        from fastapi.testclient import TestClient
-        from ml_toolbox.main import app
+    def test_websocket_connect_and_receive(self, client):
         from ml_toolbox.routers.ws import manager
 
-        client = TestClient(app)
-
         with client.websocket_connect("/ws/pipelines/test-pipeline") as ws:
-            # The connection should be tracked
             assert "test-pipeline" in manager._connections
             assert len(manager._connections["test-pipeline"]) == 1
 
