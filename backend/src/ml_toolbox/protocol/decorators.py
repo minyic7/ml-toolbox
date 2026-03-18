@@ -37,6 +37,18 @@ def node(
             param_obj._name = param_name
             serialized_params.append(param_obj.serialize())
 
+        # Extract function source without the @node(...) decorator lines.
+        # The sandbox exec's this code directly and needs a clean def.
+        source_lines = inspect.getsource(fn).splitlines(keepends=True)
+        # Find the first line starting with 'def '
+        fn_start = next(
+            (i for i, line in enumerate(source_lines) if line.lstrip().startswith("def ")),
+            0,
+        )
+        fn_source = "".join(source_lines[fn_start:])
+        # Dedent if the function was nested
+        fn_source = inspect.cleandoc(fn_source) if fn_source[0] == " " else fn_source
+
         NODE_REGISTRY[node_id] = {
             "type": node_id,
             "label": label or auto_label,
@@ -45,7 +57,7 @@ def node(
             "inputs": [{"name": k, "type": v.value} for k, v in inputs.items()],
             "outputs": [{"name": k, "type": v.value} for k, v in outputs.items()],
             "params": serialized_params,
-            "default_code": inspect.getsource(fn),
+            "default_code": fn_source,
         }
 
         return fn

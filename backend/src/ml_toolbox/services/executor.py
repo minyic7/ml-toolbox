@@ -21,7 +21,12 @@ from ml_toolbox.services import file_store
 logger = logging.getLogger(__name__)
 
 SANDBOX_IMAGE = os.environ.get("ML_TOOLBOX_SANDBOX_IMAGE", "ghcr.io/minyic7/ml-toolbox/sandbox:latest")
-CONTAINER_DATA_DIR = Path("/data")
+
+# Docker volume name used to share data between backend and sandbox containers.
+# When running in Docker-in-Docker (backend creates sandbox containers via host
+# docker.sock), bind mounts with container-internal paths don't work because the
+# Docker daemon resolves paths on the host. Using a named volume solves this.
+DOCKER_VOLUME_NAME = os.environ.get("ML_TOOLBOX_DOCKER_VOLUME", "ml-toolbox_ml_data")
 
 # Broadcast callback type: (pipeline_id, message_dict) -> None
 BroadcastFn = Callable[[str, dict[str, Any]], None]
@@ -249,11 +254,13 @@ class PipelineExecutor:
                 matches = list(run_dir.glob(pattern))
 
             if matches:
-                # Translate host path to container path
+                # Use relative path — the sandbox runner resolves from manifest_path.parent
+                # which is the run_dir inside the sandbox container.
                 host_path = matches[0]
-                container_path = str(
-                    CONTAINER_DATA_DIR / host_path.relative_to(run_dir)
-                )
+                sandbox_vol_root = Path("/ml_data")
+                rel_run = run_dir.relative_to(DATA_DIR)
+                sandbox_run_dir = sandbox_vol_root / rel_run
+                container_path = str(sandbox_run_dir / host_path.name)
                 inputs[target_port] = container_path
 
         return inputs
@@ -286,17 +293,20 @@ class PipelineExecutor:
         hash_file = run_dir / f"{node_id}.hash"
         hash_file.write_text(self._params_hash(node))
 
-        # Container path for manifest
-        container_manifest = str(
-            CONTAINER_DATA_DIR / manifest_path.relative_to(run_dir)
-        )
-
         client = self._get_docker()
+
+        # Docker-in-Docker volume mounting:
+        # The backend container's DATA_DIR is backed by a named Docker volume.
+        # We mount that entire volume into the sandbox and compute correct paths.
+        sandbox_vol_root = Path("/ml_data")
+        rel_run = run_dir.relative_to(DATA_DIR)
+        sandbox_run_dir = sandbox_vol_root / rel_run
+        container_manifest = str(sandbox_run_dir / manifest_path.name)
 
         container = client.containers.run(
             image=SANDBOX_IMAGE,
             command=["python", "/sandbox/runner.py", container_manifest],
-            volumes={str(run_dir): {"bind": str(CONTAINER_DATA_DIR), "mode": "rw"}},
+            volumes={DOCKER_VOLUME_NAME: {"bind": str(sandbox_vol_root), "mode": "rw"}},
             network_disabled=True,
             mem_limit="1g",
             nano_cpus=1_000_000_000,

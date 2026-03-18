@@ -28,6 +28,7 @@ def _get_output_path() -> Path:
 def run(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     """Generate a random DataFrame and write it to parquet."""
     import random
+    import polars as pl
 
     n = int(params.get("rows", 100))
     df = pl.DataFrame(
@@ -53,6 +54,8 @@ def run(inputs: dict, params: dict) -> dict:  # noqa: ARG001
 )
 def clean_data(inputs: dict, params: dict) -> dict:
     """Read parquet, handle nulls according to strategy, write parquet."""
+    import polars as pl
+
     df = pl.read_parquet(inputs["df"])
     strategy = params.get("strategy", "mean")
 
@@ -76,6 +79,9 @@ def clean_data(inputs: dict, params: dict) -> dict:
 )
 def summarize_data(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     """Read parquet and compute basic statistics."""
+    import json
+    import polars as pl
+
     df = pl.read_parquet(inputs["df"])
 
     summary = {

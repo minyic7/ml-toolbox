@@ -25,7 +25,9 @@ def load(pipeline_id: str) -> dict:
     path = _pipeline_path(pipeline_id)
     if not path.exists():
         raise FileNotFoundError(f"Pipeline {pipeline_id} not found")
-    return json.loads(path.read_text())
+    data = json.loads(path.read_text())
+    data.setdefault("id", pipeline_id)
+    return data
 
 
 def list_all() -> list[dict]:
@@ -35,6 +37,7 @@ def list_all() -> list[dict]:
     for pipeline_file in PROJECTS_DIR.glob("*/pipeline.json"):
         try:
             data = json.loads(pipeline_file.read_text())
+            data.setdefault("id", pipeline_file.parent.name)
             mtime = pipeline_file.stat().st_mtime
             pipelines.append((mtime, data))
         except (json.JSONDecodeError, OSError):
