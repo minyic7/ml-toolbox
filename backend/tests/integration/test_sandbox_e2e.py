@@ -61,9 +61,12 @@ def _wait_for_run(client: TestClient, pid: str, timeout: int = 60) -> dict:
             if run["status"] == "error":
                 from ml_toolbox.services import file_store
                 run_dir = file_store._runs_dir(pid) / run["id"]
+                # Collect all files in run dir for debugging
+                run["_run_dir_files"] = [f.name for f in sorted(run_dir.iterdir())] if run_dir.exists() else []
                 for f in sorted(run_dir.glob("*_error.json")):
                     run["_error_detail"] = f.read_text()
-                    break
+                for f in sorted(run_dir.glob("*_logs.txt")):
+                    run["_logs"] = f.read_text()
                 status_file = run_dir / "_status.json"
                 if status_file.exists():
                     run["_status_detail"] = status_file.read_text()
