@@ -8,7 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ml_toolbox.services.executor import CycleError, PipelineExecutor
+from ml_toolbox.services.executor import (
+    CycleError,
+    PipelineExecutor,
+    remove_active_executor,
+    try_set_active_executor,
+)
+from ml_toolbox.services.file_store import _validate_path_id
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -581,3 +587,66 @@ class TestWebSocket:
             # The connection should be tracked
             assert "test-pipeline" in manager._connections
             assert len(manager._connections["test-pipeline"]) == 1
+
+
+# ── Path Traversal Validation ─────────────────────────────────────
+
+
+class TestPathValidation:
+    def test_valid_ids(self):
+        """Normal IDs should pass validation."""
+        _validate_path_id("abc123", "test")
+        _validate_path_id("my-pipeline", "test")
+        _validate_path_id("run_001", "test")
+
+    def test_rejects_path_traversal(self):
+        with pytest.raises(ValueError, match="Invalid"):
+            _validate_path_id("../etc/passwd", "test")
+
+    def test_rejects_slashes(self):
+        with pytest.raises(ValueError, match="Invalid"):
+            _validate_path_id("foo/bar", "test")
+
+    def test_rejects_empty(self):
+        with pytest.raises(ValueError, match="Invalid"):
+            _validate_path_id("", "test")
+
+    def test_rejects_dots(self):
+        with pytest.raises(ValueError, match="Invalid"):
+            _validate_path_id("..", "test")
+
+    def test_delete_run_path_traversal(self):
+        """DELETE /runs/{run_id} should reject traversal attempts."""
+        from fastapi.testclient import TestClient
+        from ml_toolbox.main import app
+
+        client = TestClient(app)
+        resp = client.post("/api/pipelines", json={"name": "Sec Test"})
+        pid = resp.json()["id"]
+
+        # Dots in a single path segment still get validated
+        resp = client.delete(f"/api/pipelines/{pid}/runs/..secret")
+        assert resp.status_code == 400
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+# ── Race Condition (atomic check-and-set) ─────────────────────────
+
+
+class TestAtomicExecutorSet:
+    def test_try_set_returns_true_when_empty(self):
+        executor = PipelineExecutor()
+        try:
+            assert try_set_active_executor("race-test", executor) is True
+        finally:
+            remove_active_executor("race-test")
+
+    def test_try_set_returns_false_when_occupied(self):
+        e1 = PipelineExecutor()
+        e2 = PipelineExecutor()
+        try:
+            assert try_set_active_executor("race-test-2", e1) is True
+            assert try_set_active_executor("race-test-2", e2) is False
+        finally:
+            remove_active_executor("race-test-2")

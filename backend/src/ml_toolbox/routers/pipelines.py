@@ -18,8 +18,9 @@ from ml_toolbox.services.executor import (
     PipelineExecutor,
     get_active_executor,
     remove_active_executor,
-    set_active_executor,
+    try_set_active_executor,
 )
+from ml_toolbox.services.file_store import _validate_path_id
 from ml_toolbox.routers.ws import broadcast_sync
 
 router = APIRouter(prefix="/api/pipelines")
@@ -354,29 +355,27 @@ async def update_edge(pipeline_id: str, edge_id: str, body: UpdateEdgeRequest) -
 
 
 def _run_pipeline(pipeline_id: str, pipeline: dict, node_id: str | None = None) -> str:
-    """Spawn executor in a background thread. Returns run_id immediately."""
+    """Spawn executor in a background thread. Returns run_id immediately.
+
+    Uses executor.run_all() or executor.run_from() — the public API —
+    rather than calling internal methods directly.
+
+    Raises HTTPException(409) if a run is already active (atomic check-and-set).
+    """
     executor = PipelineExecutor(broadcast=broadcast_sync)
-    set_active_executor(pipeline_id, executor)
+
+    # Atomic check-and-set prevents TOCTOU race condition
+    if not try_set_active_executor(pipeline_id, executor):
+        raise HTTPException(status_code=409, detail="Pipeline is already running")
 
     run_id = uuid.uuid4().hex
 
     def _target() -> None:
-        run_dir = None
         try:
-            run_dir = file_store.make_run_dir(pipeline_id, run_id)
-            order = executor._topological_sort(pipeline)
-
             if node_id is not None:
-                downstream = executor._downstream_set(node_id, pipeline)
-                downstream.add(node_id)
-                for nid in order:
-                    if nid not in downstream:
-                        executor._hardlink_cached(nid, pipeline, run_dir)
-                to_run = [nid for nid in order if nid in downstream]
+                executor.run_from(node_id, pipeline, run_id=run_id)
             else:
-                to_run = order
-
-            executor._execute_ordered(to_run, pipeline, run_dir, run_id)
+                executor.run_all(pipeline, run_id=run_id)
         except Exception as exc:
             import logging
             import traceback
@@ -384,15 +383,6 @@ def _run_pipeline(pipeline_id: str, pipeline: dict, node_id: str | None = None) 
             logging.getLogger(__name__).error(
                 "Pipeline %s run %s failed: %s", pipeline_id, run_id, exc
             )
-            # Write error status if run_dir was created
-            if run_dir is not None:
-                status_path = run_dir / "_status.json"
-                status_path.write_text(json.dumps({
-                    "status": "error",
-                    "run_id": run_id,
-                    "error": str(exc),
-                }))
-            # Broadcast the failure
             broadcast_sync(pipeline_id, {
                 "status": "error",
                 "run_id": run_id,
@@ -409,10 +399,6 @@ def _run_pipeline(pipeline_id: str, pipeline: dict, node_id: str | None = None) 
 @router.post("/{pipeline_id}/run")
 async def run_pipeline(pipeline_id: str) -> dict:
     data = _load_pipeline(pipeline_id)
-
-    if get_active_executor(pipeline_id) is not None:
-        raise HTTPException(status_code=409, detail="Pipeline is already running")
-
     run_id = _run_pipeline(pipeline_id, data)
     return {"run_id": run_id}
 
@@ -424,9 +410,6 @@ async def run_from_node(pipeline_id: str, node_id: str) -> dict:
     # Validate node exists
     if not any(n["id"] == node_id for n in data.get("nodes", [])):
         raise HTTPException(status_code=404, detail="Node not found")
-
-    if get_active_executor(pipeline_id) is not None:
-        raise HTTPException(status_code=409, detail="Pipeline is already running")
 
     run_id = _run_pipeline(pipeline_id, data, node_id=node_id)
     return {"run_id": run_id}
@@ -496,6 +479,10 @@ async def list_runs(pipeline_id: str) -> list[dict]:
 @router.delete("/{pipeline_id}/runs/{run_id}", status_code=204)
 async def delete_run(pipeline_id: str, run_id: str) -> None:
     _load_pipeline(pipeline_id)
+    try:
+        _validate_path_id(run_id, "run_id")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     run_dir = file_store._runs_dir(pipeline_id) / run_id
     if not run_dir.exists():
         raise HTTPException(status_code=404, detail="Run not found")
@@ -511,6 +498,10 @@ def _resolve_run_dir(pipeline_id: str, run_id: str | None) -> tuple[str, Path]:
         run_id = file_store.get_latest_run_id(pipeline_id)
     if run_id is None:
         raise HTTPException(status_code=404, detail="No runs found")
+    try:
+        _validate_path_id(run_id, "run_id")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     run_dir = file_store._runs_dir(pipeline_id) / run_id
     if not run_dir.exists():
         raise HTTPException(status_code=404, detail="Run not found")

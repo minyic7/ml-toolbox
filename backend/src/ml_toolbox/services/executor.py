@@ -150,7 +150,9 @@ class PipelineExecutor:
     ) -> None:
         """Hard-link outputs from the latest previous run into *run_dir*."""
         pipeline_id = pipeline["id"]
-        prev_run_id = file_store.get_latest_run_id(pipeline_id)
+        prev_run_id = file_store.get_latest_run_id(
+            pipeline_id, exclude=run_dir.name
+        )
         if prev_run_id is None:
             return
         prev_dir = file_store.make_run_dir(pipeline_id, prev_run_id)
