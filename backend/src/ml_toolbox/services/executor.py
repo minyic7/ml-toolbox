@@ -287,9 +287,13 @@ class PipelineExecutor:
         else:
             params = raw_params
 
+        # Extract entry function name from node type (e.g. "ml_toolbox.nodes.demo.clean_data" -> "clean_data")
+        entry_fn = node.get("type", "run").rsplit(".", 1)[-1]
+
         manifest = {
             "node_id": node_id,
             "code": node.get("code", ""),
+            "entry_fn": entry_fn,
             "inputs": inputs,
             "params": params,
             "conditions": conditions,
