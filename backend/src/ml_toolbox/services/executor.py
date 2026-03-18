@@ -37,15 +37,15 @@ class PipelineExecutor:
     def __init__(self, broadcast: BroadcastFn | None = None) -> None:
         self._broadcast = broadcast or (lambda _pid, _msg: None)
         self._cancelled = threading.Event()
-        self._current_container: docker.models.containers.Container | None = None
+        self._current_container: Any = None
         self._lock = threading.Lock()
         self._docker: docker.DockerClient | None = None
 
     # ── Public API ───────────────────────────────────────────────
 
-    def run_all(self, pipeline: dict) -> str:
+    def run_all(self, pipeline: dict, run_id: str | None = None) -> str:
         """Execute every node in the pipeline. Returns run_id."""
-        run_id = uuid.uuid4().hex
+        run_id = run_id or uuid.uuid4().hex
         pipeline_id = pipeline["id"]
         run_dir = file_store.make_run_dir(pipeline_id, run_id)
 
@@ -53,13 +53,13 @@ class PipelineExecutor:
         self._execute_ordered(order, pipeline, run_dir, run_id)
         return run_id
 
-    def run_from(self, node_id: str, pipeline: dict) -> str:
+    def run_from(self, node_id: str, pipeline: dict, run_id: str | None = None) -> str:
         """Re-run *node_id* and all downstream nodes. Returns run_id.
 
         Upstream nodes that are unchanged get hard-linked from the most
         recent previous run (zero additional disk cost).
         """
-        run_id = uuid.uuid4().hex
+        run_id = run_id or uuid.uuid4().hex
         pipeline_id = pipeline["id"]
         run_dir = file_store.make_run_dir(pipeline_id, run_id)
 
@@ -261,7 +261,7 @@ class PipelineExecutor:
         node_id: str,
         pipeline: dict,
         run_dir: Path,
-    ) -> None:
+    ) -> str:
         """Write manifest and run a single node in a Docker container."""
         node = next(n for n in pipeline["nodes"] if n["id"] == node_id)
 
@@ -372,6 +372,7 @@ class PipelineExecutor:
         status_path.write_text(json.dumps({"status": "running", "run_id": run_id}))
 
         had_error = False
+        final_status = "done"
         try:
             for node_id in order:
                 if self._cancelled.is_set():
@@ -473,6 +474,21 @@ _executors_lock = threading.Lock()
 def get_active_executor(pipeline_id: str) -> PipelineExecutor | None:
     with _executors_lock:
         return _active_executors.get(pipeline_id)
+
+
+def try_set_active_executor(
+    pipeline_id: str, executor: PipelineExecutor
+) -> bool:
+    """Atomically set the active executor only if none is currently running.
+
+    Returns True if the executor was set, False if one is already active.
+    This prevents the TOCTOU race between checking and setting.
+    """
+    with _executors_lock:
+        if pipeline_id in _active_executors:
+            return False
+        _active_executors[pipeline_id] = executor
+        return True
 
 
 def set_active_executor(pipeline_id: str, executor: PipelineExecutor) -> None:
