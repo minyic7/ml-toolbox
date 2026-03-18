@@ -227,6 +227,9 @@ class TestExecutorWithMockDocker:
         monkeypatch.setattr(
             "ml_toolbox.services.file_store.PROJECTS_DIR", tmp_path / "projects"
         )
+        monkeypatch.setattr(
+            "ml_toolbox.services.executor.DATA_DIR", tmp_path
+        )
 
         pipeline = _make_pipeline([_node("A", code="def run(i,p): pass")])
         pipeline["id"] = "p1"
@@ -480,7 +483,7 @@ class TestExecutionAPI:
         assert resp.status_code == 200
         runs = resp.json()
         assert len(runs) == 1
-        assert runs[0]["run_id"] == "run-abc"
+        assert runs[0]["id"] == "run-abc"
         assert runs[0]["status"] == "done"
 
         # Delete the run

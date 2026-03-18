@@ -26,7 +26,9 @@ def test_registry_contains_all_demo_nodes():
 
 def test_generate_data_metadata():
     meta = NODE_REGISTRY["ml_toolbox.nodes.demo.run"]
-    assert meta["name"] == "run"
+    assert meta["label"] == "Generate Data"
+    assert meta["category"] == "Demo"
+    assert meta["type"] == "ml_toolbox.nodes.demo.run"
     assert meta["inputs"] == []
     assert meta["outputs"] == [{"name": "df", "type": "TABLE"}]
     assert len(meta["params"]) == 1
@@ -35,7 +37,7 @@ def test_generate_data_metadata():
     assert param["name"] == "rows"
     assert param["min"] == 10
     assert param["max"] == 1000
-    assert "code" in meta
+    assert "default_code" in meta
 
 
 def test_clean_data_metadata():
@@ -60,8 +62,9 @@ def test_generate_data_produces_parquet(tmp_path: Path):
     """Running generate_data should produce a valid parquet file."""
     from ml_toolbox.nodes.demo import run as generate_data
 
+    output_file = tmp_path / "df.parquet"
     with patch(
-        "ml_toolbox.nodes.demo._get_output_path", return_value=tmp_path
+        "ml_toolbox.nodes.demo._get_output_path", return_value=output_file
     ):
         result = generate_data(inputs={}, params={"rows": 50})
 

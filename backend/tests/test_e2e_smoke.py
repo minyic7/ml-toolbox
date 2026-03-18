@@ -466,19 +466,19 @@ class TestE2ENodeLibrary:
         nodes = resp.json()
         assert len(nodes) >= 3
 
-        ids = {n["id"] for n in nodes}
-        assert "ml_toolbox.nodes.demo.run" in ids
-        assert "ml_toolbox.nodes.demo.clean_data" in ids
-        assert "ml_toolbox.nodes.demo.summarize_data" in ids
+        types = {n["type"] for n in nodes}
+        assert "ml_toolbox.nodes.demo.run" in types
+        assert "ml_toolbox.nodes.demo.clean_data" in types
+        assert "ml_toolbox.nodes.demo.summarize_data" in types
 
     def test_node_detail_has_ports_and_code(self) -> None:
         resp = client.get("/api/nodes/ml_toolbox.nodes.demo.run")
         assert resp.status_code == 200
         node = resp.json()
-        assert node["name"] == "run"
+        assert node["label"] == "Generate Data"
         assert "outputs" in node
         assert any(o["name"] == "df" for o in node["outputs"])
-        assert "code" in node
+        assert "default_code" in node
 
     def test_nonexistent_node_type(self) -> None:
         resp = client.get("/api/nodes/does.not.exist")

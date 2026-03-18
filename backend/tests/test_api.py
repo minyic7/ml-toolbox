@@ -17,27 +17,29 @@ class TestNodesAPI:
         assert resp.status_code == 200
         nodes = resp.json()
         assert len(nodes) >= 3
-        ids = {n["id"] for n in nodes}
-        assert "ml_toolbox.nodes.demo.run" in ids
-        assert "ml_toolbox.nodes.demo.clean_data" in ids
-        assert "ml_toolbox.nodes.demo.summarize_data" in ids
+        types = {n["type"] for n in nodes}
+        assert "ml_toolbox.nodes.demo.run" in types
+        assert "ml_toolbox.nodes.demo.clean_data" in types
+        assert "ml_toolbox.nodes.demo.summarize_data" in types
 
     def test_list_nodes_entry_shape(self):
         resp = client.get("/api/nodes")
         node = resp.json()[0]
-        assert "id" in node
-        assert "name" in node
+        assert "type" in node
+        assert "label" in node
+        assert "category" in node
+        assert "description" in node
         assert "inputs" in node
         assert "outputs" in node
         assert "params" in node
-        assert "code" in node
+        assert "default_code" in node
 
     def test_get_node_by_type(self):
         resp = client.get("/api/nodes/ml_toolbox.nodes.demo.run")
         assert resp.status_code == 200
         node = resp.json()
-        assert node["id"] == "ml_toolbox.nodes.demo.run"
-        assert node["name"] == "run"
+        assert node["type"] == "ml_toolbox.nodes.demo.run"
+        assert node["label"] == "Generate Data"
 
     def test_get_node_not_found(self):
         resp = client.get("/api/nodes/nonexistent.node")

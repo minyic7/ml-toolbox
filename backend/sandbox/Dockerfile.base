@@ -1,0 +1,9 @@
+FROM python:3.13-slim
+
+# Heavy ML dependencies — rebuild only when this file changes.
+RUN pip install --no-cache-dir \
+    numpy \
+    pyarrow \
+    polars \
+    pandas \
+    scikit-learn

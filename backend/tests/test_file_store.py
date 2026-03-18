@@ -24,9 +24,9 @@ def test_list_runs_sorted():
 
     runs = file_store.list_runs("p1")
     assert len(runs) == 2
-    assert runs[0]["run_id"] == "run-b"
-    assert runs[1]["run_id"] == "run-a"
-    assert "created_at" in runs[0]
+    assert runs[0]["id"] == "run-b"
+    assert runs[1]["id"] == "run-a"
+    assert "started_at" in runs[0]
 
 
 def test_delete_run():
