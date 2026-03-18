@@ -138,7 +138,7 @@ class TestOutputMetadataJoblib:
     """Test that the output API returns correct metadata for .joblib files."""
 
     def test_joblib_output_metadata(self, tmp_path: Path):
-        """_output_metadata returns model class info for .joblib files."""
+        """_output_metadata returns safe preview (no deserialization) for .joblib files."""
         import joblib
         from sklearn.linear_model import LinearRegression
         import numpy as np
@@ -157,8 +157,11 @@ class TestOutputMetadataJoblib:
         assert meta["node_id"] == node_id
         assert meta["type"] == "joblib"
         assert meta["size"] > 0
-        assert meta["preview"]["model_class"] == "LinearRegression"
-        assert "sklearn" in meta["preview"]["model_module"]
+        # Preview should show format and file size without deserializing
+        assert meta["preview"]["format"] == "joblib"
+        assert meta["preview"]["file_size"] == meta["size"]
+        # Ensure we are NOT deserializing (no model_class key)
+        assert "model_class" not in meta["preview"]
 
     def test_find_output_file_finds_joblib(self, tmp_path: Path):
         """_find_output_file discovers .joblib files."""
