@@ -29,16 +29,24 @@ SANDBOX_IMAGE = "ml-toolbox-sandbox"
 @pytest.fixture(autouse=True)
 def _isolate(tmp_path, monkeypatch):
     """Isolate file stores + point executor at local sandbox image."""
+    # Ensure all files are world-readable so sandbox container (running as
+    # different user) can access manifest files written by the test runner.
+    import os
+    old_umask = os.umask(0o000)
+    os.chmod(tmp_path, 0o777)
+
     projects = tmp_path / "projects"
     monkeypatch.setattr("ml_toolbox.services.store.PROJECTS_DIR", projects)
     monkeypatch.setattr("ml_toolbox.services.file_store.PROJECTS_DIR", projects)
-    # Use tmp_path as DATA_DIR so executor can compute relative paths
     monkeypatch.setattr("ml_toolbox.services.executor.DATA_DIR", tmp_path)
-    # Use a bind mount instead of named volume (we're running locally, not DinD)
     monkeypatch.setattr(
         "ml_toolbox.services.executor.DOCKER_VOLUME_NAME", str(tmp_path)
     )
     monkeypatch.setattr("ml_toolbox.services.executor.SANDBOX_IMAGE", SANDBOX_IMAGE)
+
+    yield
+
+    os.umask(old_umask)
 
 
 @pytest.fixture()
