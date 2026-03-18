@@ -7,4 +7,6 @@ RUN pip install --no-cache-dir \
     pyarrow \
     polars \
     pandas \
-    scikit-learn
+    scikit-learn \
+    xgboost \
+    joblib
