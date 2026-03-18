@@ -63,7 +63,7 @@ def _wait_for_run(client: TestClient, pid: str, timeout: int = 60) -> dict:
         resp = client.get(f"/api/pipelines/{pid}/runs")
         assert resp.status_code == 200
         runs = resp.json()
-        if runs and runs[0]["status"] in ("done", "error"):
+        if runs and runs[0]["status"] in ("done", "error", "cancelled"):
             run = runs[0]
             # If error, try to find and attach error details from run dir
             if run["status"] == "error":
