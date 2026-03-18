@@ -71,3 +71,49 @@ def classification(inputs: dict, params: dict) -> dict:
     metrics_path.write_text(json.dumps(metrics))
 
     return {"metrics": str(metrics_path)}
+
+
+@node(
+    inputs={"model": PortType.MODEL, "test": PortType.TABLE},
+    outputs={"metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default=""),
+    },
+    label="Regression Metrics",
+    category="Evaluate",
+)
+def regression(inputs: dict, params: dict) -> dict:
+    """Evaluate a trained regression model on test data and return RMSE, MAE, R², and MAPE."""
+    import json
+
+    import joblib
+    import pandas as pd
+    from sklearn.metrics import (
+        mean_absolute_error,
+        mean_absolute_percentage_error,
+        r2_score,
+        root_mean_squared_error,
+    )
+
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column parameter is required")
+
+    model = joblib.load(inputs["model"])
+    df = pd.read_parquet(inputs["test"])
+
+    y_true = df[target_column]
+    X = df.drop(columns=[target_column])
+    y_pred = model.predict(X)
+
+    metrics = {
+        "rmse": float(root_mean_squared_error(y_true, y_pred)),
+        "mae": float(mean_absolute_error(y_true, y_pred)),
+        "r2": float(r2_score(y_true, y_pred)),
+        "mape": float(mean_absolute_percentage_error(y_true, y_pred)),
+    }
+
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+
+    return {"metrics": str(metrics_path)}
