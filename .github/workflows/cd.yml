@@ -24,7 +24,7 @@ jobs:
               - 'backend/src/**'
               - 'backend/pyproject.toml'
               - 'backend/uv.lock'
-              - 'backend/Dockerfile'
+              - 'Dockerfile'
             sandbox:
               - 'backend/sandbox/**'
             frontend:
@@ -50,7 +50,8 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: .
+          file: Dockerfile
           push: true
           platforms: linux/arm64
           tags: ghcr.io/minyic7/ml-toolbox/backend:latest
@@ -122,27 +123,22 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Connect Tailscale
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v2
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret:    ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
       - name: Setup SSH
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
-          echo "$DEPLOY_SSH_KEY" > /tmp/deploy_key
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
 
       - name: Upload compose files
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           scp -i /tmp/deploy_key -o StrictHostKeyChecking=no \
             docker-compose.yml Caddyfile \
-            "$DEPLOY_USER@$DEPLOY_HOST:~/ml-toolbox/"
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/
 
       - name: Download frontend artifact
         if: needs.build-frontend.result == 'success'
@@ -153,22 +149,21 @@ jobs:
 
       - name: Sync frontend
         if: needs.build-frontend.result == 'success'
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           rsync -az --delete -e "ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no" \
             frontend/dist/ \
-            "$DEPLOY_USER@$DEPLOY_HOST:~/ml-toolbox/frontend/dist/"
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/frontend/dist/
 
       - name: Deploy containers
         if: |
           needs.build-backend.result == 'success' ||
           needs.build-sandbox.result == 'success'
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd ~/ml-toolbox && docker compose pull && docker compose up -d --no-build && docker image prune -f"
-
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd ~/ml-toolbox
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d --no-build
+            docker image prune -f
+          EOF
