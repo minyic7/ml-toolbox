@@ -20,8 +20,8 @@ conditions = manifest.get("conditions", [])
 run_dir = manifest_path.parent
 
 
-def _get_output_path(name: str = "output", ext: str = ".parquet") -> str:
-    return str(run_dir / f"{node_id}_{name}{ext}")
+def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
+    return run_dir / f"{node_id}_{name}{ext}"
 
 
 # ── Evaluate edge conditions (if any) ─────────────────────────
