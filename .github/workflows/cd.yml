@@ -131,15 +131,20 @@ jobs:
           tags: tag:ci
 
       - name: Setup SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
+          echo "$DEPLOY_SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
 
       - name: Upload compose files
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           scp -i /tmp/deploy_key -o StrictHostKeyChecking=no \
             docker-compose.yml Caddyfile \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/
+            "$DEPLOY_USER@$DEPLOY_HOST:~/ml-toolbox/"
 
       - name: Download frontend artifact
         if: needs.build-frontend.result == 'success'
@@ -150,20 +155,29 @@ jobs:
 
       - name: Sync frontend
         if: needs.build-frontend.result == 'success'
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           rsync -az --delete -e "ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no" \
             frontend/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/frontend/dist/
+            "$DEPLOY_USER@$DEPLOY_HOST:~/ml-toolbox/frontend/dist/"
 
       - name: Deploy containers
         if: |
           needs.build-backend.result == 'success' ||
           needs.build-sandbox.result == 'success'
         env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_ACTOR: ${{ github.actor }}
         run: |
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "cd ~/ml-toolbox && echo '${GH_TOKEN}' | docker login ghcr.io -u '${GH_ACTOR}' --password-stdin && docker compose pull && docker compose up -d --no-build && docker image prune -f"
+            "$DEPLOY_USER@$DEPLOY_HOST" << EOF
+            cd ~/ml-toolbox
+            echo "$GH_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d --no-build
+            docker image prune -f
+          EOF
 
