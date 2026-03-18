@@ -24,7 +24,7 @@ jobs:
               - 'backend/src/**'
               - 'backend/pyproject.toml'
               - 'backend/uv.lock'
-              - 'Dockerfile'
+              - 'backend/Dockerfile'
             sandbox:
               - 'backend/sandbox/**'
             frontend:
@@ -50,8 +50,8 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
-          context: .
-          file: Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: true
           platforms: linux/arm64
           tags: ghcr.io/minyic7/ml-toolbox/backend:latest
