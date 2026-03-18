@@ -143,6 +143,7 @@ async def get_pipeline(pipeline_id: str) -> dict:
 async def update_pipeline(pipeline_id: str, body: dict) -> dict:
     if not store.exists(pipeline_id):
         raise HTTPException(status_code=404, detail="Pipeline not found")
+    body["id"] = pipeline_id
     store.save(pipeline_id, body)
     return body
 
@@ -462,7 +463,7 @@ async def list_runs(pipeline_id: str) -> list[dict]:
 
     # Enrich with status from _status.json
     for run in runs:
-        run_dir = file_store._runs_dir(pipeline_id) / run["run_id"]
+        run_dir = file_store._runs_dir(pipeline_id) / run["id"]
         status_file = run_dir / "_status.json"
         if status_file.exists():
             try:

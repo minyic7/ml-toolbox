@@ -46,8 +46,8 @@ def list_runs(pipeline_id: str) -> list[dict]:
         if d.is_dir():
             ctime = d.stat().st_mtime
             runs.append((ctime, {
-                "run_id": d.name,
-                "created_at": datetime.fromtimestamp(ctime, tz=timezone.utc).isoformat(),
+                "id": d.name,
+                "started_at": datetime.fromtimestamp(ctime, tz=timezone.utc).isoformat(),
             }))
     runs.sort(key=lambda x: x[0], reverse=True)
     return [r[1] for r in runs]

@@ -20,7 +20,7 @@ from ml_toolbox.services import file_store
 
 logger = logging.getLogger(__name__)
 
-SANDBOX_IMAGE = os.environ.get("ML_TOOLBOX_SANDBOX_IMAGE", "ml-toolbox-sandbox")
+SANDBOX_IMAGE = os.environ.get("ML_TOOLBOX_SANDBOX_IMAGE", "ghcr.io/minyic7/ml-toolbox/sandbox:latest")
 CONTAINER_DATA_DIR = Path("/data")
 
 # Broadcast callback type: (pipeline_id, message_dict) -> None
