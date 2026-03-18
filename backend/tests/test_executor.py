@@ -149,30 +149,45 @@ class TestCaching:
         assert PipelineExecutor._is_cached("A", n, tmp_path) is False
 
 
-# ── Conditions ───────────────────────────────────────────────────
+# ── Conditions (opaque on backend, evaluated in sandbox) ─────────
 
 
 class TestConditions:
-    def test_no_conditions_passes(self, tmp_path: Path):
+    def test_no_conditions(self):
+        """Edges without conditions → _has_conditions returns False."""
         pipeline = _make_pipeline(
             [_node("A"), _node("B")],
             [_edge("A", "B")],
         )
-        assert PipelineExecutor._conditions_met("B", pipeline, tmp_path) is True
+        assert PipelineExecutor._has_conditions("B", pipeline) is False
 
-    def test_true_condition_passes(self, tmp_path: Path):
+    def test_has_conditions(self):
+        """Edges with conditions → _has_conditions returns True."""
         pipeline = _make_pipeline(
             [_node("A"), _node("B")],
             [_edge("A", "B", condition="len('hello') > 0")],
         )
-        assert PipelineExecutor._conditions_met("B", pipeline, tmp_path) is True
+        assert PipelineExecutor._has_conditions("B", pipeline) is True
 
-    def test_false_condition_fails(self, tmp_path: Path):
+    def test_gather_conditions(self):
+        """_gather_conditions returns condition entries for the sandbox."""
         pipeline = _make_pipeline(
             [_node("A"), _node("B")],
-            [_edge("A", "B", condition="len('') > 0")],
+            [_edge("A", "B", condition="result.get('rows', 0) > 10")],
         )
-        assert PipelineExecutor._conditions_met("B", pipeline, tmp_path) is False
+        conditions = PipelineExecutor._gather_conditions("B", pipeline)
+        assert len(conditions) == 1
+        assert conditions[0]["source_id"] == "A"
+        assert conditions[0]["condition"] == "result.get('rows', 0) > 10"
+
+    def test_gather_conditions_skips_empty(self):
+        """Edges without conditions are excluded from gathered list."""
+        pipeline = _make_pipeline(
+            [_node("A"), _node("B"), _node("C")],
+            [_edge("A", "B"), _edge("A", "C", condition="True")],
+        )
+        assert PipelineExecutor._gather_conditions("B", pipeline) == []
+        assert len(PipelineExecutor._gather_conditions("C", pipeline)) == 1
 
 
 # ── Downstream Set ───────────────────────────────────────────────
@@ -247,6 +262,7 @@ class TestExecutorWithMockDocker:
             execution_order.append(node_id)
             # Write hash file to prevent "done" from cache path
             (run_dir / f"{node_id}.hash").write_text("x")
+            return "done"
 
         executor = PipelineExecutor()
         executor._docker = self._mock_docker_client()
@@ -276,6 +292,7 @@ class TestExecutorWithMockDocker:
             call_count += 1
             if call_count == 1:
                 executor.cancel()  # cancel after first node
+            return "done"
 
         executor._execute_node = _fake_execute  # type: ignore[assignment]
         executor.run_all(pipeline)
@@ -304,6 +321,7 @@ class TestExecutorWithMockDocker:
 
         def _fake_execute(node_id, pipeline, run_dir):
             executed.append(node_id)
+            return "done"
 
         executor = PipelineExecutor()
         executor._execute_node = _fake_execute  # type: ignore[assignment]
@@ -315,6 +333,58 @@ class TestExecutorWithMockDocker:
         # A's output should be hard-linked into the new run dir
         new_run_dir = tmp_path / "projects" / "p1" / "runs" / run_id
         assert (new_run_dir / "A_output.parquet").exists()
+
+    def test_skipped_node_from_sandbox(self, tmp_path: Path, monkeypatch):
+        """When _execute_node returns 'skipped', broadcast skipped status."""
+        monkeypatch.setattr(
+            "ml_toolbox.services.file_store.PROJECTS_DIR", tmp_path / "projects"
+        )
+
+        pipeline = _make_pipeline(
+            [_node("A"), _node("B")],
+            [_edge("A", "B", condition="result.get('rows') > 100")],
+        )
+        pipeline["id"] = "p1"
+
+        broadcasts: list[dict] = []
+        executor = PipelineExecutor(broadcast=lambda pid, msg: broadcasts.append(msg))
+
+        def _fake_execute(node_id, pipeline, run_dir):
+            if node_id == "B":
+                return "skipped"
+            return "done"
+
+        executor._execute_node = _fake_execute  # type: ignore[assignment]
+        executor.run_all(pipeline)
+
+        b_statuses = [b for b in broadcasts if b.get("node_id") == "B"]
+        assert any(b["status"] == "skipped" for b in b_statuses)
+
+    def test_error_sets_final_status(self, tmp_path: Path, monkeypatch):
+        """When a node errors, final run status should be 'error'."""
+        monkeypatch.setattr(
+            "ml_toolbox.services.file_store.PROJECTS_DIR", tmp_path / "projects"
+        )
+
+        pipeline = _make_pipeline([_node("A")])
+        pipeline["id"] = "p1"
+
+        broadcasts: list[dict] = []
+        executor = PipelineExecutor(broadcast=lambda pid, msg: broadcasts.append(msg))
+
+        def _failing_execute(node_id, pipeline, run_dir):
+            raise RuntimeError("boom")
+
+        executor._execute_node = _failing_execute  # type: ignore[assignment]
+        run_id = executor.run_all(pipeline)
+
+        # Check error was broadcast
+        assert any(b["status"] == "error" for b in broadcasts)
+
+        # Check status file says error
+        run_dir = tmp_path / "projects" / "p1" / "runs" / run_id
+        status = json.loads((run_dir / "_status.json").read_text())
+        assert status["status"] == "error"
 
 
 # ── API Endpoint Tests ───────────────────────────────────────────

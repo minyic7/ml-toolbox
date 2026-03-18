@@ -354,38 +354,14 @@ async def update_edge(pipeline_id: str, edge_id: str, body: UpdateEdgeRequest) -
 
 
 def _run_pipeline(pipeline_id: str, pipeline: dict, node_id: str | None = None) -> str:
-    """Spawn executor in a background thread. Returns run_id."""
+    """Spawn executor in a background thread. Returns run_id immediately."""
     executor = PipelineExecutor(broadcast=broadcast_sync)
     set_active_executor(pipeline_id, executor)
 
-    # We need the run_id synchronously, so call the executor method in this
-    # thread first to create the run dir, then continue in background.
-    # Instead, we run entirely in the background thread but use an Event to
-    # relay the run_id back.
-    run_id_holder: list[str] = []
-    ready = threading.Event()
-    error_holder: list[Exception] = []
-
-    def _target() -> None:
-        try:
-            if node_id is not None:
-                rid = executor.run_from(node_id, pipeline)
-            else:
-                rid = executor.run_all(pipeline)
-            run_id_holder.append(rid)
-        except Exception as exc:
-            error_holder.append(exc)
-            # Still need to set run_id for the response
-            run_id_holder.append(uuid.uuid4().hex)
-        finally:
-            ready.set()
-            remove_active_executor(pipeline_id)
-
-    # Actually, we want to return run_id immediately, so generate it here
-    # and pass it in. Let me restructure: create run_id + dir, then execute.
     run_id = uuid.uuid4().hex
 
-    def _target2() -> None:
+    def _target() -> None:
+        run_dir = None
         try:
             run_dir = file_store.make_run_dir(pipeline_id, run_id)
             order = executor._topological_sort(pipeline)
@@ -401,12 +377,31 @@ def _run_pipeline(pipeline_id: str, pipeline: dict, node_id: str | None = None) 
                 to_run = order
 
             executor._execute_ordered(to_run, pipeline, run_dir, run_id)
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging
+            import traceback
+
+            logging.getLogger(__name__).error(
+                "Pipeline %s run %s failed: %s", pipeline_id, run_id, exc
+            )
+            # Write error status if run_dir was created
+            if run_dir is not None:
+                status_path = run_dir / "_status.json"
+                status_path.write_text(json.dumps({
+                    "status": "error",
+                    "run_id": run_id,
+                    "error": str(exc),
+                }))
+            # Broadcast the failure
+            broadcast_sync(pipeline_id, {
+                "status": "error",
+                "run_id": run_id,
+                "traceback": traceback.format_exc(),
+            })
         finally:
             remove_active_executor(pipeline_id)
 
-    thread = threading.Thread(target=_target2, daemon=True)
+    thread = threading.Thread(target=_target, daemon=True)
     thread.start()
     return run_id
 

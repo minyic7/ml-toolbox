@@ -165,40 +165,37 @@ class PipelineExecutor:
 
                     shutil.copy2(f, dest)
 
-    # ── Condition evaluation ─────────────────────────────────────
+    # ── Condition helpers ────────────────────────────────────────
 
     @staticmethod
-    def _conditions_met(
-        node_id: str, pipeline: dict, run_dir: Path
-    ) -> bool:
-        """Evaluate edge conditions for all incoming edges to *node_id*.
+    def _has_conditions(node_id: str, pipeline: dict) -> bool:
+        """Check whether any incoming edge to *node_id* carries a condition."""
+        edges = pipeline.get("edges", [])
+        return any(
+            e.get("condition") for e in edges if e["target"] == node_id
+        )
 
-        Returns True if all conditions pass (or there are no conditions).
+    @staticmethod
+    def _gather_conditions(
+        node_id: str, pipeline: dict
+    ) -> list[dict]:
+        """Return incoming edge conditions for inclusion in the sandbox manifest.
+
+        Conditions are opaque strings — they are evaluated inside the
+        sandbox container, never on the backend host.
         """
         edges = pipeline.get("edges", [])
-        incoming = [e for e in edges if e["target"] == node_id]
-
-        for edge in incoming:
-            condition = edge.get("condition")
-            if not condition:
+        conditions: list[dict] = []
+        for edge in edges:
+            if edge["target"] != node_id:
                 continue
-            # Build a restricted namespace with outputs from source node
-            source_id = edge["source"]
-            result_path = run_dir / f"{source_id}_manifest_result.json"
-            result = {}
-            if result_path.exists():
-                result = json.loads(result_path.read_text())
-
-            safe_builtins = {"len": len, "int": int, "float": float, "str": str, "bool": bool}
-            namespace = {**safe_builtins, "result": result}
-            try:
-                if not eval(condition, {"__builtins__": {}}, namespace):  # noqa: S307
-                    return False
-            except Exception:
-                logger.warning("Condition eval failed for edge %s: %s", edge.get("id"), condition)
-                return False
-
-        return True
+            cond = edge.get("condition")
+            if cond:
+                conditions.append({
+                    "source_id": edge["source"],
+                    "condition": cond,
+                })
+        return conditions
 
     # ── Downstream set ───────────────────────────────────────────
 
@@ -270,11 +267,14 @@ class PipelineExecutor:
 
         inputs = self._build_inputs(node_id, pipeline, run_dir)
 
+        conditions = self._gather_conditions(node_id, pipeline)
+
         manifest = {
             "node_id": node_id,
             "code": node.get("code", ""),
             "inputs": inputs,
             "params": node.get("params", {}),
+            "conditions": conditions,
         }
 
         manifest_path = run_dir / f"{node_id}_manifest.json"
@@ -342,6 +342,18 @@ class PipelineExecutor:
                 error_msg = err.get("error", error_msg)
             raise RuntimeError(error_msg)
 
+        # Check if the sandbox decided to skip (condition not met)
+        result_path = run_dir / f"{node_id}_manifest_result.json"
+        if result_path.exists():
+            try:
+                result_data = json.loads(result_path.read_text())
+                if result_data.get("skipped"):
+                    return "skipped"
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        return "done"
+
     # ── Orchestration ────────────────────────────────────────────
 
     def _execute_ordered(
@@ -359,6 +371,7 @@ class PipelineExecutor:
         status_path = run_dir / "_status.json"
         status_path.write_text(json.dumps({"status": "running", "run_id": run_id}))
 
+        had_error = False
         try:
             for node_id in order:
                 if self._cancelled.is_set():
@@ -373,17 +386,10 @@ class PipelineExecutor:
                 if node is None:
                     continue
 
-                # Check conditions
-                if not self._conditions_met(node_id, pipeline, run_dir):
-                    self._broadcast(pipeline_id, {
-                        "node_id": node_id,
-                        "status": "skipped",
-                        "run_id": run_id,
-                    })
-                    continue
-
-                # Check cache
-                if self._is_cached(node_id, node, run_dir):
+                # Check cache (only if node has no conditions — conditioned
+                # nodes always run in the sandbox so the condition can be
+                # evaluated securely).
+                if not self._has_conditions(node_id, pipeline) and self._is_cached(node_id, node, run_dir):
                     self._broadcast(pipeline_id, {
                         "node_id": node_id,
                         "status": "done",
@@ -392,6 +398,13 @@ class PipelineExecutor:
                     })
                     continue
 
+                # Update current node in status file
+                status_path.write_text(json.dumps({
+                    "status": "running",
+                    "run_id": run_id,
+                    "current_node_id": node_id,
+                }))
+
                 self._broadcast(pipeline_id, {
                     "node_id": node_id,
                     "status": "running",
@@ -399,7 +412,16 @@ class PipelineExecutor:
                 })
 
                 try:
-                    self._execute_node(node_id, pipeline, run_dir)
+                    node_result = self._execute_node(node_id, pipeline, run_dir)
+
+                    if node_result == "skipped":
+                        # Sandbox evaluated conditions and decided to skip
+                        self._broadcast(pipeline_id, {
+                            "node_id": node_id,
+                            "status": "skipped",
+                            "run_id": run_id,
+                        })
+                        continue
 
                     # Collect output files
                     outputs = [
@@ -415,6 +437,7 @@ class PipelineExecutor:
                         "outputs": outputs,
                     })
                 except Exception as exc:
+                    had_error = True
                     tb = str(exc)
                     self._broadcast(pipeline_id, {
                         "node_id": node_id,
@@ -425,7 +448,12 @@ class PipelineExecutor:
                     # Stop executing further nodes on error
                     break
 
-            final_status = "cancelled" if self._cancelled.is_set() else "done"
+            if self._cancelled.is_set():
+                final_status = "cancelled"
+            elif had_error:
+                final_status = "error"
+            else:
+                final_status = "done"
         except Exception:
             final_status = "error"
             raise
