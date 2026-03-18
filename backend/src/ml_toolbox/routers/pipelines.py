@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import json
+import mimetypes
+import threading
 import uuid
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ml_toolbox.protocol.decorators import NODE_REGISTRY
-from ml_toolbox.services import store
+from ml_toolbox.services import file_store, store
+from ml_toolbox.services.executor import (
+    PipelineExecutor,
+    get_active_executor,
+    remove_active_executor,
+    set_active_executor,
+)
+from ml_toolbox.routers.ws import broadcast_sync
 
 router = APIRouter(prefix="/api/pipelines")
 
@@ -336,3 +348,315 @@ async def update_edge(pipeline_id: str, edge_id: str, body: UpdateEdgeRequest) -
 
     store.save(pipeline_id, data)
     return edge
+
+
+# ── Execution API ────────────────────────────────────────────────
+
+
+def _run_pipeline(pipeline_id: str, pipeline: dict, node_id: str | None = None) -> str:
+    """Spawn executor in a background thread. Returns run_id."""
+    executor = PipelineExecutor(broadcast=broadcast_sync)
+    set_active_executor(pipeline_id, executor)
+
+    # We need the run_id synchronously, so call the executor method in this
+    # thread first to create the run dir, then continue in background.
+    # Instead, we run entirely in the background thread but use an Event to
+    # relay the run_id back.
+    run_id_holder: list[str] = []
+    ready = threading.Event()
+    error_holder: list[Exception] = []
+
+    def _target() -> None:
+        try:
+            if node_id is not None:
+                rid = executor.run_from(node_id, pipeline)
+            else:
+                rid = executor.run_all(pipeline)
+            run_id_holder.append(rid)
+        except Exception as exc:
+            error_holder.append(exc)
+            # Still need to set run_id for the response
+            run_id_holder.append(uuid.uuid4().hex)
+        finally:
+            ready.set()
+            remove_active_executor(pipeline_id)
+
+    # Actually, we want to return run_id immediately, so generate it here
+    # and pass it in. Let me restructure: create run_id + dir, then execute.
+    run_id = uuid.uuid4().hex
+
+    def _target2() -> None:
+        try:
+            run_dir = file_store.make_run_dir(pipeline_id, run_id)
+            order = executor._topological_sort(pipeline)
+
+            if node_id is not None:
+                downstream = executor._downstream_set(node_id, pipeline)
+                downstream.add(node_id)
+                for nid in order:
+                    if nid not in downstream:
+                        executor._hardlink_cached(nid, pipeline, run_dir)
+                to_run = [nid for nid in order if nid in downstream]
+            else:
+                to_run = order
+
+            executor._execute_ordered(to_run, pipeline, run_dir, run_id)
+        except Exception:
+            pass
+        finally:
+            remove_active_executor(pipeline_id)
+
+    thread = threading.Thread(target=_target2, daemon=True)
+    thread.start()
+    return run_id
+
+
+@router.post("/{pipeline_id}/run")
+async def run_pipeline(pipeline_id: str) -> dict:
+    data = _load_pipeline(pipeline_id)
+
+    if get_active_executor(pipeline_id) is not None:
+        raise HTTPException(status_code=409, detail="Pipeline is already running")
+
+    run_id = _run_pipeline(pipeline_id, data)
+    return {"run_id": run_id}
+
+
+@router.post("/{pipeline_id}/run/{node_id}")
+async def run_from_node(pipeline_id: str, node_id: str) -> dict:
+    data = _load_pipeline(pipeline_id)
+
+    # Validate node exists
+    if not any(n["id"] == node_id for n in data.get("nodes", [])):
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    if get_active_executor(pipeline_id) is not None:
+        raise HTTPException(status_code=409, detail="Pipeline is already running")
+
+    run_id = _run_pipeline(pipeline_id, data, node_id=node_id)
+    return {"run_id": run_id}
+
+
+@router.post("/{pipeline_id}/cancel")
+async def cancel_pipeline(pipeline_id: str) -> dict:
+    _load_pipeline(pipeline_id)  # 404 if missing
+    executor = get_active_executor(pipeline_id)
+    if executor is not None:
+        executor.cancel()
+    return {"status": "ok"}
+
+
+@router.get("/{pipeline_id}/status")
+async def pipeline_status(pipeline_id: str) -> dict:
+    _load_pipeline(pipeline_id)  # 404 if missing
+    is_running = get_active_executor(pipeline_id) is not None
+    last_run_id = file_store.get_latest_run_id(pipeline_id)
+
+    # Try to determine current node from status file
+    current_node_id = None
+    if is_running and last_run_id:
+        runs_dir = file_store._runs_dir(pipeline_id)
+        # Check latest run dir for status
+        for run_dir in sorted(runs_dir.iterdir(), key=lambda d: d.stat().st_mtime, reverse=True):
+            status_file = run_dir / "_status.json"
+            if status_file.exists():
+                try:
+                    status_data = json.loads(status_file.read_text())
+                    current_node_id = status_data.get("current_node_id")
+                except Exception:
+                    pass
+                break
+
+    return {
+        "is_running": is_running,
+        "current_node_id": current_node_id,
+        "last_run_id": last_run_id,
+    }
+
+
+# ── Run History API ──────────────────────────────────────────────
+
+
+@router.get("/{pipeline_id}/runs")
+async def list_runs(pipeline_id: str) -> list[dict]:
+    _load_pipeline(pipeline_id)  # 404 if missing
+    runs = file_store.list_runs(pipeline_id)
+
+    # Enrich with status from _status.json
+    for run in runs:
+        run_dir = file_store._runs_dir(pipeline_id) / run["run_id"]
+        status_file = run_dir / "_status.json"
+        if status_file.exists():
+            try:
+                status_data = json.loads(status_file.read_text())
+                run["status"] = status_data.get("status", "unknown")
+            except Exception:
+                run["status"] = "unknown"
+        else:
+            run["status"] = "unknown"
+
+    return runs
+
+
+@router.delete("/{pipeline_id}/runs/{run_id}", status_code=204)
+async def delete_run(pipeline_id: str, run_id: str) -> None:
+    _load_pipeline(pipeline_id)
+    run_dir = file_store._runs_dir(pipeline_id) / run_id
+    if not run_dir.exists():
+        raise HTTPException(status_code=404, detail="Run not found")
+    file_store.delete_run(pipeline_id, run_id)
+
+
+# ── Output API ───────────────────────────────────────────────────
+
+
+def _resolve_run_dir(pipeline_id: str, run_id: str | None) -> tuple[str, Path]:
+    """Resolve run_id (defaulting to latest) and return (run_id, run_dir)."""
+    if run_id is None:
+        run_id = file_store.get_latest_run_id(pipeline_id)
+    if run_id is None:
+        raise HTTPException(status_code=404, detail="No runs found")
+    run_dir = file_store._runs_dir(pipeline_id) / run_id
+    if not run_dir.exists():
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run_id, run_dir
+
+
+def _find_output_file(run_dir: Path, node_id: str) -> Path | None:
+    """Find the primary output file for a node (excludes metadata files)."""
+    candidates = [
+        f
+        for f in run_dir.glob(f"{node_id}_*")
+        if not f.name.endswith((".json", ".hash", ".txt"))
+    ]
+    if candidates:
+        return candidates[0]
+    # Also check for direct node_id.* files
+    candidates = [
+        f
+        for f in run_dir.glob(f"{node_id}.*")
+        if not f.name.endswith((".json", ".hash", ".txt"))
+    ]
+    return candidates[0] if candidates else None
+
+
+def _output_metadata(run_dir: Path, node_id: str) -> dict:
+    """Build output metadata for a node."""
+    output_file = _find_output_file(run_dir, node_id)
+    if output_file is None:
+        raise HTTPException(status_code=404, detail="Output not found")
+
+    ext = output_file.suffix.lower()
+    size = output_file.stat().st_size
+    meta: dict[str, Any] = {
+        "node_id": node_id,
+        "file": output_file.name,
+        "type": ext.lstrip("."),
+        "size": size,
+    }
+
+    # Preview for parquet/csv table files
+    if ext == ".parquet":
+        try:
+            import pyarrow.parquet as pq
+
+            table = pq.read_table(output_file)
+            df = table.to_pandas()
+            meta["preview"] = {
+                "columns": list(df.columns),
+                "rows": df.head(10).values.tolist(),
+                "total_rows": len(df),
+            }
+        except Exception:
+            pass
+    elif ext == ".csv":
+        try:
+            import pandas as pd
+
+            df = pd.read_csv(output_file, nrows=10)
+            meta["preview"] = {
+                "columns": list(df.columns),
+                "rows": df.values.tolist(),
+                "total_rows": -1,  # unknown without reading full file
+            }
+        except Exception:
+            pass
+
+    # Check for error
+    error_path = run_dir / f"{node_id}_manifest_error.json"
+    if error_path.exists():
+        try:
+            err = json.loads(error_path.read_text())
+            meta["error"] = err.get("error")
+        except Exception:
+            pass
+
+    return meta
+
+
+@router.get("/{pipeline_id}/outputs/{node_id}")
+async def get_output(
+    pipeline_id: str,
+    node_id: str,
+    run_id: str | None = Query(default=None),
+) -> dict:
+    _load_pipeline(pipeline_id)
+    resolved_run_id, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    return _output_metadata(run_dir, node_id)
+
+
+@router.get("/{pipeline_id}/outputs/{node_id}/download")
+async def download_output(
+    pipeline_id: str,
+    node_id: str,
+    run_id: str | None = Query(default=None),
+) -> StreamingResponse:
+    _load_pipeline(pipeline_id)
+    resolved_run_id, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    output_file = _find_output_file(run_dir, node_id)
+    if output_file is None:
+        raise HTTPException(status_code=404, detail="Output not found")
+
+    media_type = mimetypes.guess_type(output_file.name)[0] or "application/octet-stream"
+
+    def _iter_file():
+        with open(output_file, "rb") as f:
+            while chunk := f.read(64 * 1024):
+                yield chunk
+
+    return StreamingResponse(
+        _iter_file(),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={output_file.name}"},
+    )
+
+
+@router.get("/{pipeline_id}/runs/{run_id}/outputs/{node_id}")
+async def get_run_output(pipeline_id: str, run_id: str, node_id: str) -> dict:
+    _load_pipeline(pipeline_id)
+    _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    return _output_metadata(run_dir, node_id)
+
+
+@router.get("/{pipeline_id}/runs/{run_id}/outputs/{node_id}/download")
+async def download_run_output(
+    pipeline_id: str, run_id: str, node_id: str
+) -> StreamingResponse:
+    _load_pipeline(pipeline_id)
+    _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    output_file = _find_output_file(run_dir, node_id)
+    if output_file is None:
+        raise HTTPException(status_code=404, detail="Output not found")
+
+    media_type = mimetypes.guess_type(output_file.name)[0] or "application/octet-stream"
+
+    def _iter_file():
+        with open(output_file, "rb") as f:
+            while chunk := f.read(64 * 1024):
+                yield chunk
+
+    return StreamingResponse(
+        _iter_file(),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={output_file.name}"},
+    )

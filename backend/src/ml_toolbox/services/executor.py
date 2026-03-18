@@ -1,0 +1,457 @@
+"""DAG execution engine — runs pipeline nodes in Docker sandbox containers."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import os
+import threading
+import uuid
+from collections import defaultdict
+from pathlib import Path
+from typing import Any, Callable
+
+import docker
+from docker.errors import ContainerError, ImageNotFound
+
+from ml_toolbox.config import DATA_DIR
+from ml_toolbox.services import file_store
+
+logger = logging.getLogger(__name__)
+
+SANDBOX_IMAGE = os.environ.get("ML_TOOLBOX_SANDBOX_IMAGE", "ml-toolbox-sandbox")
+CONTAINER_DATA_DIR = Path("/data")
+
+# Broadcast callback type: (pipeline_id, message_dict) -> None
+BroadcastFn = Callable[[str, dict[str, Any]], None]
+
+
+class CycleError(Exception):
+    """Raised when the pipeline graph contains a cycle."""
+
+
+class PipelineExecutor:
+    """Executes a pipeline DAG in topological order using Docker sandboxes."""
+
+    def __init__(self, broadcast: BroadcastFn | None = None) -> None:
+        self._broadcast = broadcast or (lambda _pid, _msg: None)
+        self._cancelled = threading.Event()
+        self._current_container: docker.models.containers.Container | None = None
+        self._lock = threading.Lock()
+        self._docker: docker.DockerClient | None = None
+
+    # ── Public API ───────────────────────────────────────────────
+
+    def run_all(self, pipeline: dict) -> str:
+        """Execute every node in the pipeline. Returns run_id."""
+        run_id = uuid.uuid4().hex
+        pipeline_id = pipeline["id"]
+        run_dir = file_store.make_run_dir(pipeline_id, run_id)
+
+        order = self._topological_sort(pipeline)
+        self._execute_ordered(order, pipeline, run_dir, run_id)
+        return run_id
+
+    def run_from(self, node_id: str, pipeline: dict) -> str:
+        """Re-run *node_id* and all downstream nodes. Returns run_id.
+
+        Upstream nodes that are unchanged get hard-linked from the most
+        recent previous run (zero additional disk cost).
+        """
+        run_id = uuid.uuid4().hex
+        pipeline_id = pipeline["id"]
+        run_dir = file_store.make_run_dir(pipeline_id, run_id)
+
+        order = self._topological_sort(pipeline)
+        downstream = self._downstream_set(node_id, pipeline)
+        downstream.add(node_id)
+
+        # Hard-link cached upstream outputs
+        for nid in order:
+            if nid not in downstream:
+                self._hardlink_cached(nid, pipeline, run_dir)
+
+        # Execute only the downstream portion
+        to_run = [nid for nid in order if nid in downstream]
+        self._execute_ordered(to_run, pipeline, run_dir, run_id)
+        return run_id
+
+    def cancel(self) -> None:
+        """Signal cancellation and stop the currently running container."""
+        self._cancelled.set()
+        with self._lock:
+            if self._current_container is not None:
+                try:
+                    self._current_container.stop(timeout=5)
+                except Exception:
+                    pass
+
+    # ── Topological Sort (Kahn's algorithm) ──────────────────────
+
+    @staticmethod
+    def _topological_sort(pipeline: dict) -> list[str]:
+        """Return node IDs in topological order using Kahn's algorithm.
+
+        Raises CycleError if the graph contains a cycle.
+        """
+        nodes = {n["id"] for n in pipeline.get("nodes", [])}
+        edges = pipeline.get("edges", [])
+
+        adj: dict[str, list[str]] = defaultdict(list)
+        in_degree: dict[str, int] = {nid: 0 for nid in nodes}
+
+        for edge in edges:
+            src, tgt = edge["source"], edge["target"]
+            adj[src].append(tgt)
+            in_degree[tgt] = in_degree.get(tgt, 0) + 1
+
+        queue = [nid for nid, deg in in_degree.items() if deg == 0]
+        order: list[str] = []
+
+        while queue:
+            nid = queue.pop(0)
+            order.append(nid)
+            for neighbor in adj[nid]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        if len(order) != len(nodes):
+            raise CycleError("Pipeline graph contains a cycle")
+
+        return order
+
+    # ── Caching ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _params_hash(node: dict) -> str:
+        """SHA-256 of the node's params + code for cache invalidation."""
+        payload = json.dumps(
+            {"params": node.get("params", {}), "code": node.get("code", "")},
+            sort_keys=True,
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+    @staticmethod
+    def _is_cached(node_id: str, node: dict, run_dir: Path) -> bool:
+        """Check whether a valid cached output exists for this node."""
+        hash_file = run_dir / f"{node_id}.hash"
+        if not hash_file.exists():
+            return False
+        stored_hash = hash_file.read_text().strip()
+        return stored_hash == PipelineExecutor._params_hash(node)
+
+    # ── Hard-linking ─────────────────────────────────────────────
+
+    @staticmethod
+    def _hardlink_cached(
+        node_id: str, pipeline: dict, run_dir: Path
+    ) -> None:
+        """Hard-link outputs from the latest previous run into *run_dir*."""
+        pipeline_id = pipeline["id"]
+        prev_run_id = file_store.get_latest_run_id(pipeline_id)
+        if prev_run_id is None:
+            return
+        prev_dir = file_store.make_run_dir(pipeline_id, prev_run_id)
+        for f in prev_dir.glob(f"{node_id}*"):
+            dest = run_dir / f.name
+            if not dest.exists():
+                try:
+                    os.link(f, dest)
+                except OSError:
+                    # Fallback: copy if hard-link fails (cross-device, etc.)
+                    import shutil
+
+                    shutil.copy2(f, dest)
+
+    # ── Condition evaluation ─────────────────────────────────────
+
+    @staticmethod
+    def _conditions_met(
+        node_id: str, pipeline: dict, run_dir: Path
+    ) -> bool:
+        """Evaluate edge conditions for all incoming edges to *node_id*.
+
+        Returns True if all conditions pass (or there are no conditions).
+        """
+        edges = pipeline.get("edges", [])
+        incoming = [e for e in edges if e["target"] == node_id]
+
+        for edge in incoming:
+            condition = edge.get("condition")
+            if not condition:
+                continue
+            # Build a restricted namespace with outputs from source node
+            source_id = edge["source"]
+            result_path = run_dir / f"{source_id}_manifest_result.json"
+            result = {}
+            if result_path.exists():
+                result = json.loads(result_path.read_text())
+
+            safe_builtins = {"len": len, "int": int, "float": float, "str": str, "bool": bool}
+            namespace = {**safe_builtins, "result": result}
+            try:
+                if not eval(condition, {"__builtins__": {}}, namespace):  # noqa: S307
+                    return False
+            except Exception:
+                logger.warning("Condition eval failed for edge %s: %s", edge.get("id"), condition)
+                return False
+
+        return True
+
+    # ── Downstream set ───────────────────────────────────────────
+
+    @staticmethod
+    def _downstream_set(node_id: str, pipeline: dict) -> set[str]:
+        """Return the set of all nodes reachable downstream from *node_id*."""
+        adj: dict[str, list[str]] = defaultdict(list)
+        for edge in pipeline.get("edges", []):
+            adj[edge["source"]].append(edge["target"])
+
+        visited: set[str] = set()
+        stack = list(adj.get(node_id, []))
+        while stack:
+            nid = stack.pop()
+            if nid in visited:
+                continue
+            visited.add(nid)
+            stack.extend(adj.get(nid, []))
+        return visited
+
+    # ── Node execution ───────────────────────────────────────────
+
+    def _get_docker(self) -> docker.DockerClient:
+        if self._docker is None:
+            self._docker = docker.from_env()
+        return self._docker
+
+    def _build_inputs(
+        self, node_id: str, pipeline: dict, run_dir: Path
+    ) -> dict[str, str]:
+        """Resolve input port paths from upstream node outputs."""
+        inputs: dict[str, str] = {}
+        node_map = {n["id"]: n for n in pipeline["nodes"]}
+        edges = pipeline.get("edges", [])
+
+        for edge in edges:
+            if edge["target"] != node_id:
+                continue
+            source_id = edge["source"]
+            source_port = edge.get("source_port", "output")
+            target_port = edge.get("target_port", "input")
+
+            # Look for any file matching source output pattern
+            pattern = f"{source_id}_{source_port}*"
+            matches = list(run_dir.glob(pattern))
+            if not matches:
+                # Try simple node_id pattern
+                pattern = f"{source_id}_output*"
+                matches = list(run_dir.glob(pattern))
+
+            if matches:
+                # Translate host path to container path
+                host_path = matches[0]
+                container_path = str(
+                    CONTAINER_DATA_DIR / host_path.relative_to(run_dir)
+                )
+                inputs[target_port] = container_path
+
+        return inputs
+
+    def _execute_node(
+        self,
+        node_id: str,
+        pipeline: dict,
+        run_dir: Path,
+    ) -> None:
+        """Write manifest and run a single node in a Docker container."""
+        node = next(n for n in pipeline["nodes"] if n["id"] == node_id)
+
+        inputs = self._build_inputs(node_id, pipeline, run_dir)
+
+        manifest = {
+            "node_id": node_id,
+            "code": node.get("code", ""),
+            "inputs": inputs,
+            "params": node.get("params", {}),
+        }
+
+        manifest_path = run_dir / f"{node_id}_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2))
+
+        # Write params hash for caching
+        hash_file = run_dir / f"{node_id}.hash"
+        hash_file.write_text(self._params_hash(node))
+
+        # Container path for manifest
+        container_manifest = str(
+            CONTAINER_DATA_DIR / manifest_path.relative_to(run_dir)
+        )
+
+        client = self._get_docker()
+
+        container = client.containers.run(
+            image=SANDBOX_IMAGE,
+            command=["python", "/sandbox/runner.py", container_manifest],
+            volumes={str(run_dir): {"bind": str(CONTAINER_DATA_DIR), "mode": "rw"}},
+            network_disabled=True,
+            mem_limit="1g",
+            nano_cpus=1_000_000_000,
+            pids_limit=64,
+            read_only=True,
+            tmpfs={"/tmp": "size=128m"},
+            cap_drop=["ALL"],
+            security_opt=["no-new-privileges"],
+            detach=True,
+        )
+
+        with self._lock:
+            self._current_container = container
+
+        try:
+            result = container.wait(timeout=300)
+            exit_code = result.get("StatusCode", -1)
+        except Exception:
+            try:
+                container.stop(timeout=5)
+            except Exception:
+                pass
+            raise
+        finally:
+            # Capture logs before removing
+            try:
+                logs = container.logs().decode("utf-8", errors="replace")
+                if logs.strip():
+                    log_path = run_dir / f"{node_id}_logs.txt"
+                    log_path.write_text(logs)
+            except Exception:
+                pass
+            try:
+                container.remove(force=True)
+            except Exception:
+                pass
+            with self._lock:
+                self._current_container = None
+
+        if exit_code != 0:
+            error_path = run_dir / f"{node_id}_manifest_error.json"
+            error_msg = "Node execution failed"
+            if error_path.exists():
+                err = json.loads(error_path.read_text())
+                error_msg = err.get("error", error_msg)
+            raise RuntimeError(error_msg)
+
+    # ── Orchestration ────────────────────────────────────────────
+
+    def _execute_ordered(
+        self,
+        order: list[str],
+        pipeline: dict,
+        run_dir: Path,
+        run_id: str,
+    ) -> None:
+        """Execute nodes in the given order, broadcasting status updates."""
+        pipeline_id = pipeline["id"]
+        node_map = {n["id"]: n for n in pipeline["nodes"]}
+
+        # Write run status
+        status_path = run_dir / "_status.json"
+        status_path.write_text(json.dumps({"status": "running", "run_id": run_id}))
+
+        try:
+            for node_id in order:
+                if self._cancelled.is_set():
+                    self._broadcast(pipeline_id, {
+                        "node_id": node_id,
+                        "status": "skipped",
+                        "run_id": run_id,
+                    })
+                    continue
+
+                node = node_map.get(node_id)
+                if node is None:
+                    continue
+
+                # Check conditions
+                if not self._conditions_met(node_id, pipeline, run_dir):
+                    self._broadcast(pipeline_id, {
+                        "node_id": node_id,
+                        "status": "skipped",
+                        "run_id": run_id,
+                    })
+                    continue
+
+                # Check cache
+                if self._is_cached(node_id, node, run_dir):
+                    self._broadcast(pipeline_id, {
+                        "node_id": node_id,
+                        "status": "done",
+                        "run_id": run_id,
+                        "cached": True,
+                    })
+                    continue
+
+                self._broadcast(pipeline_id, {
+                    "node_id": node_id,
+                    "status": "running",
+                    "run_id": run_id,
+                })
+
+                try:
+                    self._execute_node(node_id, pipeline, run_dir)
+
+                    # Collect output files
+                    outputs = [
+                        f.name
+                        for f in run_dir.glob(f"{node_id}_*")
+                        if not f.name.endswith((".json", ".hash", ".txt"))
+                    ]
+
+                    self._broadcast(pipeline_id, {
+                        "node_id": node_id,
+                        "status": "done",
+                        "run_id": run_id,
+                        "outputs": outputs,
+                    })
+                except Exception as exc:
+                    tb = str(exc)
+                    self._broadcast(pipeline_id, {
+                        "node_id": node_id,
+                        "status": "error",
+                        "run_id": run_id,
+                        "traceback": tb,
+                    })
+                    # Stop executing further nodes on error
+                    break
+
+            final_status = "cancelled" if self._cancelled.is_set() else "done"
+        except Exception:
+            final_status = "error"
+            raise
+        finally:
+            status_path.write_text(json.dumps({
+                "status": final_status,
+                "run_id": run_id,
+            }))
+
+
+# ── Module-level singleton state ─────────────────────────────────
+
+_active_executors: dict[str, PipelineExecutor] = {}
+_executors_lock = threading.Lock()
+
+
+def get_active_executor(pipeline_id: str) -> PipelineExecutor | None:
+    with _executors_lock:
+        return _active_executors.get(pipeline_id)
+
+
+def set_active_executor(pipeline_id: str, executor: PipelineExecutor) -> None:
+    with _executors_lock:
+        _active_executors[pipeline_id] = executor
+
+
+def remove_active_executor(pipeline_id: str) -> None:
+    with _executors_lock:
+        _active_executors.pop(pipeline_id, None)
