@@ -90,3 +90,35 @@ export interface WsMessage {
   outputs?: Record<string, string>;
   traceback?: string;
 }
+
+// ── Node output data ─────────────────────────────────────────────────
+
+export interface TableOutput {
+  type: "TABLE";
+  columns: string[];
+  row_count: number;
+  rows: Record<string, unknown>[];
+}
+
+export interface MetricsOutput {
+  type: "METRICS";
+  data: Record<string, unknown>;
+}
+
+export interface ValueOutput {
+  type: "VALUE";
+  data: unknown;
+}
+
+export interface ModelOutput {
+  type: "MODEL";
+  file_size?: number;
+  model_type?: string;
+}
+
+export type NodeOutput = TableOutput | MetricsOutput | ValueOutput | ModelOutput;
+
+export interface NodeOutputState {
+  output?: NodeOutput;
+  error?: string;
+}
