@@ -1,5 +1,3 @@
-# .github/workflows/cd.yml
-
 name: CD
 
 on:
@@ -157,15 +155,13 @@ jobs:
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/frontend/dist/
 
       - name: Deploy containers
-        if: |
-          needs.build-backend.result == 'success' ||
-          needs.build-sandbox.result == 'success'
         run: |
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            export PATH=/usr/local/bin:$PATH
             cd ~/ml-toolbox
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull
-            docker compose up -d --no-build
+            docker compose up -d --remove-orphans
             docker image prune -f
           EOF

@@ -1,28 +1,28 @@
 services:
   caddy:
-    image: caddy:2
+    image: caddy:2-alpine
     ports:
       - "8910:8910"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/dist:/srv:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - backend
 
   backend:
-    image: ml-toolbox-backend
+    image: ghcr.io/minyic7/ml-toolbox/backend:latest
     volumes:
-      - ml_data:/data/ml-toolbox
+      - ml_data:/root/.ml-toolbox
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - ML_TOOLBOX_DATA_DIR=/data/ml-toolbox
+      - ML_TOOLBOX_DATA_DIR=/root/.ml-toolbox
 
   sandbox:
-    image: ml-toolbox-sandbox
+    image: ghcr.io/minyic7/ml-toolbox/sandbox:latest
     profiles:
       - build-only
-    volumes:
-      - ml_data:/data/ml-toolbox:ro
 
 volumes:
   ml_data:
