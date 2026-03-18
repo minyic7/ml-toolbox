@@ -1,0 +1,62 @@
+# .github/workflows/ci.yml
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci-backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install deps
+        run: uv sync --frozen
+
+      - name: Ruff format check
+        run: uv run ruff format --check src/
+
+      - name: Pyright
+        run: uv run pyright src/
+
+      - name: Pytest
+        run: uv run pytest tests/ -x -q
+
+  ci-frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: TypeScript check
+        run: pnpm tsc --noEmit

@@ -1,0 +1,171 @@
+# .github/workflows/cd.yml
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend:  ${{ steps.filter.outputs.backend }}
+      sandbox:  ${{ steps.filter.outputs.sandbox }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/src/**'
+              - 'backend/pyproject.toml'
+              - 'backend/uv.lock'
+              - 'Dockerfile'
+            sandbox:
+              - 'backend/sandbox/**'
+            frontend:
+              - 'frontend/src/**'
+              - 'frontend/package.json'
+              - 'frontend/pnpm-lock.yaml'
+
+  build-backend:
+    name: Build backend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: ghcr.io/minyic7/ml-toolbox/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-sandbox:
+    name: Build sandbox
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sandbox == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backend/sandbox
+          push: true
+          platforms: linux/arm64
+          tags: ghcr.io/minyic7/ml-toolbox/sandbox:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-frontend:
+    name: Build frontend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm build
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy
+    needs: [build-backend, build-sandbox, build-frontend]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (
+        needs.build-backend.result  == 'success' ||
+        needs.build-sandbox.result  == 'success' ||
+        needs.build-frontend.result == 'success'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret:    ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Setup SSH
+        run: |
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+      - name: Upload compose files
+        run: |
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no \
+            docker-compose.yml Caddyfile \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/
+
+      - name: Download frontend artifact
+        if: needs.build-frontend.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+      - name: Sync frontend
+        if: needs.build-frontend.result == 'success'
+        run: |
+          rsync -az --delete -e "ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no" \
+            frontend/dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/ml-toolbox/frontend/dist/
+
+      - name: Deploy containers
+        if: |
+          needs.build-backend.result == 'success' ||
+          needs.build-sandbox.result == 'success'
+        run: |
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd ~/ml-toolbox
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d --no-build
+            docker image prune -f
+          EOF
