@@ -585,6 +585,18 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
             }
         except Exception:
             pass
+    elif ext == ".joblib":
+        # MODEL output: show class name and file size
+        try:
+            import joblib
+
+            model = joblib.load(output_file)
+            meta["preview"] = {
+                "model_class": type(model).__name__,
+                "model_module": type(model).__module__,
+            }
+        except Exception:
+            pass
 
     # Check for error
     error_path = run_dir / f"{node_id}_manifest_error.json"

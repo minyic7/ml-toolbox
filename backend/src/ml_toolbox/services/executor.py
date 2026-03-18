@@ -290,6 +290,11 @@ class PipelineExecutor:
         # Extract entry function name from node type (e.g. "ml_toolbox.nodes.demo.clean_data" -> "clean_data")
         entry_fn = node.get("type", "run").rsplit(".", 1)[-1]
 
+        # Build output type map so the runner can auto-serialize (e.g. MODEL → joblib)
+        output_types: dict[str, str] = {}
+        for port in node.get("outputs", []):
+            output_types[port["name"]] = port.get("type", "VALUE")
+
         manifest = {
             "node_id": node_id,
             "code": node.get("code", ""),
@@ -297,6 +302,7 @@ class PipelineExecutor:
             "inputs": inputs,
             "params": params,
             "conditions": conditions,
+            "output_types": output_types,
         }
 
         manifest_path = run_dir / f"{node_id}_manifest.json"
