@@ -278,11 +278,20 @@ class PipelineExecutor:
 
         conditions = self._gather_conditions(node_id, pipeline)
 
+        # Params can be either a dict of values {"rows": 100} (after frontend save)
+        # or a list of param definitions [{"name": "rows", "default": 100, ...}]
+        # (right after add_node before frontend auto-save). Normalize to a values dict.
+        raw_params = node.get("params", {})
+        if isinstance(raw_params, list):
+            params = {p["name"]: p.get("default") for p in raw_params if "name" in p}
+        else:
+            params = raw_params
+
         manifest = {
             "node_id": node_id,
             "code": node.get("code", ""),
             "inputs": inputs,
-            "params": node.get("params", {}),
+            "params": params,
             "conditions": conditions,
         }
 
