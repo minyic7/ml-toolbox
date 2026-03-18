@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Canvas } from "@/components/Canvas";
 import { Sidebar } from "@/components/Panel/Sidebar";
 import { RightPanel } from "@/components/Panel/RightPanel";
 import { usePipeline, type PipelineSummary, type Toast } from "@/hooks/usePipeline";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { useExecution } from "@/hooks/useExecution";
 import type { NodeDefinition } from "@/lib/types";
 import type { NodeTab } from "@/components/Canvas";
 import * as api from "@/lib/api";
@@ -50,12 +52,18 @@ function PipelineHeader({
   onSelect,
   onCreate,
   onDelete,
+  isRunning,
+  onRunAll,
+  onCancel,
 }: {
   pipelines: PipelineSummary[];
   currentId?: string;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onDelete: (id: string) => void;
+  isRunning: boolean;
+  onRunAll: () => void;
+  onCancel: () => void;
 }) {
   const [showDelete, setShowDelete] = useState<string | null>(null);
 
@@ -119,6 +127,28 @@ function PipelineHeader({
               Delete
             </button>
           )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Execution controls */}
+          {isRunning ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700"
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onRunAll}
+              className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700"
+            >
+              Run All
+            </button>
+          )}
         </>
       )}
     </div>
@@ -138,6 +168,38 @@ export default function App() {
   }, []);
 
   const pipeline = usePipeline(definitions);
+
+  // Derive node IDs for execution tracking
+  const nodeIds = useMemo(
+    () => pipeline.nodes.map((n) => n.id),
+    [pipeline.nodes],
+  );
+
+  // Execution hook
+  const execution = useExecution(
+    pipeline.currentPipeline?.id,
+    nodeIds,
+    pipeline.addToast,
+  );
+
+  // WebSocket hook — updates node statuses in real time
+  useWebSocket({
+    pipelineId: pipeline.currentPipeline?.id,
+    onMessage: execution.handleWsMessage,
+  });
+
+  // Build nodes with execution status applied
+  const nodesWithStatus = useMemo(
+    () =>
+      pipeline.nodes.map((node) => {
+        const execStatus = execution.nodeStatuses[node.id];
+        if (execStatus && execStatus !== node.data.status) {
+          return { ...node, data: { ...node.data, status: execStatus } };
+        }
+        return node;
+      }),
+    [pipeline.nodes, execution.nodeStatuses],
+  );
 
   const handleNodeSelect = useCallback(
     (nodeId?: string, tab?: string) => {
@@ -171,6 +233,20 @@ export default function App() {
     }
   }, [pipeline.createPipeline]);
 
+  // Output state for the currently selected node
+  const selectedOutputState = pipeline.selectedNodeId
+    ? execution.nodeOutputs[pipeline.selectedNodeId]
+    : undefined;
+
+  const selectedDownloadUrl =
+    pipeline.currentPipeline && pipeline.selectedNodeId
+      ? api.downloadOutput(
+          pipeline.currentPipeline.id,
+          pipeline.selectedNodeId,
+          execution.status.lastRunId,
+        )
+      : undefined;
+
   const rightPanelOpen = pipeline.selectedNode !== null;
 
   return (
@@ -182,6 +258,9 @@ export default function App() {
         onSelect={pipeline.loadPipeline}
         onCreate={handleCreate}
         onDelete={pipeline.deletePipeline}
+        isRunning={execution.status.isRunning}
+        onRunAll={execution.runAll}
+        onCancel={execution.cancel}
       />
 
       {/* Main content */}
@@ -195,13 +274,14 @@ export default function App() {
         <div className="flex-1">
           {pipeline.currentPipeline ? (
             <Canvas
-              nodes={pipeline.nodes}
+              nodes={nodesWithStatus}
               edges={pipeline.edges}
               onNodesChange={pipeline.onNodesChange}
               onEdgesChange={pipeline.onEdgesChange}
               onConnect={pipeline.onConnect}
               onNodeSelect={handleNodeSelect}
               onDropNode={pipeline.addNode}
+              onRunFromNode={execution.runFrom}
             />
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -237,6 +317,8 @@ export default function App() {
               onParamsChange={handleParamsChange}
               onCodeChange={handleCodeChange}
               onClose={() => pipeline.selectNode(undefined)}
+              outputState={selectedOutputState}
+              downloadUrl={selectedDownloadUrl}
             />
           </div>
         )}

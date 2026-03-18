@@ -89,9 +89,16 @@ export interface CanvasProps {
   onConnect?: OnConnect;
   onNodeSelect?: (nodeId?: string, tab?: string) => void;
   onDropNode?: (definition: NodeDefinition, position: { x: number; y: number }) => void;
+  onRunFromNode?: (nodeId: string) => void;
 }
 
 let nodeIdCounter = 0;
+
+interface ContextMenuState {
+  nodeId: string;
+  x: number;
+  y: number;
+}
 
 function CanvasInner({
   nodes: controlledNodes,
@@ -101,6 +108,7 @@ function CanvasInner({
   onConnect: controlledOnConnect,
   onNodeSelect,
   onDropNode,
+  onRunFromNode,
 }: CanvasProps) {
   const isControlled = controlledNodes !== undefined;
 
@@ -109,6 +117,8 @@ function CanvasInner({
 
   const nodes = isControlled ? controlledNodes : internalNodes;
   const edges = isControlled ? (controlledEdges ?? []) : internalEdges;
+
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const { screenToFlowPosition } = useReactFlow();
   const history = useHistory({ nodes: [], edges: [] });
@@ -356,8 +366,40 @@ function CanvasInner({
     [screenToFlowPosition, isControlled, pushHistory, internalEdges],
   );
 
+  // ── Right-click context menu on nodes ──────────────────────────────
+
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      event.preventDefault();
+      setContextMenu({ nodeId: node.id, x: event.clientX, y: event.clientY });
+    },
+    [],
+  );
+
+  const onPaneClick = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
     <div className="h-full w-full" onDragOver={onDragOver} onDrop={onDrop}>
+      {/* Context menu */}
+      {contextMenu && onRunFromNode && (
+        <div
+          className="fixed z-50 rounded-md border border-border bg-popover py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            type="button"
+            className="w-full px-3 py-1.5 text-left text-xs text-popover-foreground hover:bg-accent"
+            onClick={() => {
+              onRunFromNode(contextMenu.nodeId);
+              setContextMenu(null);
+            }}
+          >
+            Run from here
+          </button>
+        </div>
+      )}
       <ReactFlow
         nodes={nodesWithCallbacks}
         edges={edgesWithCallbacks}
@@ -365,6 +407,8 @@ function CanvasInner({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeDragStop={onNodeDragStop}
+        onNodeContextMenu={onNodeContextMenu}
+        onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         deleteKeyCode="Delete"
