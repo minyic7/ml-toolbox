@@ -188,6 +188,473 @@ class TestPipelineSettings:
         assert resp.status_code == 404
 
 
+# ── Node Operations API ──────────────────────────────────────────
+
+
+class TestAddNode:
+    def test_add_node_from_registry(self):
+        resp = client.post("/api/pipelines", json={"name": "Node Test"})
+        pid = resp.json()["id"]
+
+        resp = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 10, "y": 20}},
+        )
+        assert resp.status_code == 201
+        node = resp.json()
+        assert node["type"] == "ml_toolbox.nodes.demo.run"
+        assert node["position"] == {"x": 10.0, "y": 20.0}
+        assert "id" in node
+        assert "code" in node
+
+        # Verify it appears in the pipeline
+        resp = client.get(f"/api/pipelines/{pid}")
+        assert len(resp.json()["nodes"]) == 1
+        assert resp.json()["nodes"][0]["id"] == node["id"]
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_add_node_unknown_type(self):
+        resp = client.post("/api/pipelines", json={"name": "Bad Node"})
+        pid = resp.json()["id"]
+
+        resp = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "nonexistent.node", "position": {"x": 0, "y": 0}},
+        )
+        assert resp.status_code == 400
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+class TestDeleteNode:
+    def test_delete_node_removes_connected_edges(self):
+        resp = client.post("/api/pipelines", json={"name": "Delete Node"})
+        pid = resp.json()["id"]
+
+        # Add two nodes
+        r1 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        n1 = r1.json()["id"]
+
+        r2 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.clean_data",
+                "position": {"x": 100, "y": 0},
+            },
+        )
+        n2 = r2.json()["id"]
+
+        # Connect them
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={
+                "source": n1,
+                "source_port": "df",
+                "target": n2,
+                "target_port": "df",
+            },
+        )
+        assert resp.status_code == 201
+
+        # Delete source node
+        resp = client.delete(f"/api/pipelines/{pid}/nodes/{n1}")
+        assert resp.status_code == 204
+
+        # Verify node and edge gone
+        pipeline = client.get(f"/api/pipelines/{pid}").json()
+        assert len(pipeline["nodes"]) == 1
+        assert len(pipeline["edges"]) == 0
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_delete_node_not_found(self):
+        resp = client.post("/api/pipelines", json={"name": "No Node"})
+        pid = resp.json()["id"]
+
+        resp = client.delete(f"/api/pipelines/{pid}/nodes/nonexistent")
+        assert resp.status_code == 404
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+class TestUpdateNode:
+    def test_update_node_params_code_position(self):
+        resp = client.post("/api/pipelines", json={"name": "Update Node"})
+        pid = resp.json()["id"]
+
+        r = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        node_id = r.json()["id"]
+
+        # Update params
+        resp = client.patch(
+            f"/api/pipelines/{pid}/nodes/{node_id}",
+            json={"params": {"rows": 500}},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["params"] == {"rows": 500}
+
+        # Update code
+        resp = client.patch(
+            f"/api/pipelines/{pid}/nodes/{node_id}",
+            json={"code": "print('hello')"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["code"] == "print('hello')"
+
+        # Update position
+        resp = client.patch(
+            f"/api/pipelines/{pid}/nodes/{node_id}",
+            json={"position": {"x": 99, "y": 88}},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["position"] == {"x": 99.0, "y": 88.0}
+
+        # Verify persisted
+        pipeline = client.get(f"/api/pipelines/{pid}").json()
+        node = pipeline["nodes"][0]
+        assert node["params"] == {"rows": 500}
+        assert node["code"] == "print('hello')"
+        assert node["position"] == {"x": 99.0, "y": 88.0}
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_update_node_not_found(self):
+        resp = client.post("/api/pipelines", json={"name": "No Node"})
+        pid = resp.json()["id"]
+
+        resp = client.patch(
+            f"/api/pipelines/{pid}/nodes/nonexistent",
+            json={"code": "x"},
+        )
+        assert resp.status_code == 404
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+# ── Edge Operations API ──────────────────────────────────────────
+
+
+class TestAddEdge:
+    def _make_two_node_pipeline(self):
+        """Helper: create pipeline with run → clean_data nodes, return (pid, n1, n2)."""
+        resp = client.post("/api/pipelines", json={"name": "Edge Test"})
+        pid = resp.json()["id"]
+
+        r1 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        n1 = r1.json()["id"]
+
+        r2 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.clean_data",
+                "position": {"x": 100, "y": 0},
+            },
+        )
+        n2 = r2.json()["id"]
+        return pid, n1, n2
+
+    def test_add_valid_edge(self):
+        pid, n1, n2 = self._make_two_node_pipeline()
+
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={
+                "source": n1,
+                "source_port": "df",
+                "target": n2,
+                "target_port": "df",
+            },
+        )
+        assert resp.status_code == 201
+        edge = resp.json()
+        assert edge["source"] == n1
+        assert edge["target"] == n2
+        assert edge["condition"] is None
+        assert "id" in edge
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_add_edge_type_mismatch(self):
+        """run outputs TABLE(df), summarize_data outputs METRICS(summary) — mismatch."""
+        resp = client.post("/api/pipelines", json={"name": "Mismatch"})
+        pid = resp.json()["id"]
+
+        # run: outputs TABLE(df)
+        r1 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        n1 = r1.json()["id"]
+
+        # summarize_data: outputs METRICS(summary), inputs TABLE(df)
+        r2 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.summarize_data",
+                "position": {"x": 100, "y": 0},
+            },
+        )
+        n2 = r2.json()["id"]
+
+        # Try to connect summary(METRICS) output → df(TABLE) input — type mismatch
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={
+                "source": n2,
+                "source_port": "summary",
+                "target": r2.json()["id"],
+                "target_port": "df",
+            },
+        )
+        assert resp.status_code == 400
+        assert "type mismatch" in resp.json()["detail"].lower()
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_add_edge_creates_cycle(self):
+        """A→B→C, then C→A should fail."""
+        resp = client.post("/api/pipelines", json={"name": "Cycle"})
+        pid = resp.json()["id"]
+
+        # Create A (run) → B (clean) → C (clean) chain
+        ra = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        a = ra.json()["id"]
+
+        rb = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.clean_data",
+                "position": {"x": 100, "y": 0},
+            },
+        )
+        b = rb.json()["id"]
+
+        rc = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.clean_data",
+                "position": {"x": 200, "y": 0},
+            },
+        )
+        c = rc.json()["id"]
+
+        # A→B
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={"source": a, "source_port": "df", "target": b, "target_port": "df"},
+        )
+        assert resp.status_code == 201
+
+        # B→C
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={"source": b, "source_port": "df", "target": c, "target_port": "df"},
+        )
+        assert resp.status_code == 201
+
+        # C→A would create cycle (but C outputs TABLE, A has no inputs — so
+        # we need a different setup). Instead, try C→B which creates B→C→B.
+        # C outputs TABLE(df), B accepts TABLE(df).
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={"source": c, "source_port": "df", "target": b, "target_port": "df"},
+        )
+        assert resp.status_code == 400
+        assert "cycle" in resp.json()["detail"].lower()
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_add_edge_nonexistent_node(self):
+        resp = client.post("/api/pipelines", json={"name": "Bad Edge"})
+        pid = resp.json()["id"]
+
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={
+                "source": "no_such_node",
+                "source_port": "df",
+                "target": "also_missing",
+                "target_port": "df",
+            },
+        )
+        assert resp.status_code == 400
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_add_edge_nonexistent_port(self):
+        pid, n1, n2 = self._make_two_node_pipeline()
+
+        resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={
+                "source": n1,
+                "source_port": "no_such_port",
+                "target": n2,
+                "target_port": "df",
+            },
+        )
+        assert resp.status_code == 400
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+class TestDeleteEdge:
+    def test_delete_edge(self):
+        resp = client.post("/api/pipelines", json={"name": "Del Edge"})
+        pid = resp.json()["id"]
+
+        r1 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        n1 = r1.json()["id"]
+
+        r2 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.clean_data",
+                "position": {"x": 100, "y": 0},
+            },
+        )
+        n2 = r2.json()["id"]
+
+        edge_resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={"source": n1, "source_port": "df", "target": n2, "target_port": "df"},
+        )
+        edge_id = edge_resp.json()["id"]
+
+        resp = client.delete(f"/api/pipelines/{pid}/edges/{edge_id}")
+        assert resp.status_code == 204
+
+        # Verify removed
+        pipeline = client.get(f"/api/pipelines/{pid}").json()
+        assert len(pipeline["edges"]) == 0
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_delete_edge_not_found(self):
+        resp = client.post("/api/pipelines", json={"name": "No Edge"})
+        pid = resp.json()["id"]
+
+        resp = client.delete(f"/api/pipelines/{pid}/edges/nonexistent")
+        assert resp.status_code == 404
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+class TestUpdateEdge:
+    def test_update_edge_condition(self):
+        resp = client.post("/api/pipelines", json={"name": "Cond Edge"})
+        pid = resp.json()["id"]
+
+        r1 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+        )
+        n1 = r1.json()["id"]
+
+        r2 = client.post(
+            f"/api/pipelines/{pid}/nodes",
+            json={
+                "type": "ml_toolbox.nodes.demo.clean_data",
+                "position": {"x": 100, "y": 0},
+            },
+        )
+        n2 = r2.json()["id"]
+
+        edge_resp = client.post(
+            f"/api/pipelines/{pid}/edges",
+            json={"source": n1, "source_port": "df", "target": n2, "target_port": "df"},
+        )
+        edge_id = edge_resp.json()["id"]
+
+        # Set condition
+        resp = client.patch(
+            f"/api/pipelines/{pid}/edges/{edge_id}",
+            json={"condition": "len(df) > 0"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["condition"] == "len(df) > 0"
+
+        # Clear condition
+        resp = client.patch(
+            f"/api/pipelines/{pid}/edges/{edge_id}",
+            json={"condition": None},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["condition"] is None
+
+        client.delete(f"/api/pipelines/{pid}")
+
+    def test_update_edge_not_found(self):
+        resp = client.post("/api/pipelines", json={"name": "No Edge"})
+        pid = resp.json()["id"]
+
+        resp = client.patch(
+            f"/api/pipelines/{pid}/edges/nonexistent",
+            json={"condition": "x"},
+        )
+        assert resp.status_code == 404
+
+        client.delete(f"/api/pipelines/{pid}")
+
+
+# ── Cycle Detection Unit Test ────────────────────────────────────
+
+
+class TestCycleDetection:
+    def test_would_create_cycle_self_loop(self):
+        from ml_toolbox.routers.pipelines import would_create_cycle
+
+        data = {"edges": []}
+        assert would_create_cycle(data, "a", "a") is True
+
+    def test_would_create_cycle_linear(self):
+        from ml_toolbox.routers.pipelines import would_create_cycle
+
+        data = {"edges": [{"source": "a", "target": "b"}]}
+        # b→a would create a→b→a cycle
+        assert would_create_cycle(data, "b", "a") is True
+        # a→c would not create a cycle
+        assert would_create_cycle(data, "a", "c") is False
+
+    def test_would_create_cycle_diamond(self):
+        from ml_toolbox.routers.pipelines import would_create_cycle
+
+        # a→b, a→c, b→d, c→d — no cycle
+        data = {
+            "edges": [
+                {"source": "a", "target": "b"},
+                {"source": "a", "target": "c"},
+                {"source": "b", "target": "d"},
+                {"source": "c", "target": "d"},
+            ]
+        }
+        # d→a would create cycle
+        assert would_create_cycle(data, "d", "a") is True
+        # d→b would create cycle
+        assert would_create_cycle(data, "d", "b") is True
+        # b→c would not create cycle
+        assert would_create_cycle(data, "b", "c") is False
+
+
+# ── Pipeline 404s ────────────────────────────────────────────────
+
+
 class TestPipeline404:
     def test_get_missing(self):
         resp = client.get("/api/pipelines/does_not_exist")
