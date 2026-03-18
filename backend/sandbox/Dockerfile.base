@@ -1,6 +1,7 @@
 FROM python:3.13-slim
 
 # Heavy ML dependencies — rebuild only when this file changes.
+# Split from sandbox Dockerfile to avoid 5-min rebuild on every runner.py change.
 RUN pip install --no-cache-dir \
     numpy \
     pyarrow \
