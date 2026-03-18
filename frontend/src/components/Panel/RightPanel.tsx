@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Node } from "@xyflow/react";
 import type { NodeCardData, NodeTab } from "@/components/Canvas";
+import type { NodeOutputState } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { ParamsTab } from "./ParamsTab";
@@ -20,6 +21,8 @@ export interface RightPanelProps {
   onParamsChange?: (params: Record<string, string | number | boolean>) => void;
   onCodeChange?: (code: string) => void;
   onClose?: () => void;
+  outputState?: NodeOutputState;
+  downloadUrl?: string;
 }
 
 export function RightPanel({
@@ -29,6 +32,8 @@ export function RightPanel({
   onParamsChange,
   onCodeChange,
   onClose,
+  outputState,
+  downloadUrl,
 }: RightPanelProps) {
   const [internalTab, setInternalTab] = useState<NodeTab>("params");
   const activeTab = controlledTab ?? internalTab;
@@ -104,7 +109,9 @@ export function RightPanel({
             onChange={(value) => onCodeChange?.(value)}
           />
         )}
-        {activeTab === "output" && <OutputTab />}
+        {activeTab === "output" && (
+          <OutputTab outputState={outputState} downloadUrl={downloadUrl} />
+        )}
       </div>
     </div>
   );
