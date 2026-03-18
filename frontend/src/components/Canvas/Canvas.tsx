@@ -20,6 +20,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { NodeCard, type NodeCardData } from "./NodeCard";
+import { EdgeWithCondition, type EdgeConditionData } from "./EdgeWithCondition";
 import { type PortType, type NodeDefinition } from "@/lib/types";
 
 // ── Port-type validation (pure function) ─────────────────────────────
@@ -38,8 +39,9 @@ const nodeTypes: NodeTypes = {
   nodeCard: NodeCard,
 };
 
-// Placeholder edge type for conditional edges (T12 will implement fully)
-const edgeTypes: EdgeTypes = {};
+const edgeTypes: EdgeTypes = {
+  edgeWithCondition: EdgeWithCondition,
+};
 
 // ── History for undo/redo ────────────────────────────────────────────
 
@@ -194,6 +196,7 @@ function CanvasInner({
         sourceHandle: connection.sourceHandle,
         target: connection.target!,
         targetHandle: connection.targetHandle,
+        type: "edgeWithCondition",
       };
 
       setInternalEdges((eds) => {
@@ -204,6 +207,32 @@ function CanvasInner({
     },
     [isControlled, controlledOnConnect, internalNodes, pushHistory],
   );
+
+  // ── Edge condition change handler ──────────────────────────────────
+
+  const onConditionChange = useCallback(
+    (edgeId: string, condition: string) => {
+      if (isControlled) return;
+      setInternalEdges((eds) =>
+        eds.map((e) =>
+          e.id === edgeId
+            ? { ...e, data: { ...e.data, condition } }
+            : e,
+        ),
+      );
+    },
+    [isControlled],
+  );
+
+  // Inject onConditionChange and ensure custom edge type on all edges
+  const edgesWithCallbacks = edges.map((edge) => ({
+    ...edge,
+    type: edge.type || "edgeWithCondition",
+    data: {
+      ...edge.data,
+      onConditionChange,
+    } as EdgeConditionData,
+  }));
 
   // ── Node drag end → push history ─────────────────────────────────
 
@@ -329,7 +358,7 @@ function CanvasInner({
     <div className="h-full w-full" onDragOver={onDragOver} onDrop={onDrop}>
       <ReactFlow
         nodes={nodesWithCallbacks}
-        edges={edges}
+        edges={edgesWithCallbacks}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
