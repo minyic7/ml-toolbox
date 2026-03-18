@@ -70,7 +70,19 @@ try:
 
     namespace = {"_get_output_path": _get_output_path}
     exec(code, namespace)  # noqa: S102
-    result = namespace["run"](inputs, params)
+
+    # Find the entry function: prefer "run", else pick the first user-defined callable.
+    if "run" in namespace and callable(namespace["run"]):
+        entry_fn = namespace["run"]
+    else:
+        entry_fn = next(
+            (v for k, v in namespace.items() if callable(v) and not k.startswith("_")),
+            None,
+        )
+        if entry_fn is None:
+            raise RuntimeError("No callable entry function found in node code")
+
+    result = entry_fn(inputs, params)
 
     out_path = manifest_path.parent / (manifest_path.stem + "_result.json")
     out_path.write_text(json.dumps(result))
