@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ml_toolbox.protocol import PortType, Select, Text, Toggle, node
+from ml_toolbox.protocol import PortType, Select, Slider, Text, Toggle, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -98,3 +98,46 @@ def feature_eng(inputs: dict, params: dict) -> dict:
     out = _get_output_path("feature_eng_df")
     df.to_parquet(out, index=False)
     return {"df": str(out)}
+
+
+@node(
+    inputs={"df": PortType.TABLE},
+    outputs={"train": PortType.TABLE, "test": PortType.TABLE},
+    params={
+        "test_size": Slider(min=0.05, max=0.5, step=0.05, default=0.2),
+        "random_seed": Slider(min=0, max=100, step=1, default=42),
+        "stratify_column": Text(default=""),
+    },
+    label="Train/Test Split",
+    category="Transform",
+    description="Split a DataFrame into train and test sets using sklearn.",
+)
+def split(inputs: dict, params: dict) -> dict:
+    """Split a DataFrame into train and test sets using sklearn."""
+    import polars as pl
+    from sklearn.model_selection import train_test_split
+
+    df = pl.read_parquet(inputs["df"])
+
+    test_size = float(params.get("test_size", 0.2))
+    random_seed = int(params.get("random_seed", 42))
+    stratify_col = params.get("stratify_column", "")
+
+    stratify = df[stratify_col].to_list() if stratify_col else None
+
+    train_idx, test_idx = train_test_split(
+        range(len(df)),
+        test_size=test_size,
+        random_state=random_seed,
+        stratify=stratify,
+    )
+
+    train_df = df[train_idx]
+    test_df = df[test_idx]
+
+    train_path = _get_output_path("train")
+    test_path = _get_output_path("test")
+    train_df.write_parquet(train_path)
+    test_df.write_parquet(test_path)
+
+    return {"train": str(train_path), "test": str(test_path)}

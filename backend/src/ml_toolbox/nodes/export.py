@@ -49,3 +49,32 @@ def export_table(inputs: dict, params: dict) -> dict:
 
     # Pass through the original TABLE for downstream chaining
     return {"file": inputs["df"]}
+
+
+@node(
+    inputs={"model": PortType.MODEL},
+    outputs={"model": PortType.MODEL},
+    params={
+        "filename": Text(default="model"),
+    },
+    label="Export Model",
+    category="Export",
+    description="Export a MODEL to a downloadable .joblib file.",
+)
+def export_model(inputs: dict, params: dict) -> dict:
+    """Export a MODEL to a downloadable .joblib file."""
+    import joblib
+
+    filename = params.get("filename", "model")
+
+    # Sanitize filename: take only the stem and strip path separators
+    filename = Path(filename).stem.replace("/", "").replace("..", "")
+    if not filename:
+        filename = "model"
+
+    model = joblib.load(inputs["model"])
+    out = _get_output_path(filename, ext=".joblib")
+    joblib.dump(model, out)
+
+    # Pass through the original MODEL for downstream chaining
+    return {"model": inputs["model"]}
