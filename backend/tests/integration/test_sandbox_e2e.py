@@ -56,7 +56,18 @@ def _wait_for_run(client: TestClient, pid: str, timeout: int = 60) -> dict:
         assert resp.status_code == 200
         runs = resp.json()
         if runs and runs[0]["status"] in ("done", "error"):
-            return runs[0]
+            run = runs[0]
+            # If error, try to find and attach error details from run dir
+            if run["status"] == "error":
+                from ml_toolbox.services import file_store
+                run_dir = file_store._runs_dir(pid) / run["id"]
+                for f in sorted(run_dir.glob("*_error.json")):
+                    run["_error_detail"] = f.read_text()
+                    break
+                status_file = run_dir / "_status.json"
+                if status_file.exists():
+                    run["_status_detail"] = status_file.read_text()
+            return run
         time.sleep(1)
     raise TimeoutError(f"Pipeline {pid} did not finish within {timeout}s")
 
