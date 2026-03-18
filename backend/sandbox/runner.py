@@ -68,9 +68,10 @@ try:
         out_path.write_text(json.dumps({"skipped": True}))
         sys.exit(0)
 
+    entry_fn = manifest.get("entry_fn", "run")
     namespace = {"_get_output_path": _get_output_path}
     exec(code, namespace)  # noqa: S102
-    result = namespace["run"](inputs, params)
+    result = namespace[entry_fn](inputs, params)
 
     out_path = manifest_path.parent / (manifest_path.stem + "_result.json")
     out_path.write_text(json.dumps(result))

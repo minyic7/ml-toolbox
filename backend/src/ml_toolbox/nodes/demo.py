@@ -6,8 +6,8 @@ import polars as pl
 from ml_toolbox.protocol import PortType, Select, Slider, node
 
 
-def _get_output_path() -> Path:
-    """Return the output directory for node artifacts.
+def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
+    """Return the output path for a node artifact.
 
     At runtime this is overridden by the sandbox runner to point at the
     container's scratch volume.  During development / tests it falls back
@@ -15,7 +15,7 @@ def _get_output_path() -> Path:
     """
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
-    return p
+    return p / f"{name}{ext}"
 
 
 # ── generate_data ────────────────────────────────────────────────────
