@@ -1,0 +1,30 @@
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "8910:8910"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+  backend:
+    image: ml-toolbox-backend
+    volumes:
+      - ml_data:/data/ml-toolbox
+    environment:
+      - ML_TOOLBOX_DATA_DIR=/data/ml-toolbox
+
+  sandbox:
+    image: ml-toolbox-sandbox
+    profiles:
+      - build-only
+    volumes:
+      - ml_data:/data/ml-toolbox:ro
+
+volumes:
+  ml_data:
+  caddy_data:
+  caddy_config:

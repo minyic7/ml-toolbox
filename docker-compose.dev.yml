@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend/src:/app/src
+      - ml_data:/data/ml-toolbox
+    environment:
+      - ML_TOOLBOX_DATA_DIR=/data/ml-toolbox
+
+  sandbox:
+    build:
+      context: ./backend/sandbox
+      dockerfile: Dockerfile
+    profiles:
+      - build-only
+
+volumes:
+  ml_data:
