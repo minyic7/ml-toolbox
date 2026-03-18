@@ -544,22 +544,16 @@ def _find_output_file(run_dir: Path, node_id: str) -> Path | None:
     return candidates[0] if candidates else None
 
 
-def _output_metadata(run_dir: Path, node_id: str) -> dict:
-    """Build output metadata for a node."""
-    output_file = _find_output_file(run_dir, node_id)
-    if output_file is None:
-        raise HTTPException(status_code=404, detail="Output not found")
-
+def _file_metadata(output_file: Path) -> dict[str, Any]:
+    """Build metadata dict for a single output file."""
     ext = output_file.suffix.lower()
     size = output_file.stat().st_size
     meta: dict[str, Any] = {
-        "node_id": node_id,
         "file": output_file.name,
         "type": ext.lstrip("."),
         "size": size,
     }
 
-    # Preview for parquet/csv table files
     if ext == ".parquet":
         try:
             import pyarrow.parquet as pq
@@ -581,7 +575,7 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
             meta["preview"] = {
                 "columns": list(df.columns),
                 "rows": df.values.tolist(),
-                "total_rows": -1,  # unknown without reading full file
+                "total_rows": -1,
             }
         except Exception:
             pass
@@ -594,6 +588,40 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
             "format": "joblib",
             "file_size": meta["size"],
         }
+
+    return meta
+
+
+def _output_metadata(run_dir: Path, node_id: str) -> dict:
+    """Build output metadata for a node.
+
+    Returns metadata for all output files produced by the node.
+    Single-output nodes return a flat dict (backwards-compatible).
+    Multi-output nodes include an ``outputs`` list.
+    """
+    output_files = [
+        f
+        for f in run_dir.glob(f"{node_id}_*")
+        if not f.name.endswith((".json", ".hash", ".txt"))
+    ]
+    if not output_files:
+        # Also check for direct node_id.* files
+        output_files = [
+            f
+            for f in run_dir.glob(f"{node_id}.*")
+            if not f.name.endswith((".json", ".hash", ".txt"))
+        ]
+    if not output_files:
+        raise HTTPException(status_code=404, detail="Output not found")
+
+    primary = output_files[0]
+    meta: dict[str, Any] = {
+        "node_id": node_id,
+        **_file_metadata(primary),
+    }
+
+    if len(output_files) > 1:
+        meta["outputs"] = [_file_metadata(f) for f in output_files]
 
     # Check for error
     error_path = run_dir / f"{node_id}_manifest_error.json"
