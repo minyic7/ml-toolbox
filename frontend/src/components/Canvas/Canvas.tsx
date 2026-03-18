@@ -88,6 +88,7 @@ export interface CanvasProps {
   onEdgesChange?: OnEdgesChange;
   onConnect?: OnConnect;
   onNodeSelect?: (nodeId?: string, tab?: string) => void;
+  onDropNode?: (definition: NodeDefinition, position: { x: number; y: number }) => void;
 }
 
 let nodeIdCounter = 0;
@@ -99,6 +100,7 @@ function CanvasInner({
   onEdgesChange: controlledOnEdgesChange,
   onConnect: controlledOnConnect,
   onNodeSelect,
+  onDropNode,
 }: CanvasProps) {
   const isControlled = controlledNodes !== undefined;
 
@@ -341,7 +343,7 @@ function CanvasInner({
       };
 
       if (isControlled) {
-        // In controlled mode, the parent handles adding nodes
+        onDropNode?.(definition, position);
         return;
       }
 

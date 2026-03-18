@@ -1,43 +1,44 @@
 import { useState } from "react";
-import type { NodeDefinition, PipelineNode, NodeOutputState } from "@/lib/types";
+import type { Node } from "@xyflow/react";
+import type { NodeCardData, NodeTab } from "@/components/Canvas";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { ParamsTab } from "./ParamsTab";
 import { CodeTab } from "./CodeTab";
 import { OutputTab } from "./OutputTab";
 
-type Tab = "params" | "code" | "output";
-
-export interface RightPanelProps {
-  node?: PipelineNode;
-  definition?: NodeDefinition;
-  outputState?: NodeOutputState;
-  downloadUrl?: string;
-  onParamChange?: (nodeId: string, paramName: string, value: string | number | boolean) => void;
-  onCodeChange?: (nodeId: string, code: string) => void;
-  onCodeBlur?: (nodeId: string) => void;
-  onClose?: () => void;
-}
-
-const TABS: { key: Tab; label: string }[] = [
+const TABS: { key: NodeTab; label: string }[] = [
   { key: "params", label: "Params" },
   { key: "code", label: "Code" },
   { key: "output", label: "Output" },
 ];
 
+export interface RightPanelProps {
+  node: Node<NodeCardData> | null;
+  activeTab?: NodeTab;
+  onTabChange?: (tab: NodeTab) => void;
+  onParamsChange?: (params: Record<string, string | number | boolean>) => void;
+  onCodeChange?: (code: string) => void;
+  onClose?: () => void;
+}
+
 export function RightPanel({
   node,
-  definition,
-  outputState,
-  downloadUrl,
-  onParamChange,
+  activeTab: controlledTab,
+  onTabChange,
+  onParamsChange,
   onCodeChange,
-  onCodeBlur,
   onClose,
 }: RightPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("params");
+  const [internalTab, setInternalTab] = useState<NodeTab>("params");
+  const activeTab = controlledTab ?? internalTab;
 
-  if (!node || !definition) {
+  const handleTabChange = (tab: NodeTab) => {
+    setInternalTab(tab);
+    onTabChange?.(tab);
+  };
+
+  if (!node) {
     return (
       <div className="flex h-full flex-col p-4 text-muted-foreground">
         <h2 className="mb-4 text-sm font-semibold text-foreground">
@@ -47,6 +48,8 @@ export function RightPanel({
       </div>
     );
   }
+
+  const { definition, params, code } = node.data;
 
   return (
     <div className="flex h-full flex-col">
@@ -70,12 +73,13 @@ export function RightPanel({
         {TABS.map((tab) => (
           <button
             key={tab.key}
+            type="button"
             className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
               activeTab === tab.key
                 ? "border-b-2 border-primary text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
           >
             {tab.label}
           </button>
@@ -87,32 +91,20 @@ export function RightPanel({
         {activeTab === "params" && (
           <ParamsTab
             params={definition.params}
-            values={node.params}
-            onParamChange={(paramName, value) =>
-              onParamChange?.(node.id, paramName, value)
-            }
+            values={params}
+            onParamChange={(paramName, value) => {
+              onParamsChange?.({ ...params, [paramName]: value });
+            }}
           />
         )}
         {activeTab === "code" && (
           <CodeTab
-            code={node.code ?? definition.default_code ?? ""}
-            readOnly={!definition.default_code && !node.code}
-            onChange={
-              onCodeChange
-                ? (value) => onCodeChange(node.id, value)
-                : undefined
-            }
-            onBlur={
-              onCodeBlur ? () => onCodeBlur(node.id) : undefined
-            }
+            code={code ?? definition.default_code ?? ""}
+            readOnly={!definition.default_code && !code}
+            onChange={(value) => onCodeChange?.(value)}
           />
         )}
-        {activeTab === "output" && (
-          <OutputTab
-            outputState={outputState}
-            downloadUrl={downloadUrl}
-          />
-        )}
+        {activeTab === "output" && <OutputTab />}
       </div>
     </div>
   );
