@@ -7,7 +7,10 @@ import type {
   RunStatus,
 } from "./types";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "";
+// Use Vite's BASE_URL (set by `base` in vite.config.ts) so API requests
+// go through the correct sub-path (e.g. /ml-toolbox/api/...).
+// Remove trailing slash to avoid double-slash in URLs.
+const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

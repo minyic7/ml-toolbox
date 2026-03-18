@@ -40,10 +40,8 @@ export function useWebSocket({ pipelineId, onMessage }: UseWebSocketOptions) {
 
     function connect() {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const base = import.meta.env.VITE_API_BASE
-        ? import.meta.env.VITE_API_BASE.replace(/^http/, "ws")
-        : `${proto}//${window.location.host}`;
-      const url = `${base}/ws/pipelines/${pipelineId}`;
+      const basePath = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+      const url = `${proto}//${window.location.host}${basePath}/ws/pipelines/${pipelineId}`;
 
       const ws = new WebSocket(url);
       wsRef.current = ws;
