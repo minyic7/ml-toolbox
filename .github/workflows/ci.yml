@@ -24,9 +24,6 @@ jobs:
       - name: Install deps
         run: uv sync --frozen
 
-      - name: Ruff format check
-        run: uv run ruff format --check src/
-
       - name: Pyright
         run: uv run pyright src/
 

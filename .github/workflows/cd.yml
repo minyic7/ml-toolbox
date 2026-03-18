@@ -170,14 +170,7 @@ jobs:
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no \
-            "$DEPLOY_USER@$DEPLOY_HOST" << EOF
-            cd ~/ml-toolbox
-            echo "$GH_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose pull
-            docker compose up -d --no-build
-            docker image prune -f
-          EOF
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd ~/ml-toolbox && docker compose pull && docker compose up -d --no-build && docker image prune -f"
 
