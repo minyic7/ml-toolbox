@@ -39,7 +39,7 @@ def run(inputs: dict, params: dict) -> dict:  # noqa: ARG001
             "category": [random.choice(["A", "B", "C"]) for _ in range(n)],
         }
     )
-    out = _get_output_path() / "generate_data.parquet"
+    out = _get_output_path("df")
     df.write_parquet(out)
     return {"df": str(out)}
 
@@ -67,7 +67,7 @@ def clean_data(inputs: dict, params: dict) -> dict:
             fill_value = getattr(df[col], strategy)()
             df = df.with_columns(pl.col(col).fill_null(fill_value))
 
-    out = _get_output_path() / "clean_data.parquet"
+    out = _get_output_path("df")
     df.write_parquet(out)
     return {"df": str(out)}
 
@@ -90,6 +90,6 @@ def summarize_data(inputs: dict, params: dict) -> dict:  # noqa: ARG001
         "null_counts": {col: df[col].null_count() for col in df.columns},
     }
 
-    out = _get_output_path() / "summarize_data.json"
+    out = _get_output_path("summary", ext=".json")
     out.write_text(json.dumps(summary, indent=2))
     return {"summary": str(out)}
