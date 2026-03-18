@@ -34,6 +34,11 @@ def export_table(inputs: dict, params: dict) -> dict:
     fmt = params.get("format", "csv")
     filename = params.get("filename", "output")
 
+    # Sanitize filename: take only the stem and strip path separators
+    filename = Path(filename).stem.replace("/", "").replace("..", "")
+    if not filename:
+        filename = "output"
+
     ext = ".csv" if fmt == "csv" else ".parquet"
     out = _get_output_path(filename, ext=ext)
 
@@ -42,4 +47,5 @@ def export_table(inputs: dict, params: dict) -> dict:
     else:
         df.write_parquet(out)
 
-    return {"file": str(out)}
+    # Pass through the original TABLE for downstream chaining
+    return {"file": inputs["df"]}

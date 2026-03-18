@@ -33,7 +33,10 @@ class TestExportTableCSV:
             {"df": str(sample_parquet)},
             {"format": "csv", "filename": "output"},
         )
-        out = Path(result["file"])
+        # Output passes through original input for chaining
+        assert result["file"] == str(sample_parquet)
+
+        out = tmp_path / "output.csv"
         assert out.exists()
         assert out.suffix == ".csv"
 
@@ -54,7 +57,10 @@ class TestExportTableParquet:
             {"df": str(sample_parquet)},
             {"format": "parquet", "filename": "output"},
         )
-        out = Path(result["file"])
+        # Output passes through original input for chaining
+        assert result["file"] == str(sample_parquet)
+
+        out = tmp_path / "output.parquet"
         assert out.exists()
         assert out.suffix == ".parquet"
 
@@ -74,7 +80,11 @@ class TestExportTableFilename:
             {"df": str(sample_parquet)},
             {"format": "csv", "filename": "my_export"},
         )
-        out = Path(result["file"])
+        # Output passes through original input for chaining
+        assert result["file"] == str(sample_parquet)
+
+        out = tmp_path / "my_export.csv"
+        assert out.exists()
         assert out.name == "my_export.csv"
 
 
