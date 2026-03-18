@@ -43,3 +43,28 @@ def csv_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     out = _get_output_path("df")
     df.to_parquet(out, index=False)
     return {"df": str(out)}
+
+
+@node(
+    outputs={"df": PortType.TABLE},
+    params={
+        "path": Text(default=""),
+        "columns": Text(default=""),
+    },
+    label="Parquet Reader",
+    category="Ingest",
+    description="Load a Parquet file into a TABLE output.",
+)
+def parquet_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
+    """Load a Parquet file into a TABLE output."""
+    import polars as pl
+
+    path = params["path"]
+    columns_param = params.get("columns", "")
+    columns = [c.strip() for c in columns_param.split(",") if c.strip()] or None
+
+    df = pl.read_parquet(path, columns=columns)
+
+    out = _get_output_path("df")
+    df.write_parquet(out)
+    return {"df": str(out)}
