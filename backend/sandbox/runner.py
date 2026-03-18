@@ -17,6 +17,7 @@ inputs = manifest["inputs"]  # already /data/... paths inside the container
 params = manifest["params"]
 node_id = manifest["node_id"]
 conditions = manifest.get("conditions", [])
+output_types = manifest.get("output_types", {})
 run_dir = manifest_path.parent
 
 
@@ -72,6 +73,42 @@ try:
     namespace = {"_get_output_path": _get_output_path}
     exec(code, namespace)  # noqa: S102
     result = namespace[entry_fn](inputs, params)
+
+    # ── Auto-serialization of output values ──────────────────────
+    # If node code returns a raw Python object instead of a file path,
+    # serialize it based on the declared output port type.
+    if isinstance(result, dict):
+        for key, value in result.items():
+            port_type = output_types.get(key, "")
+            if isinstance(value, str):
+                # Already a file path — leave as-is
+                continue
+            if port_type == "MODEL":
+                import joblib
+
+                out = _get_output_path(key, ".joblib")
+                joblib.dump(value, out)
+                result[key] = str(out)
+            elif port_type == "TABLE":
+                try:
+                    import polars as pl
+
+                    if isinstance(value, pl.DataFrame):
+                        out = _get_output_path(key, ".parquet")
+                        value.write_parquet(out)
+                        result[key] = str(out)
+                        continue
+                except ImportError:
+                    pass
+                try:
+                    import pandas as pd
+
+                    if isinstance(value, pd.DataFrame):
+                        out = _get_output_path(key, ".parquet")
+                        value.to_parquet(out)
+                        result[key] = str(out)
+                except ImportError:
+                    pass
 
     out_path = manifest_path.parent / (manifest_path.stem + "_result.json")
     out_path.write_text(json.dumps(result))

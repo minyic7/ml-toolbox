@@ -585,6 +585,15 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
             }
         except Exception:
             pass
+    elif ext == ".joblib":
+        # MODEL output: show file size only.
+        # We intentionally do NOT call joblib.load() here because joblib
+        # uses pickle internally and deserializing untrusted data from
+        # the sandbox would be an arbitrary-code-execution vulnerability.
+        meta["preview"] = {
+            "format": "joblib",
+            "file_size": meta["size"],
+        }
 
     # Check for error
     error_path = run_dir / f"{node_id}_manifest_error.json"
