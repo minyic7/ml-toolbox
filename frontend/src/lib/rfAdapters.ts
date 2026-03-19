@@ -4,8 +4,8 @@ import type {
   Edge as PipelineEdge,
   NodeStatus,
   NodeDefinition,
-  PortDefinition,
   ParamDefinition,
+  PortDefinition,
 } from "./types";
 
 export interface NodeCardData extends Record<string, unknown> {
