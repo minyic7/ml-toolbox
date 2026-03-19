@@ -56,7 +56,7 @@ def _wait_for_run(client: TestClient, pid: str, timeout: int = 60) -> dict:
         resp = client.get(f"/api/pipelines/{pid}/runs")
         assert resp.status_code == 200
         runs = resp.json()
-        if runs and runs[0]["status"] in ("done", "error"):
+        if runs and runs[0]["status"] in ("done", "error", "cancelled"):
             return runs[0]
         time.sleep(1)
     raise TimeoutError(f"Pipeline {pid} did not finish within {timeout}s")
