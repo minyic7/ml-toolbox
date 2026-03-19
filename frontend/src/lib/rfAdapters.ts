@@ -50,6 +50,7 @@ export function toRFNode(
 export function toRFEdge(
   edge: PipelineEdge,
   onDeleteEdge?: (edgeId: string) => void,
+  onPatchEdge?: (edgeId: string, condition: string) => void,
 ): Edge {
   return {
     id: edge.id,
@@ -60,6 +61,7 @@ export function toRFEdge(
     data: {
       condition: edge.condition,
       onDeleteEdge,
+      onPatchEdge,
     },
   };
 }

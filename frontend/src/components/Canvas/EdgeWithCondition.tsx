@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -9,6 +9,7 @@ import {
 interface EdgeData extends Record<string, unknown> {
   condition?: string;
   onDeleteEdge?: (edgeId: string) => void;
+  onPatchEdge?: (edgeId: string, condition: string) => void;
 }
 
 export default function EdgeWithCondition({
@@ -37,6 +38,12 @@ export default function EdgeWithCondition({
 
   const condition = data?.condition;
   const onDeleteEdge = data?.onDeleteEdge;
+  const onPatchEdge = data?.onPatchEdge;
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const committedRef = useRef(false);
 
   const handleMouseEnter = useCallback(() => setHovered(true), []);
   const handleMouseLeave = useCallback(() => setHovered(false), []);
@@ -48,7 +55,61 @@ export default function EdgeWithCondition({
     [id, onDeleteEdge],
   );
 
+  const startEditing = useCallback(() => {
+    setDraft(condition ?? "");
+    committedRef.current = false;
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [condition]);
+
+  const commitEdit = useCallback(() => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed !== (condition ?? "")) {
+      onPatchEdge?.(id, trimmed);
+    }
+  }, [draft, condition, onPatchEdge, id]);
+
+  const cancelEdit = useCallback(() => {
+    committedRef.current = true;
+    setEditing(false);
+    setDraft(condition ?? "");
+  }, [condition]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitEdit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelEdit();
+      }
+    },
+    [commitEdit, cancelEdit],
+  );
+
   const isHighlighted = selected || hovered;
+
+  const labelStyle: React.CSSProperties = {
+    position: "absolute",
+    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+    pointerEvents: "all",
+    fontSize: 11,
+    padding: "2px 6px",
+    borderRadius: 4,
+    background: "var(--node-bg)",
+    border: "1px solid var(--border-default)",
+    color: "var(--text-secondary)",
+  };
+
+  // Offset label above delete button when both are present
+  const conditionLabelStyle: React.CSSProperties = {
+    ...labelStyle,
+    transform: `translate(-50%, -50%) translate(${labelX}px,${condition ? labelY - 16 : labelY}px)`,
+  };
 
   return (
     <g onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
@@ -112,25 +173,39 @@ export default function EdgeWithCondition({
           </button>
         </EdgeLabelRenderer>
       )}
-      {/* Condition label */}
-      {condition && (
+      {/* Condition label — click to edit */}
+      {(condition || editing) && (
         <EdgeLabelRenderer>
-          <div
-            style={{
-              position: "absolute",
-              transform: `translate(-50%, -50%) translate(${labelX}px,${condition ? labelY - 16 : labelY}px)`,
-              pointerEvents: "all",
-              fontSize: 11,
-              padding: "2px 6px",
-              borderRadius: 4,
-              background: "var(--node-bg)",
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-            className="nodrag nopan"
-          >
-            {condition}
-          </div>
+          {editing ? (
+            <div style={conditionLabelStyle} className="nodrag nopan">
+              <input
+                ref={inputRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={handleKeyDown}
+                style={{
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  fontSize: 11,
+                  color: "var(--text-primary)",
+                  width: Math.max(40, draft.length * 7),
+                  padding: 0,
+                  margin: 0,
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{ ...conditionLabelStyle, cursor: "pointer" }}
+              className="nodrag nopan"
+              onClick={startEditing}
+            >
+              {condition}
+            </div>
+          )}
         </EdgeLabelRenderer>
       )}
     </g>

@@ -122,6 +122,17 @@ export default function PipelineScreen() {
     onSuccess: invalidate,
   });
 
+  const patchEdgeMutation = useMutation({
+    mutationFn: ({
+      edgeId,
+      body,
+    }: {
+      edgeId: string;
+      body: { condition?: string };
+    }) => api.patchEdge(pipelineId, edgeId, body),
+    onSuccess: invalidate,
+  });
+
   const addNodeMutation = useMutation({
     mutationFn: ({
       type,
@@ -176,6 +187,16 @@ export default function PipelineScreen() {
   const handleDeleteEdge = useCallback(
     (edgeId: string) => deleteEdgeMutation.mutate(edgeId),
     [deleteEdgeMutation],
+  );
+
+  const handlePatchEdge = useCallback(
+    (edgeId: string, condition: string) => {
+      patchEdgeMutation.mutate({
+        edgeId,
+        body: { condition: condition || undefined },
+      });
+    },
+    [patchEdgeMutation],
   );
 
   const handleDropNode = useCallback(
@@ -320,6 +341,7 @@ export default function PipelineScreen() {
             onConnect={handleConnect}
             onDeleteNode={handleDeleteNode}
             onDeleteEdge={handleDeleteEdge}
+            onPatchEdge={handlePatchEdge}
             onDropNode={handleDropNode}
             onRunFrom={handleRunFrom}
             onNodeSelect={handleNodeSelect}
