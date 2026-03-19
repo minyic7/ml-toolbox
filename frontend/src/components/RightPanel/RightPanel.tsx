@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import { cn } from "../../lib/utils";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Play, X } from "lucide-react";
 import { ParamsTab } from "./ParamsTab";
 import { CodeTab } from "./CodeTab";
 import { OutputTab } from "./OutputTab";
@@ -19,6 +19,10 @@ interface RightPanelProps {
   onClose: () => void;
   requestedTab?: string | null;
   onRequestedTabHandled?: () => void;
+  onRename: (nodeId: string, name: string) => void;
+  onRunFrom: (nodeId: string) => void;
+  renameRequested?: boolean;
+  onRenameHandled?: () => void;
 }
 
 const TABS: { key: Tab; label: string }[] = [
@@ -37,8 +41,15 @@ export function RightPanel({
   onClose,
   requestedTab,
   onRequestedTabHandled,
+  onRename,
+  onRunFrom,
+  renameRequested,
+  onRenameHandled,
 }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("params");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (requestedTab && (requestedTab === "params" || requestedTab === "code" || requestedTab === "output")) {
@@ -48,6 +59,59 @@ export function RightPanel({
   }, [requestedTab, onRequestedTabHandled]);
 
   const isOpen = node !== null;
+  const displayName = node?.name || definition?.label || "";
+
+  // Handle rename request from context menu
+  useEffect(() => {
+    if (renameRequested && node) {
+      setEditValue(displayName);
+      setIsEditing(true);
+      onRenameHandled?.();
+    }
+  }, [renameRequested, node, displayName, onRenameHandled]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing) {
+      // Use rAF to ensure DOM is updated before focusing
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    }
+  }, [isEditing]);
+
+  const startEditing = () => {
+    setEditValue(displayName);
+    setIsEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (!node) return;
+    setIsEditing(false);
+    const trimmed = editValue.trim();
+    // If empty or same as definition label, clear custom name
+    if (!trimmed || trimmed === definition?.label) {
+      onRename(node.id, "");
+    } else {
+      onRename(node.id, trimmed);
+    }
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditValue(displayName);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit();
+    }
+  };
 
   return (
     <div
@@ -63,13 +127,32 @@ export function RightPanel({
           <div
             className="flex items-center justify-between border-b border-border px-4 py-3"
           >
-            <div className="flex flex-col gap-0.5">
-              <span
-                className="text-sm font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {definition.label}
-              </span>
+            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={saveEdit}
+                  onKeyDown={handleKeyDown}
+                  maxLength={50}
+                  className="text-sm font-semibold bg-transparent border border-[var(--border-selected)] rounded px-1 py-0.5 outline-none w-full"
+                  style={{ color: "var(--text-primary)" }}
+                />
+              ) : (
+                <span
+                  className="text-sm font-semibold cursor-pointer truncate block"
+                  style={{
+                    color: "var(--text-primary)",
+                    maxWidth: "22ch",
+                  }}
+                  title={displayName}
+                  onClick={startEditing}
+                >
+                  {displayName}
+                </span>
+              )}
               <span
                 className="text-xs"
                 style={{ color: "var(--text-muted)" }}
@@ -77,15 +160,27 @@ export function RightPanel({
                 {definition.category}
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-[var(--text-muted)]"
-              onClick={onClose}
-              aria-label="Close panel"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1 ml-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-[var(--text-muted)] hover:text-[var(--accent-blue)]"
+                onClick={() => onRunFrom(node.id)}
+                aria-label="Run from this node"
+                title="Run from this node"
+              >
+                <Play className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-[var(--text-muted)]"
+                onClick={onClose}
+                aria-label="Close panel"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           {/* Tabs */}

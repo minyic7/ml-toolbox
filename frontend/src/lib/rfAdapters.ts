@@ -38,7 +38,7 @@ export function toRFNode(
     type: "nodeCard",
     position: node.position,
     data: {
-      label: def?.label ?? node.type,
+      label: node.name || def?.label || node.type,
       type: node.type,
       category,
       status: statuses[node.id] ?? "idle",

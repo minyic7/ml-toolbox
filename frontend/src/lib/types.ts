@@ -53,6 +53,7 @@ export interface NodeDefinition {
 export interface NodeInstance {
   id: string;
   type: string;
+  name?: string | null;
   position: { x: number; y: number };
   params: ParamDefinition[];
   code: string;
@@ -136,6 +137,7 @@ export interface PatchNodeRequest {
   params?: Record<string, unknown>;
   code?: string;
   position?: { x: number; y: number };
+  name?: string;
 }
 
 export interface AddEdgeRequest {

@@ -6,6 +6,7 @@ interface ContextMenuProps {
   y: number;
   nodeId: string;
   onRunFrom: (nodeId: string) => void;
+  onRename: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
   onClose: () => void;
 }
@@ -15,6 +16,7 @@ export default function ContextMenu({
   y,
   nodeId,
   onRunFrom,
+  onRename,
   onDelete,
   onClose,
 }: ContextMenuProps) {
@@ -36,6 +38,16 @@ export default function ContextMenu({
           }}
         >
           Run from here
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+          onClick={() => {
+            onRename(nodeId);
+            onClose();
+          }}
+        >
+          Rename
         </Button>
         <Separator className="my-1" />
         <Button
