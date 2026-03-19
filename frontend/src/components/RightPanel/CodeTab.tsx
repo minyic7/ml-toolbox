@@ -28,15 +28,18 @@ export function CodeTab({ code, defaultCode, onChange, onSave, lastSaveOk }: Cod
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Show "✓ Saved" only after parent confirms save succeeded
+  const codeRef = useRef(code);
+  codeRef.current = code;
+
   useEffect(() => {
     if (lastSaveOk) {
-      lastSavedRef.current = code;
+      lastSavedRef.current = codeRef.current;
       setUnsaved(false);
       setShowSaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
     }
-  }, [lastSaveOk, code]);
+  }, [lastSaveOk]);
 
   // Cleanup timer on unmount
   useEffect(() => {
