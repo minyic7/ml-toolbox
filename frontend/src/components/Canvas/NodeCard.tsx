@@ -18,6 +18,31 @@ const STATUS_LABELS: Record<NodeStatus, string> = {
   cached: "Cached",
 };
 
+const STATUS_BORDERS: Record<
+  NodeStatus,
+  { width: string; style: string; color: string }
+> = {
+  idle: { width: "1px", style: "solid", color: "#D3D1C7" },
+  dirty: { width: "1px", style: "dashed", color: "#D3D1C7" },
+  pending: { width: "1px", style: "solid", color: "#B5D4F4" },
+  running: { width: "1.5px", style: "solid", color: "#378ADD" },
+  done: { width: "1.5px", style: "solid", color: "#639922" },
+  error: { width: "1.5px", style: "solid", color: "#E24B4A" },
+  skipped: { width: "1.5px", style: "solid", color: "#BA7517" },
+  cached: { width: "1.5px", style: "solid", color: "#BA7517" },
+};
+
+const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
+  idle: "#D3D1C7",
+  dirty: "#D3D1C7",
+  pending: "#B5D4F4",
+  running: "#378ADD",
+  done: "#639922",
+  error: "#E24B4A",
+  skipped: "#BA7517",
+  cached: "#BA7517",
+};
+
 // ── Tab bar types ──────────────────────────────────────────────────
 
 type TabKey = "params" | "code" | "output";
@@ -33,7 +58,6 @@ const TABS: { key: TabKey; label: string }[] = [
 function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
   const { label, category, status, inputs, outputs, onTabClick } = data;
   const isError = status === "error";
-  const isDirty = status === "dirty";
   const isCached = status === "cached";
   const isRunning = status === "running";
   const isDone = status === "done";
@@ -42,9 +66,9 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
   const accentColor =
     CATEGORY_ACCENT_COLORS[category.toLowerCase()] ?? "var(--border-default)";
 
-  // Border style: dashed when dirty
-  const borderStyle = isDirty ? "dashed" : "solid";
-  const borderColor = selected ? "var(--border-selected)" : "var(--border-default)";
+  // Border: per-status width/style/color from spec, override color when selected
+  const borderDef = STATUS_BORDERS[status];
+  const borderColor = selected ? "var(--border-selected)" : borderDef.color;
 
   // Output badge: green dot if done/cached, red dot if error
   const outputBadgeColor = isError
@@ -60,7 +84,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         width: 232,
         background: "var(--node-bg)",
         borderRadius: 8,
-        border: `1px ${borderStyle} ${borderColor}`,
+        border: `${borderDef.width} ${borderDef.style} ${borderColor}`,
         boxShadow: selected
           ? "0 0 0 2px var(--border-selected)"
           : "0 1px 3px rgba(0,0,0,0.06)",
@@ -134,9 +158,29 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             fontSize: 11,
             color: "var(--text-secondary)",
             whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
           }}
         >
           {STATUS_LABELS[status]}
+          <span
+            className={
+              isRunning
+                ? "status-dot-pulse"
+                : status === "pending"
+                  ? "status-dot-fade"
+                  : undefined
+            }
+            style={{
+              display: "inline-block",
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: STATUS_DOT_COLORS[status],
+              flexShrink: 0,
+            }}
+          />
         </span>
       </div>
 

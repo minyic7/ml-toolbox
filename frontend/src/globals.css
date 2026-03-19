@@ -86,6 +86,24 @@
   100% { transform: translateX(100%); }
 }
 
+@keyframes status-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+@keyframes status-dot-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.status-dot-pulse {
+  animation: status-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot-fade {
+  animation: status-dot-fade 2s ease-in-out infinite;
+}
+
 body {
   margin: 0;
   font-family:
