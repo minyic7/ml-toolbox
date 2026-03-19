@@ -143,6 +143,7 @@ function CanvasInner({
 
   // ── Clipboard for copy/paste ────────────────────────────────
   const clipboardRef = useRef<Array<{ type: string; offsetX: number; offsetY: number; params?: unknown; code?: string }>>([]);
+  const pasteCountRef = useRef(0);
   const setDraggingPortType = useExecutionStore((s) => s.setDraggingPortType);
   const queryClient = useQueryClient();
 
@@ -414,9 +415,11 @@ function CanvasInner({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
-      const tag = (e.target as HTMLElement)?.tagName;
+      // Ignore if typing in an input or Monaco editor
+      const target = e.target as HTMLElement;
+      const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (target?.closest?.(".monaco-editor")) return;
 
       if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
@@ -456,17 +459,20 @@ function CanvasInner({
           params: n.data.params as unknown,
           code: n.data.code as string,
         }));
+        pasteCountRef.current = 0;
         return;
       }
 
       if (mod && e.key === "v") {
         e.preventDefault();
         if (clipboardRef.current.length === 0 || !onPasteNodes) return;
+        pasteCountRef.current += 1;
+        const offset = pasteCountRef.current * 30;
         const center = reactFlow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
         onPasteNodes(
           clipboardRef.current.map((c) => ({
             type: c.type,
-            position: { x: center.x + c.offsetX, y: center.y + c.offsetY },
+            position: { x: center.x + c.offsetX + offset, y: center.y + c.offsetY + offset },
             params: c.params,
             code: c.code,
           })),
