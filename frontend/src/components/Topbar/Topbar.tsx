@@ -191,7 +191,7 @@ export default function Topbar({ pipelineId }: TopbarProps) {
           />
         )}
 
-        <AutoSaveIndicator status={saveStatus} onRetry={handleRetry} />
+        <AutoSaveIndicator status={saveStatus} onRetry={handleRetry} retryDisabled={renameMutation.isPending} />
 
         {currentNodeLabel && (
           <span
