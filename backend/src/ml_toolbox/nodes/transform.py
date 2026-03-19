@@ -141,3 +141,55 @@ def split(inputs: dict, params: dict) -> dict:
     test_df.write_parquet(test_path)
 
     return {"train": str(train_path), "test": str(test_path)}
+
+
+@node(
+    inputs={"df": PortType.TABLE},
+    outputs={"stats": PortType.VALUE},
+    params={
+        "column": Text(default=""),
+        "statistic": Select(
+            ["mean", "median", "std", "min", "max", "count", "sum"], default="mean"
+        ),
+    },
+    label="Compute Stats",
+    category="Transform",
+    description="Compute a single summary statistic from a table column. Outputs a JSON value.",
+)
+def compute_stats(inputs: dict, params: dict) -> dict:
+    """Compute a single summary statistic from a table column."""
+    import json
+
+    import polars as pl
+
+    df = pl.read_parquet(inputs["df"])
+
+    column = params.get("column", "")
+    statistic = params.get("statistic", "mean")
+
+    # If column is empty or not found, use the first numeric column
+    numeric_cols = [
+        c for c in df.columns if df[c].dtype in (pl.Float32, pl.Float64, pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64)
+    ]
+    if not column or column not in df.columns:
+        column = numeric_cols[0] if numeric_cols else df.columns[0]
+
+    series = df[column]
+
+    stat_funcs = {
+        "mean": lambda s: s.mean(),
+        "median": lambda s: s.median(),
+        "std": lambda s: s.std(),
+        "min": lambda s: s.min(),
+        "max": lambda s: s.max(),
+        "count": lambda s: s.len(),
+        "sum": lambda s: s.sum(),
+    }
+
+    value = stat_funcs[statistic](series)
+
+    output_path = _get_output_path("stats", ".json")
+    result = {"value": value, "column": column, "statistic": statistic}
+    output_path.write_text(json.dumps(result))
+
+    return {"stats": str(output_path)}
