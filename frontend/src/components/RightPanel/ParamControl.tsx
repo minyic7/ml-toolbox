@@ -156,7 +156,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
             style={textError ? { borderColor: "var(--error-red)" } : undefined}
           />
           {textError && (
-            <span className="text-[10px]" style={{ color: "var(--error-red)" }}>
+            <span className="text-[10px]" role="alert" aria-live="polite" style={{ color: "var(--error-red)" }}>
               Must be a valid number
             </span>
           )}
