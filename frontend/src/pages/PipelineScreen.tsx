@@ -47,6 +47,7 @@ export default function PipelineScreen() {
 
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [codeSaveOk, setCodeSaveOk] = useState(false);
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
 
   // Auto-switch to Output tab when selected node completes (done/error)
@@ -305,9 +306,13 @@ export default function PipelineScreen() {
   const handleCodeSave = useCallback(
     (nodeId: string, code: string) => {
       delete pendingCodeRef.current[nodeId];
+      setCodeSaveOk(false);
       patchNodeMutation.mutate(
         { nodeId, body: { code } },
-        { onError: () => toast.error("Failed to save code") },
+        {
+          onSuccess: () => setCodeSaveOk(true),
+          onError: () => toast.error("Failed to save code"),
+        },
       );
     },
     [patchNodeMutation],
@@ -502,6 +507,7 @@ export default function PipelineScreen() {
           onParamChange={handleParamChange}
           onCodeChange={handleCodeChange}
           onCodeSave={handleCodeSave}
+          codeSaveOk={codeSaveOk}
           onClose={handleClosePanel}
           requestedTab={requestedTab}
           onRequestedTabHandled={() => setRequestedTab(null)}

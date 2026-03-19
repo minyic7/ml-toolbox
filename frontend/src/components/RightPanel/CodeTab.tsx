@@ -16,26 +16,33 @@ interface CodeTabProps {
   defaultCode: string | undefined;
   onChange: (code: string) => void;
   onSave: (code: string) => void;
+  lastSaveOk?: boolean;
 }
 
-export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
+export function CodeTab({ code, defaultCode, onChange, onSave, lastSaveOk }: CodeTabProps) {
   const readOnly = !defaultCode;
   const [copied, setCopied] = useState(false);
-  const [savedIndicator, setSavedIndicator] = useState<"saved" | "unsaved" | null>(null);
+  const [unsaved, setUnsaved] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
   const lastSavedRef = useRef(code);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clear saved indicator timer on unmount
+  // Show "✓ Saved" only after parent confirms save succeeded
+  useEffect(() => {
+    if (lastSaveOk) {
+      lastSavedRef.current = code;
+      setUnsaved(false);
+      setShowSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+    }
+  }, [lastSaveOk, code]);
+
+  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
-  }, []);
-
-  const showSaved = useCallback(() => {
-    setSavedIndicator("saved");
-    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-    savedTimerRef.current = setTimeout(() => setSavedIndicator(null), 2000);
   }, []);
 
   const [resetOpen, setResetOpen] = useState(false);
@@ -66,8 +73,6 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
         () => {
           const value = editor.getValue();
           onSave(value);
-          lastSavedRef.current = value;
-          showSaved();
         },
       );
     },
@@ -128,12 +133,12 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           </Button>
         )}
 
-        {savedIndicator === "unsaved" && (
+        {unsaved && (
           <span className="text-[10px]" style={{ color: "var(--warning-amber)" }}>
             ● Unsaved
           </span>
         )}
-        {savedIndicator === "saved" && (
+        {showSaved && (
           <span className="text-[10px]" style={{ color: "var(--success-green)" }}>
             ✓ Saved
           </span>
@@ -147,8 +152,6 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           const value = editorRef.current?.getValue();
           if (value !== undefined) {
             onSave(value);
-            lastSavedRef.current = value;
-            showSaved();
           }
         }}
       >
@@ -160,9 +163,10 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           onChange={(v) => {
             onChange(v ?? "");
             if ((v ?? "") !== lastSavedRef.current) {
-              setSavedIndicator("unsaved");
+              setUnsaved(true);
+              setShowSaved(false);
             } else {
-              setSavedIndicator(null);
+              setUnsaved(false);
             }
           }}
           onMount={handleEditorMount}
