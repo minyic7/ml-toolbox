@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
 import type { NodeDefinition } from "../lib/types";
 import { useExecutionSocket } from "../hooks/useExecutionSocket";
-import { useOutput } from "../hooks/useOutputs";
 import Topbar from "../components/Topbar/Topbar";
 import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
@@ -73,20 +72,6 @@ export default function PipelineScreen() {
   const selectedDefinition = useMemo(
     () => (selectedNode ? nodeDefinitions[selectedNode.type] ?? null : null),
     [selectedNode, nodeDefinitions],
-  );
-
-  // ── Output for selected node ──────────────────────────────────
-  const { data: selectedOutput = null } = useOutput(
-    pipelineId,
-    selectedNodeId ?? "",
-  );
-
-  const downloadUrl = useMemo(
-    () =>
-      selectedNodeId
-        ? api.getOutputDownloadUrl(pipelineId, selectedNodeId)
-        : null,
-    [pipelineId, selectedNodeId],
   );
 
   // ── Mutations ─────────────────────────────────────────────────
@@ -341,10 +326,9 @@ export default function PipelineScreen() {
           />
         </main>
         <RightPanel
+          pipelineId={pipelineId}
           node={selectedNode}
           definition={selectedDefinition}
-          output={selectedOutput}
-          downloadUrl={downloadUrl}
           onParamChange={handleParamChange}
           onCodeChange={handleCodeChange}
           onCodeBlur={handleCodeBlur}
