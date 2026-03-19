@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WsMessage } from "../lib/types";
 import { useExecutionStore } from "../store/executionStore";
+import { getPipelineStatus } from "../lib/api";
 
 const MAX_BACKOFF = 30_000;
 
@@ -32,6 +33,23 @@ export function useExecutionSocket(pipelineId: string | undefined) {
       ws.onopen = () => {
         backoffRef.current = 1000; // reset on successful connect
         useExecutionStore.getState().setWsStatus("connected");
+
+        // On reconnect, check if a run finished while we were disconnected
+        const store = useExecutionStore.getState();
+        if (store.isRunning && pipelineId) {
+          getPipelineStatus(pipelineId).then((status) => {
+            const current = useExecutionStore.getState();
+            if (current.isRunning && !status.is_running) {
+              current.setRunning(false);
+              current.setCurrentNodeId(null);
+              current.setRunResult(null);
+              qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+              qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
+            }
+          }).catch(() => {
+            // Status check failed — don't change state, WS messages will catch up
+          });
+        }
       };
 
       ws.onmessage = (event) => {
