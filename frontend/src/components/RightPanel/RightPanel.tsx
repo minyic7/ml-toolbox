@@ -15,7 +15,7 @@ interface RightPanelProps {
   definition: NodeDefinition | null;
   onParamChange: (nodeId: string, name: string, value: unknown) => void;
   onCodeChange: (nodeId: string, code: string) => void;
-  onCodeBlur: (nodeId: string) => void;
+  onCodeSave: (nodeId: string, code: string) => void;
   onClose: () => void;
   requestedTab?: string | null;
   onRequestedTabHandled?: () => void;
@@ -33,7 +33,7 @@ export function RightPanel({
   definition,
   onParamChange,
   onCodeChange,
-  onCodeBlur,
+  onCodeSave,
   onClose,
   requestedTab,
   onRequestedTabHandled,
@@ -125,7 +125,7 @@ export function RightPanel({
                 code={node.code}
                 defaultCode={definition.default_code}
                 onChange={(code) => onCodeChange(node.id, code)}
-                onBlur={() => onCodeBlur(node.id)}
+                onSave={(code) => onCodeSave(node.id, code)}
               />
             )}
             {activeTab === "output" && (

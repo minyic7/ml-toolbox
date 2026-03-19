@@ -256,10 +256,8 @@ export default function PipelineScreen() {
     [],
   );
 
-  const handleCodeBlur = useCallback(
-    (nodeId: string) => {
-      const code = pendingCodeRef.current[nodeId];
-      if (code === undefined) return;
+  const handleCodeSave = useCallback(
+    (nodeId: string, code: string) => {
       delete pendingCodeRef.current[nodeId];
       patchNodeMutation.mutate({ nodeId, body: { code } });
     },
@@ -361,7 +359,7 @@ export default function PipelineScreen() {
           definition={selectedDefinition}
           onParamChange={handleParamChange}
           onCodeChange={handleCodeChange}
-          onCodeBlur={handleCodeBlur}
+          onCodeSave={handleCodeSave}
           onClose={handleClosePanel}
           requestedTab={requestedTab}
           onRequestedTabHandled={() => setRequestedTab(null)}
