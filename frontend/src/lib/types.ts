@@ -1,0 +1,150 @@
+// ── Port & Node Status ──────────────────────────────────────────────
+
+export type PortType =
+  | "TABLE"
+  | "MODEL"
+  | "METRICS"
+  | "ARRAY"
+  | "VALUE"
+  | "TENSOR";
+
+export type NodeStatus =
+  | "idle"
+  | "dirty"
+  | "pending"
+  | "running"
+  | "done"
+  | "error"
+  | "skipped"
+  | "cached";
+
+// ── Param & Port Definitions ────────────────────────────────────────
+
+export interface ParamDefinition {
+  type: "select" | "slider" | "text" | "toggle";
+  name: string;
+  default: unknown;
+  options?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+export interface PortDefinition {
+  name: string;
+  type: PortType;
+}
+
+// ── Node Definition (GET /api/nodes) ────────────────────────────────
+
+export interface NodeDefinition {
+  type: string;
+  label: string;
+  category: string;
+  description: string;
+  inputs: PortDefinition[];
+  outputs: PortDefinition[];
+  params: ParamDefinition[];
+  default_code: string;
+}
+
+// ── Pipeline types ──────────────────────────────────────────────────
+
+export interface NodeInstance {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  params: ParamDefinition[];
+  code: string;
+  inputs: PortDefinition[];
+  outputs: PortDefinition[];
+}
+
+export interface Edge {
+  id: string;
+  source: string;
+  source_port: string;
+  target: string;
+  target_port: string;
+  condition?: string;
+}
+
+export interface PipelineSettings {
+  keep_outputs: boolean;
+}
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  settings: PipelineSettings;
+  nodes: NodeInstance[];
+  edges: Edge[];
+}
+
+export interface PipelineListItem {
+  id: string;
+  name: string;
+  node_count: number;
+}
+
+export interface PipelineSummary {
+  id: string;
+  name: string;
+}
+
+// ── Output & Run ────────────────────────────────────────────────────
+
+export interface OutputPreview {
+  node_id: string;
+  file: string;
+  type: string;
+  size: number;
+  preview: { columns?: string[]; rows?: unknown[][]; total_rows?: number } | null;
+  error: string | null;
+}
+
+export interface RunInfo {
+  id: string;
+  started_at: string;
+  status: string;
+}
+
+// ── WebSocket ───────────────────────────────────────────────────────
+
+export interface WsMessage {
+  node_id?: string;
+  status: string;
+  run_id: string;
+  outputs?: string[];
+  cached?: boolean;
+  traceback?: string | null;
+}
+
+// ── Request types ───────────────────────────────────────────────────
+
+export interface CreatePipelineRequest {
+  name: string;
+}
+
+export interface AddNodeRequest {
+  type: string;
+  position: { x: number; y: number };
+  params?: Record<string, unknown>;
+}
+
+export interface PatchNodeRequest {
+  params?: Record<string, unknown>;
+  code?: string;
+  position?: { x: number; y: number };
+}
+
+export interface AddEdgeRequest {
+  source: string;
+  source_port: string;
+  target: string;
+  target_port: string;
+}
+
+export interface PatchEdgeRequest {
+  condition?: string;
+}
