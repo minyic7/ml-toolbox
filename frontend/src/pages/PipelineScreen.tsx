@@ -10,6 +10,7 @@ import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
+import { toast } from "sonner";
 
 export default function PipelineScreen() {
   const { id } = useParams<{ id: string }>();
@@ -284,9 +285,17 @@ export default function PipelineScreen() {
         currentValues[p.name] = p.default;
       }
       currentValues[name] = value;
-      patchNodeMutation.mutate({ nodeId, body: { params: currentValues } });
+      patchNodeMutation.mutate(
+        { nodeId, body: { params: currentValues } },
+        {
+          onError: () => {
+            toast.error("Failed to save parameter");
+            invalidate();
+          },
+        },
+      );
     },
-    [pipeline, patchNodeMutation],
+    [pipeline, patchNodeMutation, invalidate],
   );
 
   const handleCodeChange = useCallback(
