@@ -3,6 +3,16 @@ import type { OutputPreview } from "../../lib/types";
 import { PORT_COLORS } from "../../lib/portColors";
 import { useOutput, useRuns } from "../../hooks/useOutputs";
 import { getOutputDownloadUrl } from "../../lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Download } from "lucide-react";
 import { TablePreview } from "./TablePreview";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { ErrorTraceback } from "./ErrorTraceback";
@@ -29,28 +39,25 @@ export function OutputTab({ pipelineId, nodeId }: OutputTabProps) {
     <div className="flex flex-col gap-3 p-4">
       {/* Run selector */}
       {runs && runs.length > 0 && (
-        <div className="flex items-center gap-2">
-          <select
-            className="min-w-0 flex-1 rounded-md border px-2 py-1 text-xs"
-            style={{
-              borderColor: "var(--border-default)",
-              backgroundColor: "var(--node-bg)",
-              color: "var(--text-primary)",
-            }}
-            value={selectedRunId ?? ""}
-            onChange={(e) =>
-              setSelectedRunId(e.target.value || undefined)
-            }
-          >
-            <option value="">Latest Run</option>
+        <Select
+          value={selectedRunId ?? "latest"}
+          onValueChange={(v) =>
+            setSelectedRunId(v === "latest" ? undefined : v)
+          }
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Latest Run" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="latest">Latest Run</SelectItem>
             {runs.map((run) => (
-              <option key={run.id} value={run.id}>
+              <SelectItem key={run.id} value={run.id}>
                 {run.id.slice(0, 8)} — {formatTimestamp(run.started_at)} (
                 {run.status})
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </div>
+          </SelectContent>
+        </Select>
       )}
 
       {/* Output content */}
@@ -88,27 +95,22 @@ function OutputContent({
     <>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span
-            className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white"
+          <Badge
+            className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white border-0"
             style={{ backgroundColor: typeBadgeColor }}
           >
             {output.type}
-          </span>
+          </Badge>
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             {formatSize(output.size)}
           </span>
         </div>
-        <a
-          href={downloadUrl}
-          download
-          className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-          style={{
-            color: "var(--accent-blue)",
-            border: "1px solid var(--accent-blue)",
-          }}
-        >
-          Download
-        </a>
+        <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+          <a href={downloadUrl} download>
+            <Download className="h-3 w-3" />
+            Download
+          </a>
+        </Button>
       </div>
 
       {renderPreview(output)}
@@ -148,8 +150,7 @@ function renderPreview(output: OutputPreview) {
       return (
         <div className="flex flex-col gap-2">
           <div
-            className="rounded-md border p-3 text-xs"
-            style={{ borderColor: "var(--border-default)" }}
+            className="rounded-md border border-border p-3 text-xs"
           >
             <pre
               className="whitespace-pre-wrap"
@@ -167,8 +168,7 @@ function renderPreview(output: OutputPreview) {
     default:
       return (
         <div
-          className="rounded-md border p-3 text-xs"
-          style={{ borderColor: "var(--border-default)" }}
+          className="rounded-md border border-border p-3 text-xs"
         >
           <pre
             className="whitespace-pre-wrap"

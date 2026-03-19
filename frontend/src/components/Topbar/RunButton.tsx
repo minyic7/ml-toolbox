@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useExecutionStore } from "../../store/executionStore";
 import { useRunPipeline, useCancelPipeline } from "../../hooks/useExecution";
+import { Button } from "@/components/ui/button";
+import { Play, Square } from "lucide-react";
 
 interface RunButtonProps {
   pipelineId: string;
@@ -65,13 +67,13 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
         </span>
       )}
 
-      <button
-        type="button"
+      <Button
+        size="sm"
         onClick={() =>
           isRunning ? cancelMutation.mutate() : runMutation.mutate()
         }
         disabled={!isRunning && nodeIds.length === 0}
-        className="flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="text-white"
         style={{
           backgroundColor: isRunning
             ? "var(--error-red)"
@@ -80,30 +82,16 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
       >
         {isRunning ? (
           <>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="currentColor"
-            >
-              <rect x="3" y="3" width="8" height="8" rx="1" />
-            </svg>
+            <Square className="h-3.5 w-3.5" />
             Cancel
           </>
         ) : (
           <>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="currentColor"
-            >
-              <path d="M4 2.5v9l7-4.5-7-4.5z" />
-            </svg>
+            <Play className="h-3.5 w-3.5" />
             Run
           </>
         )}
-      </button>
+      </Button>
     </div>
   );
 }

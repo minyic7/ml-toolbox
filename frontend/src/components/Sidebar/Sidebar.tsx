@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getNodeDefinitions } from "../../lib/api";
 import type { NodeDefinition } from "../../lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import NodeLibraryGroup from "./NodeLibraryGroup";
 
 const STORAGE_KEY = "ml-toolbox-sidebar-open";
@@ -94,55 +97,53 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
 
   return (
     <aside
-      className="flex h-full flex-col border-r transition-[width] duration-200"
+      className="flex h-full flex-col border-r border-border bg-background transition-[width] duration-200"
       style={{
         width: open ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
         minWidth: open ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
-        borderColor: "var(--border-default)",
-        backgroundColor: "var(--node-bg)",
       }}
     >
       {/* Toggle button */}
-      <div className="flex items-center justify-between border-b px-2 py-2" style={{ borderColor: "var(--border-default)" }}>
+      <div className="flex items-center justify-between px-2 py-2">
         {open && (
           <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
             Nodes
           </span>
         )}
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-[var(--text-secondary)]"
           onClick={() => setOpen((v) => !v)}
-          className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--canvas-bg)]"
           title={open ? "Collapse sidebar" : "Expand sidebar"}
-          style={{ color: "var(--text-secondary)" }}
         >
-          {open ? "«" : "»"}
-        </button>
+          {open ? "\u00AB" : "\u00BB"}
+        </Button>
       </div>
+
+      <Separator />
 
       {open && (
         <>
           {/* Search */}
-          <div className="border-b px-2 py-2" style={{ borderColor: "var(--border-default)" }}>
-            <input
+          <div className="px-2 py-2">
+            <Input
               ref={searchRef}
               type="text"
-              placeholder="Search nodes…  /"
+              placeholder="Search nodes...  /"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded border px-2 py-1 text-sm outline-none transition-colors focus:border-[var(--accent-blue)]"
-              style={{
-                borderColor: "var(--border-default)",
-                color: "var(--text-primary)",
-                backgroundColor: "var(--node-bg)",
-              }}
+              className="h-8 text-sm"
             />
           </div>
+
+          <Separator />
 
           {/* Node list */}
           <div className="flex-1 overflow-y-auto px-1 py-1">
             {isLoading && (
               <p className="px-2 py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                Loading…
+                Loading...
               </p>
             )}
             {!isLoading && grouped.length === 0 && (

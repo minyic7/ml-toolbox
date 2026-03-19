@@ -7,6 +7,15 @@ import {
   useDuplicatePipeline,
 } from "../hooks/usePipeline";
 import type { PipelineListItem } from "../lib/types";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, MoreHorizontal } from "lucide-react";
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -39,13 +48,10 @@ export default function HomeScreen() {
         <header style={styles.header}>
           <h1 style={styles.title}>ML Toolbox</h1>
           {hasPipelines && (
-            <button
-              style={styles.createButton}
-              onClick={handleCreate}
-              disabled={createPipeline.isPending}
-            >
-              + New Pipeline
-            </button>
+            <Button onClick={handleCreate} disabled={createPipeline.isPending}>
+              <Plus className="h-4 w-4" />
+              New Pipeline
+            </Button>
           )}
         </header>
 
@@ -68,13 +74,9 @@ export default function HomeScreen() {
         ) : (
           <div style={styles.emptyState}>
             <p style={styles.emptyTitle}>No pipelines yet</p>
-            <button
-              style={styles.createButton}
-              onClick={handleCreate}
-              disabled={createPipeline.isPending}
-            >
+            <Button onClick={handleCreate} disabled={createPipeline.isPending}>
               Create your first pipeline
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -82,7 +84,7 @@ export default function HomeScreen() {
   );
 }
 
-/* ── Pipeline Card ────────────────────────────────────────────────── */
+/* -- Pipeline Card -------------------------------------------------------- */
 
 function PipelineCard({
   pipeline,
@@ -95,73 +97,64 @@ function PipelineCard({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div
       style={styles.card}
       onClick={onOpen}
-      onMouseLeave={() => {
-        setMenuOpen(false);
-        setConfirmDelete(false);
-      }}
     >
       <div style={styles.cardHeader}>
         <span style={styles.cardName}>{pipeline.name}</span>
-        <button
-          style={styles.menuButton}
-          onClick={(e) => {
-            e.stopPropagation();
-            setMenuOpen((v) => !v);
-            setConfirmDelete(false);
-          }}
-          aria-label="Pipeline actions"
-        >
-          &#x2026;
-        </button>
+        <DropdownMenu onOpenChange={() => setConfirmDelete(false)}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-[var(--text-secondary)]"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Pipeline actions"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenuItem onClick={onDuplicate}>
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {confirmDelete ? (
+              <DropdownMenuItem
+                className="text-[var(--error-red)] focus:text-[var(--error-red)]"
+                onClick={onDelete}
+              >
+                Confirm Delete
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                className="text-[var(--error-red)] focus:text-[var(--error-red)]"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfirmDelete(true);
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <p style={styles.cardMeta}>
         {pipeline.node_count} {pipeline.node_count === 1 ? "node" : "nodes"}
       </p>
-
-      {menuOpen && (
-        <div style={styles.menu} onClick={(e) => e.stopPropagation()}>
-          <button
-            style={styles.menuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              onDuplicate();
-            }}
-          >
-            Duplicate
-          </button>
-          {confirmDelete ? (
-            <button
-              style={{ ...styles.menuItem, color: "var(--error-red)" }}
-              onClick={() => {
-                setMenuOpen(false);
-                setConfirmDelete(false);
-                onDelete();
-              }}
-            >
-              Confirm Delete
-            </button>
-          ) : (
-            <button
-              style={{ ...styles.menuItem, color: "var(--error-red)" }}
-              onClick={() => setConfirmDelete(true)}
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-/* ── Styles ───────────────────────────────────────────────────────── */
+/* -- Styles --------------------------------------------------------------- */
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
@@ -184,16 +177,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: "var(--text-primary)",
     margin: 0,
-  },
-  createButton: {
-    padding: "10px 20px",
-    backgroundColor: "var(--accent-blue)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: "pointer",
   },
   grid: {
     display: "grid",
@@ -223,39 +206,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: "var(--text-secondary)",
     margin: "8px 0 0",
-  },
-  menuButton: {
-    background: "none",
-    border: "none",
-    fontSize: 20,
-    lineHeight: 1,
-    color: "var(--text-secondary)",
-    cursor: "pointer",
-    padding: "0 4px",
-    borderRadius: 4,
-  },
-  menu: {
-    position: "absolute" as const,
-    top: 44,
-    right: 12,
-    backgroundColor: "var(--node-bg)",
-    border: "1px solid var(--border-default)",
-    borderRadius: 6,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-    zIndex: 10,
-    overflow: "hidden",
-    minWidth: 140,
-  },
-  menuItem: {
-    display: "block",
-    width: "100%",
-    padding: "8px 16px",
-    background: "none",
-    border: "none",
-    textAlign: "left" as const,
-    fontSize: 14,
-    color: "var(--text-primary)",
-    cursor: "pointer",
   },
   emptyState: {
     textAlign: "center" as const,

@@ -1,5 +1,12 @@
-import { useEffect, useRef } from "react";
 import type { PipelineSettings } from "../../lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface SettingsModalProps {
   open: boolean;
@@ -14,45 +21,17 @@ export default function SettingsModal({
   settings,
   onUpdate,
 }: SettingsModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  if (!open) return null;
-
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onClose}
-      className="rounded-lg p-0 backdrop:bg-black/30 shadow-lg max-w-md w-full"
-      style={{ backgroundColor: "var(--node-bg)" }}
-    >
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2
-            className="text-base font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Pipeline Settings
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-black/5 transition-colors"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z" />
-            </svg>
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Pipeline Settings</DialogTitle>
+          <DialogDescription className="sr-only">
+            Configure pipeline settings
+          </DialogDescription>
+        </DialogHeader>
 
-        <label className="flex items-center justify-between gap-3 cursor-pointer">
+        <Label className="flex items-center justify-between gap-3 cursor-pointer">
           <div>
             <div
               className="text-sm font-medium"
@@ -88,8 +67,8 @@ export default function SettingsModal({
               }}
             />
           </button>
-        </label>
-      </div>
-    </dialog>
+        </Label>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,34 +1,11 @@
+import { Button } from "@/components/ui/button";
+
 interface CanvasContextMenuProps {
   x: number;
   y: number;
   onFitView: () => void;
   onClose: () => void;
 }
-
-const menuStyle: React.CSSProperties = {
-  position: "fixed",
-  zIndex: 50,
-  background: "var(--node-bg)",
-  border: "1px solid var(--border-default)",
-  borderRadius: 8,
-  boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-  padding: "4px 0",
-  minWidth: 140,
-  fontSize: 13,
-};
-
-const itemStyle: React.CSSProperties = {
-  padding: "8px 14px",
-  cursor: "pointer",
-  color: "var(--text-primary)",
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  border: "none",
-  background: "none",
-  fontFamily: "inherit",
-  fontSize: "inherit",
-};
 
 export default function CanvasContextMenu({
   x,
@@ -41,20 +18,20 @@ export default function CanvasContextMenu({
       style={{ position: "fixed", inset: 0, zIndex: 49 }}
       onClick={onClose}
     >
-      <div style={{ ...menuStyle, left: x, top: y }}>
-        <button
-          style={itemStyle}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(0,0,0,0.04)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+      <div
+        className="z-50 min-w-[140px] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        style={{ position: "fixed", left: x, top: y }}
+      >
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
           onClick={() => {
             onFitView();
             onClose();
           }}
         >
           Fit view
-        </button>
+        </Button>
       </div>
     </div>
   );

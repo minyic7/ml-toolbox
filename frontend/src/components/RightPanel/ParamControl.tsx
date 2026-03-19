@@ -1,5 +1,14 @@
 import { useState } from "react";
 import type { ParamDefinition } from "../../lib/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ParamControlProps {
   param: ParamDefinition;
@@ -14,28 +23,24 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
     case "select":
       return (
         <div className="flex flex-col gap-1.5">
-          <label
-            className="text-xs font-medium"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
-          </label>
-          <select
+          </Label>
+          <Select
             value={String(value ?? param.default ?? "")}
-            onChange={(e) => onChange(param.name, e.target.value)}
-            className="h-8 rounded-md border px-2 text-sm outline-none"
-            style={{
-              borderColor: "var(--border-default)",
-              backgroundColor: "var(--node-bg)",
-              color: "var(--text-primary)",
-            }}
+            onValueChange={(v) => onChange(param.name, v)}
           >
-            {param.options?.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {param.options?.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
 
@@ -47,12 +52,9 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
       return (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label
-              className="text-xs font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {param.name}
-            </label>
+            </Label>
             <span
               className="text-xs tabular-nums"
               style={{ color: "var(--text-muted)" }}
@@ -77,23 +79,15 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
     case "text":
       return (
         <div className="flex flex-col gap-1.5">
-          <label
-            className="text-xs font-medium"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
             value={textValue}
             onChange={(e) => setTextValue(e.target.value)}
             onBlur={() => onChange(param.name, textValue)}
-            className="h-8 rounded-md border px-2 text-sm outline-none"
-            style={{
-              borderColor: "var(--border-default)",
-              backgroundColor: "var(--node-bg)",
-              color: "var(--text-primary)",
-            }}
+            className="h-8 text-sm"
           />
         </div>
       );
@@ -102,12 +96,9 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
       const checked = !!(value ?? param.default);
       return (
         <div className="flex items-center justify-between">
-          <label
-            className="text-xs font-medium"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
-          </label>
+          </Label>
           <button
             type="button"
             role="switch"

@@ -12,6 +12,13 @@ import {
 } from "../../lib/api";
 import type { PipelineSettings } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Menu, Clock, Settings } from "lucide-react";
 import PipelineNameInput from "./PipelineNameInput";
 import RunButton from "./RunButton";
 import AutoSaveIndicator from "./AutoSaveIndicator";
@@ -104,8 +111,6 @@ export default function Topbar({ pipelineId }: TopbarProps) {
   );
 
   // ── Progress bar ──────────────────────────────────────────────────
-  // pendingNodeIds shrinks as nodes reach terminal status, so progress =
-  // (initialPendingCount - remaining) / initialPendingCount
   const progress = useMemo(() => {
     if (!isRunning || initialPendingCount === 0) return 0;
     return (initialPendingCount - pendingNodeIds.length) / initialPendingCount;
@@ -113,11 +118,10 @@ export default function Topbar({ pipelineId }: TopbarProps) {
 
   return (
     <header
-      className="relative flex items-center shrink-0 px-3 gap-3 border-b select-none"
+      className="relative flex items-center shrink-0 px-3 gap-3 border-b border-border select-none"
       style={{
         height: 48,
         backgroundColor: "var(--node-bg)",
-        borderColor: "var(--border-default)",
       }}
     >
       {/* Progress bar (overlays bottom edge) */}
@@ -133,17 +137,19 @@ export default function Topbar({ pipelineId }: TopbarProps) {
 
       {/* Left section: nav + pipeline name */}
       <div className="flex items-center gap-2 min-w-0">
-        <button
-          type="button"
-          onClick={() => setNavOpen(true)}
-          className="p-1.5 rounded hover:bg-black/5 transition-colors shrink-0"
-          style={{ color: "var(--text-secondary)" }}
-          title="Pipelines"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 3.5a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5zm0 4a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5zm0 4a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5z" />
-          </svg>
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-[var(--text-secondary)]"
+              onClick={() => setNavOpen(true)}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Pipelines</TooltipContent>
+        </Tooltip>
 
         {pipeline && (
           <PipelineNameInput
@@ -162,31 +168,33 @@ export default function Topbar({ pipelineId }: TopbarProps) {
       <div className="flex items-center gap-1.5">
         <RunButton pipelineId={pipelineId} nodeIds={nodeIds} />
 
-        <button
-          type="button"
-          onClick={() => setHistoryOpen(true)}
-          className="p-1.5 rounded hover:bg-black/5 transition-colors"
-          style={{ color: "var(--text-secondary)" }}
-          title="Run history"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 3.5a.5.5 0 01.5.5v3.793l2.354 2.353a.5.5 0 01-.708.708l-2.5-2.5A.5.5 0 017.5 8V4a.5.5 0 01.5-.5z" />
-            <path d="M8 1a7 7 0 100 14A7 7 0 008 1zM2 8a6 6 0 1112 0A6 6 0 012 8z" />
-          </svg>
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-[var(--text-secondary)]"
+              onClick={() => setHistoryOpen(true)}
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Run history</TooltipContent>
+        </Tooltip>
 
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="p-1.5 rounded hover:bg-black/5 transition-colors"
-          style={{ color: "var(--text-secondary)" }}
-          title="Settings"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492zM5.754 8a2.246 2.246 0 114.492 0 2.246 2.246 0 01-4.492 0z" />
-            <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.902 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.892 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.892-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 002.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 001.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 00-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.292-.159a1.873 1.873 0 00-2.692 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 00-2.693-1.115l-.291.16c-.764.415-1.6-.42-1.184-1.185l.159-.292A1.873 1.873 0 002.98 9.796l-.318-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 004.096 5.24l-.16-.291c-.415-.764.42-1.6 1.185-1.184l.292.159A1.873 1.873 0 008.1 2.806l.094-.318z" />
-          </svg>
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-[var(--text-secondary)]"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Settings</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Modals & Drawers */}

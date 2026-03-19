@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { PipelineListItem } from "../../lib/types";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { X, Plus } from "lucide-react";
 
 interface NavDrawerProps {
   open: boolean;
@@ -42,8 +45,7 @@ export default function NavDrawer({
       {/* Drawer */}
       <div
         ref={panelRef}
-        className="fixed top-0 left-0 h-full w-72 z-50 shadow-lg overflow-y-auto"
-        style={{ backgroundColor: "var(--node-bg)" }}
+        className="fixed top-0 left-0 h-full w-72 z-50 shadow-lg overflow-y-auto bg-background"
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -53,26 +55,25 @@ export default function NavDrawer({
             >
               Pipelines
             </h2>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-[var(--text-secondary)]"
               onClick={onClose}
-              className="p-1 rounded hover:bg-black/5 transition-colors"
-              style={{ color: "var(--text-secondary)" }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z" />
-              </svg>
-            </button>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
 
-          <button
-            type="button"
+          <Button
+            className="w-full mb-3"
             onClick={onCreate}
-            className="w-full mb-3 px-3 py-1.5 rounded-md text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: "var(--accent-blue)" }}
           >
-            + New Pipeline
-          </button>
+            <Plus className="h-4 w-4" />
+            New Pipeline
+          </Button>
+
+          <Separator className="mb-3" />
 
           <ul className="space-y-1">
             {pipelines.map((p) => (
