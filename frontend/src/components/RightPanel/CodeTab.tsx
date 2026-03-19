@@ -84,6 +84,13 @@ export function CodeTab({ code, defaultCode, onChange, onSave, lastSaveOk }: Cod
 
   return (
     <div className="flex h-full flex-col">
+      {/* Section heading */}
+      <div className="px-3 pt-2 pb-1">
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+          Python
+        </span>
+      </div>
+
       {/* Toolbar */}
       <div
         className="flex items-center gap-1.5 px-3 py-1.5"

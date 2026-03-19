@@ -351,6 +351,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         {TABS.map((tab) => (
           <button
             key={tab.key}
+            className="node-card-tab"
             onClick={(e) => {
               e.stopPropagation();
               onTabClick?.(id, tab.key);
@@ -363,6 +364,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
               color: "var(--text-secondary)",
               background: "transparent",
               border: "none",
+              borderBottom: "2px solid transparent",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",

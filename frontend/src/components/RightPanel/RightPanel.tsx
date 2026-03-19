@@ -239,6 +239,7 @@ export function RightPanel({
                 nodeId={node.id}
                 requestedRunId={requestedRunId}
                 onRequestedRunHandled={onRequestedRunHandled}
+                onRunFrom={() => onRunFrom(node.id)}
               />
             )}
           </div>

@@ -22,6 +22,9 @@ export function ParamsTab({ params, values, onChange, disabled }: ParamsTabProps
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+        Input Config
+      </span>
       {params.map((param) => (
         <ParamControl
           key={param.name}

@@ -22,9 +22,10 @@ interface OutputTabProps {
   nodeId: string;
   requestedRunId?: string | null;
   onRequestedRunHandled?: () => void;
+  onRunFrom?: (nodeId: string) => void;
 }
 
-export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHandled }: OutputTabProps) {
+export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHandled, onRunFrom }: OutputTabProps) {
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(
     undefined,
   );
@@ -37,7 +38,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
   }, [requestedRunId, onRequestedRunHandled]);
 
   const { data: runs } = useRuns(pipelineId);
-  const { data: output = null } = useOutput(pipelineId, nodeId, selectedRunId);
+  const { data: output = null, isLoading: outputLoading } = useOutput(pipelineId, nodeId, selectedRunId);
 
   const downloadUrl = useMemo(
     () => getOutputDownloadUrl(pipelineId, nodeId, selectedRunId),
@@ -70,7 +71,14 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
       )}
 
       {/* Output content */}
-      <OutputContent output={output} downloadUrl={downloadUrl} />
+      {outputLoading ? (
+        <div className="flex flex-col gap-3 p-4">
+          <div className="animate-pulse h-4 w-24 rounded" style={{ background: "var(--border-default)" }} />
+          <div className="animate-pulse h-32 rounded" style={{ background: "var(--border-default)", opacity: 0.5 }} />
+        </div>
+      ) : (
+        <OutputContent output={output} downloadUrl={downloadUrl} onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined} />
+      )}
     </div>
   );
 }
@@ -78,17 +86,24 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
 function OutputContent({
   output,
   downloadUrl,
+  onRunFrom,
 }: {
   output: OutputPreview | null;
   downloadUrl: string;
+  onRunFrom?: () => void;
 }) {
   if (!output) {
     return (
       <div
-        className="flex h-32 items-center justify-center text-sm"
+        className="flex flex-col h-32 items-center justify-center gap-2 text-sm"
         style={{ color: "var(--text-muted)" }}
       >
         No output yet. Run the pipeline to see results.
+        {onRunFrom && (
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onRunFrom}>
+            ▶ Run from here
+          </Button>
+        )}
       </div>
     );
   }

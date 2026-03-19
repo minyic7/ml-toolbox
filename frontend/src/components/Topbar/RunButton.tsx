@@ -72,7 +72,7 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
         onClick={() =>
           isRunning ? cancelMutation.mutate() : runMutation.mutate()
         }
-        disabled={!isRunning && nodeIds.length === 0}
+        disabled={(!isRunning && nodeIds.length === 0) || cancelMutation.isPending}
         className="text-white"
         style={{
           backgroundColor: isRunning
