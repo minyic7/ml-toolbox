@@ -3,7 +3,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { Pipeline, PipelineListItem } from "../lib/types";
+import type { Pipeline } from "../lib/types";
 import {
   listPipelines,
   getPipeline,
