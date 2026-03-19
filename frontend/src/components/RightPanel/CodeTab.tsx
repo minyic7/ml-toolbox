@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { Copy, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,38 @@ interface CodeTabProps {
   defaultCode: string | undefined;
   onChange: (code: string) => void;
   onSave: (code: string) => void;
+  lastSaveOk?: boolean;
 }
 
-export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
+export function CodeTab({ code, defaultCode, onChange, onSave, lastSaveOk }: CodeTabProps) {
   const readOnly = !defaultCode;
   const [copied, setCopied] = useState(false);
+  const [unsaved, setUnsaved] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const lastSavedRef = useRef(code);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show "✓ Saved" only after parent confirms save succeeded
+  const codeRef = useRef(code);
+  codeRef.current = code;
+
+  useEffect(() => {
+    if (lastSaveOk) {
+      lastSavedRef.current = codeRef.current;
+      setUnsaved(false);
+      setShowSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+    }
+  }, [lastSaveOk]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
   const [resetOpen, setResetOpen] = useState(false);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
@@ -108,6 +135,17 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
             Reset
           </Button>
         )}
+
+        {unsaved && (
+          <span className="text-[10px]" style={{ color: "var(--warning-amber)" }}>
+            ● Unsaved
+          </span>
+        )}
+        {showSaved && (
+          <span className="text-[10px]" style={{ color: "var(--success-green)" }}>
+            ✓ Saved
+          </span>
+        )}
       </div>
 
       {/* Editor */}
@@ -115,7 +153,9 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
         className="min-h-0 flex-1"
         onBlur={() => {
           const value = editorRef.current?.getValue();
-          if (value !== undefined) onSave(value);
+          if (value !== undefined) {
+            onSave(value);
+          }
         }}
       >
         <Editor
@@ -123,7 +163,15 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           language="python"
           theme="vs-dark"
           value={code}
-          onChange={(v) => onChange(v ?? "")}
+          onChange={(v) => {
+            onChange(v ?? "");
+            if ((v ?? "") !== lastSavedRef.current) {
+              setUnsaved(true);
+              setShowSaved(false);
+            } else {
+              setUnsaved(false);
+            }
+          }}
           onMount={handleEditorMount}
           options={{
             readOnly,

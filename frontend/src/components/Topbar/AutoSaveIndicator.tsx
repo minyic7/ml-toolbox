@@ -2,9 +2,11 @@ export type SaveStatus = "saved" | "saving" | "error";
 
 interface AutoSaveIndicatorProps {
   status: SaveStatus;
+  onRetry?: () => void;
+  retryDisabled?: boolean;
 }
 
-export default function AutoSaveIndicator({ status }: AutoSaveIndicatorProps) {
+export default function AutoSaveIndicator({ status, onRetry, retryDisabled }: AutoSaveIndicatorProps) {
   return (
     <span
       className="flex items-center gap-1.5 text-xs select-none"
@@ -40,6 +42,17 @@ export default function AutoSaveIndicator({ status }: AutoSaveIndicatorProps) {
             style={{ backgroundColor: "var(--error-red)" }}
           />
           Save failed
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={retryDisabled}
+              className="underline cursor-pointer ml-1"
+              style={{ color: "var(--error-red)", background: "none", border: "none", padding: 0, font: "inherit", fontSize: "inherit", opacity: retryDisabled ? 0.5 : 1 }}
+            >
+              Retry
+            </button>
+          )}
         </>
       )}
     </span>

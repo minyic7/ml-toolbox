@@ -10,6 +10,7 @@ import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
+import { toast } from "sonner";
 
 export default function PipelineScreen() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +47,7 @@ export default function PipelineScreen() {
 
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [codeSaveOk, setCodeSaveOk] = useState(false);
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
 
   // Auto-switch to Output tab when selected node completes (done/error)
@@ -205,7 +207,12 @@ export default function PipelineScreen() {
       target: string;
       targetPort: string;
     }) => {
-      addEdgeMutation.mutate(conn);
+      addEdgeMutation.mutate(conn, {
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Connection failed";
+          toast.error(msg.includes("cycle") ? "Cannot connect: would create cycle" : msg);
+        },
+      });
     },
     [addEdgeMutation],
   );
@@ -299,7 +306,14 @@ export default function PipelineScreen() {
   const handleCodeSave = useCallback(
     (nodeId: string, code: string) => {
       delete pendingCodeRef.current[nodeId];
-      patchNodeMutation.mutate({ nodeId, body: { code } });
+      setCodeSaveOk(false);
+      patchNodeMutation.mutate(
+        { nodeId, body: { code } },
+        {
+          onSuccess: () => setCodeSaveOk(true),
+          onError: () => toast.error("Failed to save code"),
+        },
+      );
     },
     [patchNodeMutation],
   );
@@ -493,6 +507,7 @@ export default function PipelineScreen() {
           onParamChange={handleParamChange}
           onCodeChange={handleCodeChange}
           onCodeSave={handleCodeSave}
+          codeSaveOk={codeSaveOk}
           onClose={handleClosePanel}
           requestedTab={requestedTab}
           onRequestedTabHandled={() => setRequestedTab(null)}

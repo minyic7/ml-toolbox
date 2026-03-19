@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { WsMessage } from "../lib/types";
 import { useExecutionStore } from "../store/executionStore";
 import { getPipelineStatus } from "../lib/api";
@@ -97,7 +98,13 @@ export function useExecutionSocket(pipelineId: string | undefined) {
           const hasError = Object.values(updated.nodeStatuses).some(
             (s) => s === "error",
           );
-          store.setRunResult(hasError ? "error" : "success");
+          const result = hasError ? "error" : "success";
+          store.setRunResult(result);
+          if (result === "success") {
+            toast.success("Pipeline completed");
+          } else {
+            toast.error("Pipeline failed");
+          }
           store.setRunning(false);
           store.setCurrentNodeId(null);
           qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
