@@ -60,6 +60,7 @@ function TypeBadge({ type }: { type: PortType }) {
   const color = PORT_COLORS[type];
   return (
     <span
+      title={`Port type: ${type}`}
       style={{
         fontSize: 9,
         fontWeight: 500,
