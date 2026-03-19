@@ -61,6 +61,19 @@ export default function PipelineScreen() {
     }
   }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId]);
 
+  // Pipeline switch transition: fade out → fade in
+  const [transitioning, setTransitioning] = useState(false);
+  const prevPipelineIdRef = useRef(pipelineId);
+
+  useEffect(() => {
+    if (prevPipelineIdRef.current !== pipelineId) {
+      setTransitioning(true);
+      prevPipelineIdRef.current = pipelineId;
+      const timer = setTimeout(() => setTransitioning(false), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [pipelineId]);
+
   // Clear selection when switching pipelines
   useEffect(() => {
     setSelectedNodeId(null);
@@ -383,7 +396,11 @@ export default function PipelineScreen() {
         <Sidebar onAddNode={handleAddNodeFromSidebar} />
         <main
           className="flex-1 min-w-0 overflow-hidden"
-          style={{ backgroundColor: "var(--canvas-bg)" }}
+          style={{
+            backgroundColor: "var(--canvas-bg)",
+            opacity: transitioning ? 0 : 1,
+            transition: "opacity 150ms ease-out",
+          }}
         >
           <Canvas
             pipelineId={pipelineId}
