@@ -316,6 +316,18 @@ export default function PipelineScreen() {
     setRenameRequested(false);
   }, []);
 
+  const handleDuplicateNode = useCallback(
+    (nodeId: string) => {
+      const node = pipeline?.nodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      addNodeMutation.mutate({
+        type: node.type,
+        position: { x: node.position.x + 50, y: node.position.y + 50 },
+      });
+    },
+    [pipeline, addNodeMutation],
+  );
+
   // ── Loading state ─────────────────────────────────────────────
   if (!id) return null;
 
@@ -400,6 +412,7 @@ export default function PipelineScreen() {
             onNodeSelect={handleNodeSelect}
             onTabClick={handleTabClick}
             onRenameNode={handleRenameFromContextMenu}
+            onDuplicateNode={handleDuplicateNode}
           />
         </main>
         <RightPanel

@@ -68,6 +68,7 @@ interface CanvasProps {
   onNodeSelect?: (nodeId: string | null) => void;
   onTabClick?: (nodeId: string, tab: string) => void;
   onRenameNode?: (nodeId: string) => void;
+  onDuplicateNode?: (nodeId: string) => void;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ function CanvasInner({
   onNodeSelect,
   onTabClick,
   onRenameNode,
+  onDuplicateNode,
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
@@ -521,6 +523,7 @@ function CanvasInner({
           nodeId={nodeMenu.nodeId}
           onRunFrom={onRunFrom}
           onRename={(nodeId) => onRenameNode?.(nodeId)}
+          onDuplicate={(nodeId) => onDuplicateNode?.(nodeId)}
           onDelete={handleDeleteNodeWithUndo}
           onClose={closeMenus}
         />
