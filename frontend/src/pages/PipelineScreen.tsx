@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
-import type { NodeDefinition } from "../lib/types";
+import type { AddNodeRequest, NodeDefinition } from "../lib/types";
 import { useExecutionSocket } from "../hooks/useExecutionSocket";
 import { useExecutionStore } from "../store/executionStore";
 import Topbar from "../components/Topbar/Topbar";
@@ -150,17 +150,7 @@ export default function PipelineScreen() {
   });
 
   const addNodeMutation = useMutation({
-    mutationFn: ({
-      type,
-      position,
-      params,
-      code,
-    }: {
-      type: string;
-      position: { x: number; y: number };
-      params?: Record<string, unknown>;
-      code?: string;
-    }) => api.addNode(pipelineId, { type, position, params, code }),
+    mutationFn: (body: AddNodeRequest) => api.addNode(pipelineId, body),
     onSuccess: invalidate,
   });
 
@@ -324,11 +314,14 @@ export default function PipelineScreen() {
     (nodeId: string) => {
       const node = pipeline?.nodes.find((n) => n.id === nodeId);
       if (!node) return;
+      const def = nodeDefinitions[node.type];
+      const baseName = node.name || def?.label || node.type;
       addNodeMutation.mutate({
         type: node.type,
         position: { x: node.position.x + 50, y: node.position.y + 50 },
-        params: node.params as unknown as Record<string, unknown>,
+        params: node.params,
         code: node.code,
+        name: `${baseName} (copy)`,
       });
     },
     [pipeline, addNodeMutation],
