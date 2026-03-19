@@ -412,10 +412,10 @@ export default function PipelineScreen() {
     <div className="flex flex-col h-screen">
       <Topbar
         pipelineId={pipelineId}
-        onViewRun={(runId) => {
+        onViewRun={selectedNodeId ? (runId) => {
           setRequestedTab("output");
           setRequestedRunId(runId);
-        }}
+        } : undefined}
       />
       <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">

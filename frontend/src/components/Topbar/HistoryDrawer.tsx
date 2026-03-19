@@ -108,20 +108,19 @@ export default function HistoryDrawer({
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {onViewRun && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-[var(--text-muted)]"
-                        onClick={() => {
-                          onViewRun(run.id);
-                          onClose();
-                        }}
-                        title="View run output"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-[var(--text-muted)]"
+                      disabled={!onViewRun}
+                      onClick={() => {
+                        onViewRun?.(run.id);
+                        onClose();
+                      }}
+                      title={onViewRun ? "View run output" : "Select a node first"}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
