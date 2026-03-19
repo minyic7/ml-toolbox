@@ -25,6 +25,8 @@ interface RightPanelProps {
   onRunFrom: (nodeId: string) => void;
   renameRequested?: boolean;
   onRenameHandled?: () => void;
+  requestedRunId?: string | null;
+  onRequestedRunHandled?: () => void;
 }
 
 const TABS: { key: Tab; label: string }[] = [
@@ -49,6 +51,8 @@ export function RightPanel({
   onRunFrom,
   renameRequested,
   onRenameHandled,
+  requestedRunId,
+  onRequestedRunHandled,
 }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("params");
   const [isEditing, setIsEditing] = useState(false);
@@ -230,7 +234,12 @@ export function RightPanel({
               />
             )}
             {activeTab === "output" && (
-              <OutputTab pipelineId={pipelineId} nodeId={node.id} />
+              <OutputTab
+                pipelineId={pipelineId}
+                nodeId={node.id}
+                requestedRunId={requestedRunId}
+                onRequestedRunHandled={onRequestedRunHandled}
+              />
             )}
           </div>
         </>
