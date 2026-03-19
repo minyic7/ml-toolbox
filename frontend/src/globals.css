@@ -125,7 +125,7 @@ body {
 }
 
 /* ── PortDot normal hover scale ──────────────── */
-.react-flow__handle:hover {
+.node-card .react-flow__handle:hover {
   transform: scale(1.4);
   transition: transform 0.15s ease;
 }
