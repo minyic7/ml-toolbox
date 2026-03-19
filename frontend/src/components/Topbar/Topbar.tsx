@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Menu, Clock, Settings } from "lucide-react";
+import { toast } from "sonner";
 import PipelineNameInput from "./PipelineNameInput";
 import RunButton from "./RunButton";
 import AutoSaveIndicator from "./AutoSaveIndicator";
@@ -264,7 +265,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}
           settings={pipeline.settings}
-          onUpdate={(patch) => settingsMutation.mutate(patch)}
+          onUpdate={(patch) => settingsMutation.mutate(patch, { onError: () => toast.error("Failed to save settings") })}
         />
       )}
 
@@ -272,7 +273,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
         runs={runs}
-        onDeleteRun={(runId) => deleteRunMutation.mutate(runId)}
+        onDeleteRun={(runId) => deleteRunMutation.mutate(runId, { onError: () => toast.error("Failed to delete run") })}
         onViewRun={onViewRun}
       />
 
@@ -282,7 +283,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
         pipelines={pipelines}
         currentPipelineId={pipelineId}
         onSelect={(id) => navigate(`/pipeline/${id}`)}
-        onCreate={() => createMutation.mutate()}
+        onCreate={() => createMutation.mutate(undefined, { onError: () => toast.error("Failed to create pipeline") })}
       />
     </header>
   );

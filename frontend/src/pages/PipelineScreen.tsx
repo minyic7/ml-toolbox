@@ -196,7 +196,7 @@ export default function PipelineScreen() {
   // ── Handlers ──────────────────────────────────────────────────
   const handleNodePositionChange = useCallback(
     (nodeId: string, position: { x: number; y: number }) => {
-      patchNodePosition.mutate({ nodeId, position });
+      patchNodePosition.mutate({ nodeId, position }, { onError: () => toast.error("Failed to save position") });
     },
     [patchNodePosition],
   );
@@ -219,43 +219,43 @@ export default function PipelineScreen() {
   );
 
   const handleDeleteNode = useCallback(
-    (nodeId: string) => deleteNodeMutation.mutate(nodeId),
+    (nodeId: string) => deleteNodeMutation.mutate(nodeId, { onError: () => toast.error("Failed to delete node") }),
     [deleteNodeMutation],
   );
 
   const handleDeleteEdge = useCallback(
-    (edgeId: string) => deleteEdgeMutation.mutate(edgeId),
+    (edgeId: string) => deleteEdgeMutation.mutate(edgeId, { onError: () => toast.error("Failed to delete edge") }),
     [deleteEdgeMutation],
   );
 
   const handlePatchEdge = useCallback(
     (edgeId: string, condition: string) => {
-      patchEdgeMutation.mutate({
-        edgeId,
-        body: { condition: condition || undefined },
-      });
+      patchEdgeMutation.mutate(
+        { edgeId, body: { condition: condition || undefined } },
+        { onError: () => toast.error("Failed to save condition") },
+      );
     },
     [patchEdgeMutation],
   );
 
   const handleDropNode = useCallback(
     (type: string, position: { x: number; y: number }) => {
-      addNodeMutation.mutate({ type, position });
+      addNodeMutation.mutate({ type, position }, { onError: () => toast.error("Failed to add node") });
     },
     [addNodeMutation],
   );
 
   const handleRunFrom = useCallback(
-    (nodeId: string) => runFromMutation.mutate(nodeId),
+    (nodeId: string) => runFromMutation.mutate(nodeId, { onError: () => toast.error("Failed to run") }),
     [runFromMutation],
   );
 
   const handleAddNodeFromSidebar = useCallback(
     (nodeType: string) => {
-      addNodeMutation.mutate({
-        type: nodeType,
-        position: { x: 250, y: 150 },
-      });
+      addNodeMutation.mutate(
+        { type: nodeType, position: { x: 250, y: 150 } },
+        { onError: () => toast.error("Failed to add node") },
+      );
     },
     [addNodeMutation],
   );
