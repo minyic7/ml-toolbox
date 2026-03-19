@@ -67,7 +67,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
           </Label>
           <Select
             value={String(value ?? param.default ?? "")}
-            onValueChange={(v) => debouncedOnChange(param.name, v)}
+            onValueChange={(v) => onChange(param.name, v)}
             disabled={disabled}
           >
             <SelectTrigger className="h-8 text-sm">
