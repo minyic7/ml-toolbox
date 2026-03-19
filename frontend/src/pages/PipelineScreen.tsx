@@ -20,6 +20,7 @@ export default function PipelineScreen() {
   const {
     data: pipeline,
     isLoading,
+    isFetching,
     error,
   } = useQuery({
     queryKey: ["pipeline", pipelineId],
@@ -61,18 +62,25 @@ export default function PipelineScreen() {
     }
   }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId]);
 
-  // Pipeline switch transition: fade out → fade in
-  const [transitioning, setTransitioning] = useState(false);
+  // Pipeline switch transition: show skeleton while fetching new pipeline
   const prevPipelineIdRef = useRef(pipelineId);
+  const [switched, setSwitched] = useState(false);
 
   useEffect(() => {
     if (prevPipelineIdRef.current !== pipelineId) {
-      setTransitioning(true);
+      setSwitched(true);
       prevPipelineIdRef.current = pipelineId;
-      const timer = setTimeout(() => setTransitioning(false), 150);
-      return () => clearTimeout(timer);
     }
   }, [pipelineId]);
+
+  // Clear switched flag once new data arrives
+  useEffect(() => {
+    if (switched && !isFetching) {
+      setSwitched(false);
+    }
+  }, [switched, isFetching]);
+
+  const showSkeleton = switched && isFetching;
 
   // Clear selection when switching pipelines
   useEffect(() => {
@@ -398,29 +406,52 @@ export default function PipelineScreen() {
           className="flex-1 min-w-0 overflow-hidden relative"
           style={{ backgroundColor: "var(--canvas-bg)" }}
         >
-          {transitioning && (
+          {showSkeleton && (
             <div
-              className="absolute inset-0 flex items-center justify-center gap-6"
+              className="absolute inset-0"
               style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
             >
-              {[0, 1, 2].map((i) => (
+              {/* Skeleton node cards scattered like a real canvas */}
+              {[
+                { x: "15%", y: "20%", w: 232, h: 100 },
+                { x: "45%", y: "15%", w: 232, h: 120 },
+                { x: "30%", y: "55%", w: 232, h: 90 },
+              ].map((s, i) => (
                 <div
                   key={i}
-                  className="animate-pulse"
+                  className="animate-pulse absolute"
                   style={{
-                    width: 180,
-                    height: 80,
+                    left: s.x,
+                    top: s.y,
+                    width: s.w,
+                    height: s.h,
                     borderRadius: 8,
-                    background: "var(--border-default)",
-                    opacity: 0.3,
+                    border: "1px solid var(--border-default)",
+                    background: "var(--node-bg)",
+                    opacity: 0.5,
                   }}
-                />
+                >
+                  <div
+                    style={{
+                      height: 3,
+                      margin: "0 8px",
+                      borderRadius: "0 0 2px 2px",
+                      background: "var(--border-default)",
+                      opacity: 0.5,
+                    }}
+                  />
+                </div>
               ))}
+              {/* Skeleton edge lines */}
+              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.2 }}>
+                <line x1="calc(15% + 232px)" y1="calc(20% + 50px)" x2="45%" y2="calc(15% + 60px)" stroke="var(--border-default)" strokeWidth="2" />
+                <line x1="calc(45% + 116px)" y1="calc(15% + 120px)" x2="calc(30% + 116px)" y2="55%" stroke="var(--border-default)" strokeWidth="2" />
+              </svg>
             </div>
           )}
           <div
             style={{
-              opacity: transitioning ? 0 : 1,
+              opacity: showSkeleton ? 0 : 1,
               transition: "opacity 150ms ease-out",
               height: "100%",
             }}
