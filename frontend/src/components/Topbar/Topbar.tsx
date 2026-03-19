@@ -185,7 +185,14 @@ export default function Topbar({ pipelineId }: TopbarProps) {
         {currentNodeLabel && (
           <span
             className="flex items-center gap-1.5 text-xs"
-            style={{ color: "var(--accent-blue)" }}
+            style={{
+              color: "var(--accent-blue)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "20ch",
+            }}
+            title={`Running: ${currentNodeLabel}`}
           >
             <span
               className="status-dot-pulse"
@@ -195,6 +202,7 @@ export default function Topbar({ pipelineId }: TopbarProps) {
                 height: 6,
                 borderRadius: "50%",
                 background: "var(--accent-blue)",
+                flexShrink: 0,
               }}
             />
             Running… {currentNodeLabel}
