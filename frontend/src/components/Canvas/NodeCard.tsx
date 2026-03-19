@@ -239,6 +239,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
               style={{ display: "flex", alignItems: "center", gap: 4 }}
             >
               <span
+                title={p.name}
                 style={{
                   fontSize: 11,
                   color: "var(--text-muted)",
@@ -270,6 +271,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             >
               <TypeBadge type={p.type} />
               <span
+                title={p.name}
                 style={{
                   fontSize: 11,
                   color: "var(--text-muted)",
