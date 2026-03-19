@@ -2,7 +2,8 @@ import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import type { NodeCardData } from "../../lib/rfAdapters";
 import type { NodeStatus } from "../../lib/types";
-import { CATEGORY_ACCENT_COLORS } from "../../lib/portColors";
+import { CATEGORY_ACCENT_COLORS, PORT_COLORS } from "../../lib/portColors";
+import type { PortType } from "../../lib/types";
 import PortDot from "./PortDot";
 
 // ── Status config ──────────────────────────────────────────────────
@@ -40,7 +41,7 @@ const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
   done: "#639922",
   error: "#E24B4A",
   skipped: "#BA7517",
-  cached: "#BA7517",
+  cached: "#639922",
 };
 
 // ── Tab bar types ──────────────────────────────────────────────────
@@ -53,10 +54,34 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "output", label: "Output" },
 ];
 
+// ── TypeBadge ──────────────────────────────────────────────────────
+
+function TypeBadge({ type }: { type: PortType }) {
+  const color = PORT_COLORS[type];
+  return (
+    <span
+      title={`Port type: ${type}`}
+      style={{
+        fontSize: 9,
+        fontWeight: 500,
+        textTransform: "uppercase",
+        color,
+        background: `${color}26`,
+        padding: "1px 4px",
+        borderRadius: 6,
+        lineHeight: "normal",
+        flexShrink: 0,
+      }}
+    >
+      {type}
+    </span>
+  );
+}
+
 // ── NodeCard ───────────────────────────────────────────────────────
 
 function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
-  const { label, category, status, inputs, outputs, onTabClick } = data;
+  const { label, type: nodeType, category, status, inputs, outputs, onTabClick } = data;
   const isError = status === "error";
   const isCached = status === "cached";
   const isRunning = status === "running";
@@ -134,7 +159,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       {/* Header */}
       <div
         style={{
-          padding: "12px 12px 8px",
+          padding: "12px 12px 4px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -181,9 +206,21 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
               borderRadius: "50%",
               background: STATUS_DOT_COLORS[status],
               flexShrink: 0,
+              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px #639922` : undefined,
             }}
           />
         </span>
+      </div>
+
+      {/* Node type subline */}
+      <div
+        style={{
+          padding: "0 12px 6px",
+          fontSize: 10,
+          color: "var(--text-muted)",
+        }}
+      >
+        {category} &middot; {nodeType.includes("/") ? nodeType.split("/").pop() : nodeType}
       </div>
 
       {/* Port labels */}
@@ -195,33 +232,59 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
           gap: 8,
         }}
       >
-        {/* Input labels */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {/* Input labels: [Name] [TypeBadge] */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {inputs.map((p) => (
-            <span
+            <div
               key={p.name}
-              style={{ fontSize: 11, color: "var(--text-muted)" }}
+              style={{ display: "flex", alignItems: "center", gap: 4 }}
             >
-              {p.name}
-            </span>
+              <span
+                title={p.name}
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "8ch",
+                }}
+              >
+                {p.name}
+              </span>
+              <TypeBadge type={p.type} />
+            </div>
           ))}
         </div>
-        {/* Output labels */}
+        {/* Output labels: [TypeBadge] [Name] */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 2,
-            textAlign: "right",
+            gap: 3,
+            alignItems: "flex-end",
           }}
         >
           {outputs.map((p) => (
-            <span
+            <div
               key={p.name}
-              style={{ fontSize: 11, color: "var(--text-muted)" }}
+              style={{ display: "flex", alignItems: "center", gap: 4 }}
             >
-              {p.name}
-            </span>
+              <TypeBadge type={p.type} />
+              <span
+                title={p.name}
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "8ch",
+                }}
+              >
+                {p.name}
+              </span>
+            </div>
           ))}
         </div>
       </div>
@@ -235,9 +298,29 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             color: "var(--error-red)",
             background: "rgba(226,75,74,0.08)",
             borderTop: "1px solid rgba(226,75,74,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 4,
+            cursor: "pointer",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTabClick?.(id, "output");
           }}
         >
-          Error — click to view
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Error
+          </span>
+          <span
+            style={{ flexShrink: 0, cursor: "pointer", textDecoration: "underline" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTabClick?.(id, "code");
+            }}
+          >
+            Open Code
+          </span>
         </div>
       )}
 
@@ -252,7 +335,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             borderTop: "1px solid rgba(99,153,34,0.15)",
           }}
         >
-          Cached
+          ↩ using cached output
         </div>
       )}
 
