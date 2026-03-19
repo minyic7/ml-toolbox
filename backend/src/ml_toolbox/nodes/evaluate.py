@@ -117,3 +117,34 @@ def regression(inputs: dict, params: dict) -> dict:
     metrics_path.write_text(json.dumps(metrics))
 
     return {"metrics": str(metrics_path)}
+
+
+@node(
+    inputs={"model": PortType.MODEL, "train": PortType.TABLE},
+    outputs={"importances": PortType.ARRAY},
+    label="Feature Importance",
+    category="Evaluate",
+    description="Extract feature importances from a trained model as a numpy array.",
+)
+def feature_importance(inputs: dict, params: dict) -> dict:
+    """Extract feature importances from a trained model as a numpy array."""
+    import joblib
+    import numpy as np
+    import polars as pl
+
+    model = joblib.load(inputs["model"])
+    df = pl.read_parquet(inputs["train"])
+    n_features = len(df.columns)
+
+    if hasattr(model, "feature_importances_"):
+        importances = np.asarray(model.feature_importances_)
+    elif hasattr(model, "coef_"):
+        coef = np.asarray(model.coef_)
+        importances = np.abs(coef).mean(axis=0) if coef.ndim > 1 else np.abs(coef)
+    else:
+        importances = np.zeros(n_features)
+
+    output_path = _get_output_path("importances", ".npy")
+    np.save(output_path, importances)
+
+    return {"importances": str(output_path)}
