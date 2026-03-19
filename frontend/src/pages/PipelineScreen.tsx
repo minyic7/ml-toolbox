@@ -500,6 +500,7 @@ export default function PipelineScreen() {
           node={selectedNode}
           definition={selectedDefinition}
           onParamChange={handleParamChange}
+          paramSaving={patchNodeMutation.isPending}
           onCodeChange={handleCodeChange}
           onCodeSave={handleCodeSave}
           onClose={handleClosePanel}

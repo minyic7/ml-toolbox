@@ -14,6 +14,7 @@ interface RightPanelProps {
   node: NodeInstance | null;
   definition: NodeDefinition | null;
   onParamChange: (nodeId: string, name: string, value: unknown) => void;
+  paramSaving?: boolean;
   onCodeChange: (nodeId: string, code: string) => void;
   onCodeSave: (nodeId: string, code: string) => void;
   onClose: () => void;
@@ -36,6 +37,7 @@ export function RightPanel({
   node,
   definition,
   onParamChange,
+  paramSaving,
   onCodeChange,
   onCodeSave,
   onClose,
@@ -213,6 +215,7 @@ export function RightPanel({
                 params={definition.params}
                 values={buildParamValues(node)}
                 onChange={(name, value) => onParamChange(node.id, name, value)}
+                disabled={paramSaving}
               />
             )}
             {activeTab === "code" && (
