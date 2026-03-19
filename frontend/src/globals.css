@@ -104,6 +104,15 @@
   animation: status-dot-fade 2s ease-in-out infinite;
 }
 
+/* ── Port drag visual feedback ──────────────────────── */
+.port-dot-match:hover {
+  transform: scale(1.3);
+}
+
+.port-dot-mismatch {
+  cursor: not-allowed !important;
+}
+
 body {
   margin: 0;
   font-family:
