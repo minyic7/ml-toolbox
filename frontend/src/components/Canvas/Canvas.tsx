@@ -62,6 +62,7 @@ interface CanvasProps {
   }) => void;
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
+  onPatchEdge: (edgeId: string, condition: string) => void;
   onDropNode: (type: string, position: { x: number; y: number }) => void;
   onRunFrom: (nodeId: string) => void;
   onNodeSelect?: (nodeId: string | null) => void;
@@ -124,6 +125,7 @@ function CanvasInner({
   onConnect: onConnectProp,
   onDeleteNode,
   onDeleteEdge,
+  onPatchEdge,
   onDropNode,
   onRunFrom,
   onNodeSelect,
@@ -170,8 +172,8 @@ function CanvasInner({
   );
 
   const rfEdgesFromProps = useMemo(
-    () => pipelineEdges.map((e) => toRFEdge(e, handleDeleteEdgeWithUndo)),
-    [pipelineEdges, handleDeleteEdgeWithUndo],
+    () => pipelineEdges.map((e) => toRFEdge(e, handleDeleteEdgeWithUndo, onPatchEdge)),
+    [pipelineEdges, handleDeleteEdgeWithUndo, onPatchEdge],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>(rfNodesFromProps);
