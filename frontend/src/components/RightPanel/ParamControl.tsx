@@ -27,22 +27,27 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
     setTextError(false);
   }, [value, param.default]);
 
-  // Debounce helper for select/text
+  // Debounce helper for select/text — flushes pending change on unmount
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<(() => void) | null>(null);
   const debouncedOnChange = useCallback(
     (name: string, val: unknown) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      const commit = () => onChange(name, val);
+      pendingRef.current = commit;
       debounceRef.current = setTimeout(() => {
-        onChange(name, val);
+        commit();
+        pendingRef.current = null;
       }, 500);
     },
     [onChange],
   );
 
-  // Cleanup debounce on unmount
+  // Flush pending debounce on unmount (don't lose user input)
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      pendingRef.current?.();
     };
   }, []);
 
