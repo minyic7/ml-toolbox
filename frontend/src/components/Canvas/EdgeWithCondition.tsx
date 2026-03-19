@@ -173,6 +173,26 @@ export default function EdgeWithCondition({
           </button>
         </EdgeLabelRenderer>
       )}
+      {/* "+ Condition" button on hover when no condition exists */}
+      {hovered && !condition && !editing && onPatchEdge && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            onClick={startEditing}
+            style={{
+              ...conditionLabelStyle,
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 11,
+              fontFamily: "inherit",
+              lineHeight: "normal",
+            }}
+            className="nodrag nopan"
+          >
+            + Condition
+          </button>
+        </EdgeLabelRenderer>
+      )}
       {/* Condition label — click to edit */}
       {(condition || editing) && (
         <EdgeLabelRenderer>
