@@ -136,6 +136,32 @@ function CanvasInner({
   const [undoToast, setUndoToast] = useState<UndoToastData | null>(null);
   const dismissToast = useCallback(() => setUndoToast(null), []);
 
+  // ── Edge delete with undo (needed before edge conversion) ────
+  const handleDeleteEdgeWithUndo = useCallback(
+    (edgeId: string) => {
+      const edge = pipelineEdges.find((e) => e.id === edgeId);
+      onDeleteEdge(edgeId);
+      if (!edge) return;
+
+      const snapshot = {
+        source: edge.source,
+        source_port: edge.source_port,
+        target: edge.target,
+        target_port: edge.target_port,
+      };
+
+      setUndoToast({
+        message: "Edge deleted",
+        onUndo: () => {
+          addEdge(pipelineId, snapshot).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          });
+        },
+      });
+    },
+    [pipelineId, pipelineEdges, onDeleteEdge, queryClient],
+  );
+
   // ── Derive React Flow nodes/edges from props ───────────────────
   const rfNodesFromProps = useMemo(
     () =>
@@ -144,8 +170,8 @@ function CanvasInner({
   );
 
   const rfEdgesFromProps = useMemo(
-    () => pipelineEdges.map(toRFEdge),
-    [pipelineEdges],
+    () => pipelineEdges.map((e) => toRFEdge(e, handleDeleteEdgeWithUndo)),
+    [pipelineEdges, handleDeleteEdgeWithUndo],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>(rfNodesFromProps);
@@ -285,31 +311,6 @@ function CanvasInner({
       });
     },
     [pipelineId, pipelineNodes, onDeleteNode, queryClient],
-  );
-
-  const handleDeleteEdgeWithUndo = useCallback(
-    (edgeId: string) => {
-      const edge = pipelineEdges.find((e) => e.id === edgeId);
-      onDeleteEdge(edgeId);
-      if (!edge) return;
-
-      const snapshot = {
-        source: edge.source,
-        source_port: edge.source_port,
-        target: edge.target,
-        target_port: edge.target_port,
-      };
-
-      setUndoToast({
-        message: "Edge deleted",
-        onUndo: () => {
-          addEdge(pipelineId, snapshot).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
-          });
-        },
-      });
-    },
-    [pipelineId, pipelineEdges, onDeleteEdge, queryClient],
   );
 
   const handleDelete = useCallback(
