@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { OutputPreview } from "../../lib/types";
 import { PORT_COLORS } from "../../lib/portColors";
 import { useOutput, useRuns } from "../../hooks/useOutputs";
@@ -20,12 +20,21 @@ import { ErrorTraceback } from "./ErrorTraceback";
 interface OutputTabProps {
   pipelineId: string;
   nodeId: string;
+  requestedRunId?: string | null;
+  onRequestedRunHandled?: () => void;
 }
 
-export function OutputTab({ pipelineId, nodeId }: OutputTabProps) {
+export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHandled }: OutputTabProps) {
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(
     undefined,
   );
+
+  useEffect(() => {
+    if (requestedRunId) {
+      setSelectedRunId(requestedRunId);
+      onRequestedRunHandled?.();
+    }
+  }, [requestedRunId, onRequestedRunHandled]);
 
   const { data: runs } = useRuns(pipelineId);
   const { data: output = null } = useOutput(pipelineId, nodeId, selectedRunId);

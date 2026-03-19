@@ -149,6 +149,8 @@ export default function HistoryDrawer({
                   const completed = runs.filter(
                     (r) => r.status === "done" || r.status === "error",
                   );
+                  if (completed.length === 0) return;
+                  if (!window.confirm(`Clear ${completed.length} completed run(s)?`)) return;
                   for (const r of completed) {
                     onDeleteRun(r.id);
                   }

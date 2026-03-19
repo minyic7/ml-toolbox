@@ -47,6 +47,7 @@ export default function PipelineScreen() {
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
+  const [requestedRunId, setRequestedRunId] = useState<string | null>(null);
 
   // Auto-switch to Output tab when selected node completes (done/error)
   const lastDoneNodeId = useExecutionStore((s) => s.lastDoneNodeId);
@@ -411,7 +412,10 @@ export default function PipelineScreen() {
     <div className="flex flex-col h-screen">
       <Topbar
         pipelineId={pipelineId}
-        onViewRun={() => setRequestedTab("output")}
+        onViewRun={(runId) => {
+          setRequestedTab("output");
+          setRequestedRunId(runId);
+        }}
       />
       <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">
@@ -503,6 +507,8 @@ export default function PipelineScreen() {
           onRunFrom={handleRunFrom}
           renameRequested={renameRequested}
           onRenameHandled={handleRenameHandled}
+          requestedRunId={requestedRunId}
+          onRequestedRunHandled={() => setRequestedRunId(null)}
         />
       </div>
     </div>
