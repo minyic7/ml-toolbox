@@ -11,6 +11,9 @@ dependencies = [
     "docker>=7",
     "pydantic>=2",
     "uvicorn>=0.34",
+    "joblib>=1.4",
+    "scikit-learn>=1.6",
+    "xgboost>=2.1",
 ]
 
 [dependency-groups]

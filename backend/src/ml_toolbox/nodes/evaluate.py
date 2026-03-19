@@ -57,9 +57,9 @@ def classification(inputs: dict, params: dict) -> dict:
 
     metrics: dict = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
-        "recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
-        "f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
+        "precision": float(precision_score(y_true, y_pred, average="macro", zero_division="warn")),
+        "recall": float(recall_score(y_true, y_pred, average="macro", zero_division="warn")),
+        "f1": float(f1_score(y_true, y_pred, average="macro", zero_division="warn")),
         "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
     }
 
