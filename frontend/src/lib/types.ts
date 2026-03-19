@@ -130,7 +130,9 @@ export interface CreatePipelineRequest {
 export interface AddNodeRequest {
   type: string;
   position: { x: number; y: number };
-  params?: Record<string, unknown>;
+  params?: ParamDefinition[] | Record<string, unknown>;
+  code?: string;
+  name?: string;
 }
 
 export interface PatchNodeRequest {

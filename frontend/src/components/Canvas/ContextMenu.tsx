@@ -7,6 +7,7 @@ interface ContextMenuProps {
   nodeId: string;
   onRunFrom: (nodeId: string) => void;
   onRename: (nodeId: string) => void;
+  onDuplicate: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
   onClose: () => void;
 }
@@ -17,6 +18,7 @@ export default function ContextMenu({
   nodeId,
   onRunFrom,
   onRename,
+  onDuplicate,
   onDelete,
   onClose,
 }: ContextMenuProps) {
@@ -48,6 +50,16 @@ export default function ContextMenu({
           }}
         >
           Rename
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+          onClick={() => {
+            onDuplicate(nodeId);
+            onClose();
+          }}
+        >
+          Duplicate
         </Button>
         <Separator className="my-1" />
         <Button

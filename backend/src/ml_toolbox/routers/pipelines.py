@@ -51,6 +51,8 @@ class AddNodeRequest(BaseModel):
     type: str
     position: Position
     params: dict[str, Any] | None = None
+    code: str | None = None
+    name: str | None = None
 
 
 class UpdateNodeRequest(BaseModel):
@@ -222,15 +224,17 @@ async def add_node(pipeline_id: str, body: AddNodeRequest) -> dict:
     template = NODE_REGISTRY[body.type]
     node_id = uuid.uuid4().hex
 
-    node = {
+    node: dict[str, Any] = {
         "id": node_id,
         "type": body.type,
         "position": body.position.model_dump(),
         "params": body.params if body.params is not None else list(template["params"]),
-        "code": template["default_code"],
+        "code": body.code if body.code is not None else template["default_code"],
         "inputs": list(template["inputs"]),
         "outputs": list(template["outputs"]),
     }
+    if body.name:
+        node["name"] = body.name
 
     data["nodes"].append(node)
     store.save(pipeline_id, data)
