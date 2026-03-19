@@ -8,6 +8,7 @@ import { useOutput } from "../hooks/useOutputs";
 import Topbar from "../components/Topbar/Topbar";
 import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
+import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
 
 export default function PipelineScreen() {
@@ -318,6 +319,7 @@ export default function PipelineScreen() {
   return (
     <div className="flex flex-col h-screen">
       <Topbar pipelineId={pipelineId} />
+      <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">
         <Sidebar onAddNode={handleAddNodeFromSidebar} />
         <main

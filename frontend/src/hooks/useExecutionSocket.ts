@@ -33,6 +33,7 @@ export function useExecutionSocket(pipelineId: string | undefined) {
 
       ws.onopen = () => {
         backoffRef.current = 1000; // reset on successful connect
+        useExecutionStore.getState().setWsStatus("connected");
       };
 
       ws.onmessage = (event) => {
@@ -75,7 +76,11 @@ export function useExecutionSocket(pipelineId: string | undefined) {
 
       ws.onclose = () => {
         wsRef.current = null;
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) {
+          useExecutionStore.getState().setWsStatus("disconnected");
+          return;
+        }
+        useExecutionStore.getState().setWsStatus("reconnecting");
         const delay = Math.min(backoffRef.current, MAX_BACKOFF);
         backoffRef.current = delay * 2;
         setTimeout(connect, delay);
