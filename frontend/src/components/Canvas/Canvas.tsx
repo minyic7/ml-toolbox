@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ReactFlow,
   Background,
@@ -35,11 +36,13 @@ import { toRFNode, toRFEdge } from "../../lib/rfAdapters";
 import { PORT_COLORS } from "../../lib/portColors";
 import { useExecutionStore } from "../../store/executionStore";
 
+import { addNode, addEdge } from "../../lib/api";
 import NodeCard from "./NodeCard";
 import EdgeWithCondition from "./EdgeWithCondition";
 import ContextMenu from "./ContextMenu";
 import CanvasContextMenu from "./CanvasContextMenu";
 import ShortcutModal from "./ShortcutModal";
+import UndoToast, { type UndoToastData } from "./UndoToast";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -113,6 +116,7 @@ function EmptyState() {
 // ── Inner Canvas (needs ReactFlow context) ─────────────────────────
 
 function CanvasInner({
+  pipelineId,
   pipelineNodes,
   pipelineEdges,
   nodeDefinitions,
@@ -126,6 +130,11 @@ function CanvasInner({
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+  const queryClient = useQueryClient();
+
+  // ── Undo toast state ──────────────────────────────────────────
+  const [undoToast, setUndoToast] = useState<UndoToastData | null>(null);
+  const dismissToast = useCallback(() => setUndoToast(null), []);
 
   // ── Derive React Flow nodes/edges from props ───────────────────
   const rfNodesFromProps = useMemo(
@@ -254,16 +263,65 @@ function CanvasInner({
     [onEdgesChange],
   );
 
+  const handleDeleteNodeWithUndo = useCallback(
+    (nodeId: string) => {
+      const node = pipelineNodes.find((n) => n.id === nodeId);
+      onDeleteNode(nodeId);
+      if (!node) return;
+
+      const snapshot = {
+        type: node.type,
+        position: { ...node.position },
+        params: Object.fromEntries(node.params.map((p) => [p.name, p.default])),
+      };
+
+      setUndoToast({
+        message: "Node deleted (edges removed)",
+        onUndo: () => {
+          addNode(pipelineId, snapshot).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          });
+        },
+      });
+    },
+    [pipelineId, pipelineNodes, onDeleteNode, queryClient],
+  );
+
+  const handleDeleteEdgeWithUndo = useCallback(
+    (edgeId: string) => {
+      const edge = pipelineEdges.find((e) => e.id === edgeId);
+      onDeleteEdge(edgeId);
+      if (!edge) return;
+
+      const snapshot = {
+        source: edge.source,
+        source_port: edge.source_port,
+        target: edge.target,
+        target_port: edge.target_port,
+      };
+
+      setUndoToast({
+        message: "Edge deleted",
+        onUndo: () => {
+          addEdge(pipelineId, snapshot).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          });
+        },
+      });
+    },
+    [pipelineId, pipelineEdges, onDeleteEdge, queryClient],
+  );
+
   const handleDelete = useCallback(
     (deletedNodes: RFNode[], deletedEdges: RFEdge[]) => {
       for (const node of deletedNodes) {
-        onDeleteNode(node.id);
+        handleDeleteNodeWithUndo(node.id);
       }
       for (const edge of deletedEdges) {
-        onDeleteEdge(edge.id);
+        handleDeleteEdgeWithUndo(edge.id);
       }
     },
-    [onDeleteNode, onDeleteEdge],
+    [handleDeleteNodeWithUndo, handleDeleteEdgeWithUndo],
   );
 
   // ── Drop zone ──────────────────────────────────────────────────
@@ -438,7 +496,7 @@ function CanvasInner({
           y={nodeMenu.y}
           nodeId={nodeMenu.nodeId}
           onRunFrom={onRunFrom}
-          onDelete={onDeleteNode}
+          onDelete={handleDeleteNodeWithUndo}
           onClose={closeMenus}
         />
       )}
@@ -456,6 +514,8 @@ function CanvasInner({
         open={shortcutModalOpen}
         onClose={() => setShortcutModalOpen(false)}
       />
+
+      <UndoToast data={undoToast} onDismiss={dismissToast} />
     </div>
   );
 }
