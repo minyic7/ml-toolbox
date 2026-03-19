@@ -1,22 +1,68 @@
-import Editor from "@monaco-editor/react";
+import { useCallback, useRef, useState } from "react";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import { Copy, Check, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CodeTabProps {
   code: string;
   defaultCode: string | undefined;
   onChange: (code: string) => void;
-  onBlur: () => void;
+  onSave: (code: string) => void;
 }
 
-export function CodeTab({ code, defaultCode, onChange, onBlur }: CodeTabProps) {
+export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
   const readOnly = !defaultCode;
+  const [copied, setCopied] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+
+  const handleCopy = useCallback(async () => {
+    const value = editorRef.current?.getValue() ?? code;
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [code]);
+
+  const handleResetConfirm = useCallback(() => {
+    if (!defaultCode) return;
+    onChange(defaultCode);
+    onSave(defaultCode);
+    setResetOpen(false);
+  }, [defaultCode, onChange, onSave]);
+
+  const handleEditorMount: OnMount = useCallback(
+    (editor) => {
+      editorRef.current = editor;
+
+      // Cmd+S / Ctrl+S save
+      editor.addCommand(
+        // Monaco KeyMod.CtrlCmd | KeyCode.KeyS
+        2048 | 49, // eslint-disable-line no-bitwise
+        () => {
+          const value = editor.getValue();
+          onSave(value);
+        },
+      );
+    },
+    [onSave],
+  );
 
   return (
     <div className="flex h-full flex-col">
-      {readOnly && (
-        <div
-          className="flex items-center gap-1.5 px-4 py-2 text-xs"
-          style={{ color: "var(--text-muted)", backgroundColor: "var(--canvas-bg)" }}
-        >
+      {/* Toolbar */}
+      <div
+        className="flex items-center gap-1.5 px-3 py-1.5"
+        style={{ backgroundColor: "var(--canvas-bg)" }}
+      >
+        {readOnly && (
           <span
             className="rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase"
             style={{
@@ -26,19 +72,64 @@ export function CodeTab({ code, defaultCode, onChange, onBlur }: CodeTabProps) {
           >
             read-only
           </span>
-        </div>
-      )}
-      <div className="min-h-0 flex-1" onBlur={onBlur}>
+        )}
+
+        <div className="flex-1" />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 gap-1 px-2 text-[11px]"
+          style={{ color: "var(--text-secondary)" }}
+          onClick={handleCopy}
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3" style={{ color: "var(--success-green)" }} />
+              <span style={{ color: "var(--success-green)" }}>Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              Copy
+            </>
+          )}
+        </Button>
+
+        {!readOnly && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-[11px]"
+            style={{ color: "var(--text-secondary)" }}
+            onClick={() => setResetOpen(true)}
+          >
+            <RotateCcw className="h-3 w-3" />
+            Reset
+          </Button>
+        )}
+      </div>
+
+      {/* Editor */}
+      <div
+        className="min-h-0 flex-1"
+        onBlur={() => {
+          const value = editorRef.current?.getValue();
+          if (value !== undefined) onSave(value);
+        }}
+      >
         <Editor
           height="100%"
           language="python"
           theme="vs-dark"
           value={code}
           onChange={(v) => onChange(v ?? "")}
+          onMount={handleEditorMount}
           options={{
             readOnly,
             minimap: { enabled: false },
             lineNumbers: "on",
+            fontFamily: "JetBrains Mono, monospace",
             fontSize: 13,
             scrollBeyondLastLine: false,
             automaticLayout: true,
@@ -47,6 +138,26 @@ export function CodeTab({ code, defaultCode, onChange, onBlur }: CodeTabProps) {
           }}
         />
       </div>
+
+      {/* Reset confirmation dialog */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset code to default?</DialogTitle>
+            <DialogDescription>
+              This will replace your current code with the original default. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleResetConfirm}>
+              Reset
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
