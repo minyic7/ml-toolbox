@@ -37,18 +37,23 @@ export function useExecutionSocket(pipelineId: string | undefined) {
         // On reconnect, check if a run finished while we were disconnected
         const store = useExecutionStore.getState();
         if (store.isRunning && pipelineId) {
-          getPipelineStatus(pipelineId).then((status) => {
-            const current = useExecutionStore.getState();
-            if (current.isRunning && !status.is_running) {
-              current.setRunning(false);
-              current.setCurrentNodeId(null);
-              current.setRunResult(null);
-              qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
-              qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
-            }
-          }).catch(() => {
-            // Status check failed — don't change state, WS messages will catch up
-          });
+          const checkStatus = (attempt: number) => {
+            getPipelineStatus(pipelineId).then((status) => {
+              const current = useExecutionStore.getState();
+              if (current.isRunning && !status.is_running) {
+                current.setRunning(false);
+                current.setCurrentNodeId(null);
+                current.setRunResult(null);
+                qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+                qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
+              }
+            }).catch(() => {
+              if (attempt < 2) {
+                setTimeout(() => checkStatus(attempt + 1), 1000);
+              }
+            });
+          };
+          checkStatus(0);
         }
       };
 
