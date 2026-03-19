@@ -149,7 +149,9 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             flex: 1,
+            maxWidth: "22ch",
           }}
+          title={label}
         >
           {label}
         </span>

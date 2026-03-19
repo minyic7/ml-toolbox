@@ -67,6 +67,7 @@ interface CanvasProps {
   onRunFrom: (nodeId: string) => void;
   onNodeSelect?: (nodeId: string | null) => void;
   onTabClick?: (nodeId: string, tab: string) => void;
+  onRenameNode?: (nodeId: string) => void;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -131,6 +132,7 @@ function CanvasInner({
   onRunFrom,
   onNodeSelect,
   onTabClick,
+  onRenameNode,
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
@@ -501,6 +503,7 @@ function CanvasInner({
           y={nodeMenu.y}
           nodeId={nodeMenu.nodeId}
           onRunFrom={onRunFrom}
+          onRename={(nodeId) => onRenameNode?.(nodeId)}
           onDelete={handleDeleteNodeWithUndo}
           onClose={closeMenus}
         />

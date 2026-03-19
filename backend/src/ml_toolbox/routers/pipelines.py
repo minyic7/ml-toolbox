@@ -57,6 +57,7 @@ class UpdateNodeRequest(BaseModel):
     params: dict[str, Any] | None = None
     code: str | None = None
     position: Position | None = None
+    name: str | None = None
 
 
 class AddEdgeRequest(BaseModel):
@@ -270,6 +271,9 @@ async def update_node(pipeline_id: str, node_id: str, body: UpdateNodeRequest) -
         node["code"] = body.code
     if body.position is not None:
         node["position"] = body.position.model_dump()
+    if body.name is not None:
+        # Empty string clears the custom name (reverts to definition label)
+        node["name"] = body.name if body.name else None
 
     store.save(pipeline_id, data)
     return node

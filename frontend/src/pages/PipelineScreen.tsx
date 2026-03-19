@@ -151,7 +151,7 @@ export default function PipelineScreen() {
       body,
     }: {
       nodeId: string;
-      body: { params?: Record<string, unknown>; code?: string };
+      body: { params?: Record<string, unknown>; code?: string; name?: string };
     }) => api.patchNode(pipelineId, nodeId, body),
     onSuccess: invalidate,
   });
@@ -268,6 +268,29 @@ export default function PipelineScreen() {
     setSelectedNodeId(null);
   }, []);
 
+  // ── Rename ─────────────────────────────────────────────────────
+  const [renameRequested, setRenameRequested] = useState(false);
+
+  const handleRename = useCallback(
+    (nodeId: string, name: string) => {
+      patchNodeMutation.mutate({ nodeId, body: { name } });
+    },
+    [patchNodeMutation],
+  );
+
+  const handleRenameFromContextMenu = useCallback(
+    (nodeId: string) => {
+      // Select the node to open the right panel, then trigger rename
+      setSelectedNodeId(nodeId);
+      setRenameRequested(true);
+    },
+    [],
+  );
+
+  const handleRenameHandled = useCallback(() => {
+    setRenameRequested(false);
+  }, []);
+
   // ── Loading state ─────────────────────────────────────────────
   if (!id) return null;
 
@@ -351,6 +374,7 @@ export default function PipelineScreen() {
             onRunFrom={handleRunFrom}
             onNodeSelect={handleNodeSelect}
             onTabClick={handleTabClick}
+            onRenameNode={handleRenameFromContextMenu}
           />
         </main>
         <RightPanel
@@ -363,6 +387,10 @@ export default function PipelineScreen() {
           onClose={handleClosePanel}
           requestedTab={requestedTab}
           onRequestedTabHandled={() => setRequestedTab(null)}
+          onRename={handleRename}
+          onRunFrom={handleRunFrom}
+          renameRequested={renameRequested}
+          onRenameHandled={handleRenameHandled}
         />
       </div>
     </div>
