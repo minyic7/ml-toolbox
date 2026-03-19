@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { RunInfo } from "../../lib/types";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { X, Trash2 } from "lucide-react";
 
 interface HistoryDrawerProps {
   open: boolean;
@@ -38,8 +41,7 @@ export default function HistoryDrawer({
       {/* Drawer */}
       <div
         ref={panelRef}
-        className="fixed top-0 right-0 h-full w-80 z-50 shadow-lg overflow-y-auto"
-        style={{ backgroundColor: "var(--node-bg)" }}
+        className="fixed top-0 right-0 h-full w-80 z-50 shadow-lg overflow-y-auto bg-background"
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -49,17 +51,17 @@ export default function HistoryDrawer({
             >
               Run History
             </h2>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-[var(--text-secondary)]"
               onClick={onClose}
-              className="p-1 rounded hover:bg-black/5 transition-colors"
-              style={{ color: "var(--text-secondary)" }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z" />
-              </svg>
-            </button>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
+
+          <Separator className="mb-4" />
 
           {runs.length === 0 ? (
             <p
@@ -103,17 +105,15 @@ export default function HistoryDrawer({
                       {run.status}
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-[var(--text-muted)]"
                     onClick={() => onDeleteRun(run.id)}
-                    className="p-1 rounded hover:bg-black/5 transition-colors"
-                    style={{ color: "var(--text-muted)" }}
                     title="Delete run"
                   >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                      <path d="M5.5 1a.5.5 0 00-.5.5V2H2.5a.5.5 0 000 1h.441l.58 8.7A1.5 1.5 0 005.02 13h3.96a1.5 1.5 0 001.499-1.3l.58-8.7h.441a.5.5 0 000-1H9v-.5a.5.5 0 00-.5-.5h-3zM6 2v-.5h2V2H6zm-2.058 1h6.116l-.574 8.6a.5.5 0 01-.5.4H5.016a.5.5 0 01-.5-.4L3.942 3z" />
-                    </svg>
-                  </button>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </li>
               ))}
             </ul>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useExecutionStore } from "../../store/executionStore";
 import type { WsStatus } from "../../store/executionStore";
+import { Button } from "@/components/ui/button";
 
 export default function DisconnectionBanner() {
   const wsStatus = useExecutionStore((s) => s.wsStatus);
@@ -113,20 +114,14 @@ export default function DisconnectionBanner() {
       )}
       <span>{text}</span>
       {midRunDisconnect && (
-        <button
+        <Button
+          variant="link"
+          className="h-auto p-0 text-xs underline"
+          style={{ color: textColor }}
           onClick={handleDismiss}
-          style={{
-            background: "none",
-            border: "none",
-            color: textColor,
-            cursor: "pointer",
-            fontSize: 12,
-            textDecoration: "underline",
-            padding: 0,
-          }}
         >
           Dismiss
-        </button>
+        </Button>
       )}
       <style>{`
         @keyframes banner-slide-down {
