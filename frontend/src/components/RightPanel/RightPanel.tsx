@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import { cn } from "../../lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ interface RightPanelProps {
   onCodeChange: (nodeId: string, code: string) => void;
   onCodeBlur: (nodeId: string) => void;
   onClose: () => void;
+  requestedTab?: string | null;
+  onRequestedTabHandled?: () => void;
 }
 
 const TABS: { key: Tab; label: string }[] = [
@@ -33,8 +35,17 @@ export function RightPanel({
   onCodeChange,
   onCodeBlur,
   onClose,
+  requestedTab,
+  onRequestedTabHandled,
 }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("params");
+
+  useEffect(() => {
+    if (requestedTab && (requestedTab === "params" || requestedTab === "code" || requestedTab === "output")) {
+      setActiveTab(requestedTab);
+      onRequestedTabHandled?.();
+    }
+  }, [requestedTab, onRequestedTabHandled]);
 
   const isOpen = node !== null;
 

@@ -12,10 +12,20 @@ export const PORT_COLORS: Record<PortType, string> = {
 
 /** Sidebar / category badge colors */
 export const CATEGORY_COLORS: Record<string, string> = {
-  ingest: "#378ADD",
-  transform: "#639922",
-  train: "#EF9F27",
-  evaluate: "#7F77DD",
+  ingest: "#1D9E75",
+  transform: "#7F77DD",
+  train: "#378ADD",
+  evaluate: "#EF9F27",
   export: "#D85A30",
-  utility: "#9CA3AF",
+  demo: "#888780",
+};
+
+/** Accent bar color for each node category (3px top bar on NodeCard) */
+export const CATEGORY_ACCENT_COLORS: Record<string, string> = {
+  ingest: "var(--category-ingest)",
+  transform: "var(--category-transform)",
+  train: "var(--category-train)",
+  evaluate: "var(--category-evaluate)",
+  export: "var(--category-export)",
+  demo: "var(--category-demo)",
 };

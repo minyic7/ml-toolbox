@@ -66,6 +66,7 @@ interface CanvasProps {
   onDropNode: (type: string, position: { x: number; y: number }) => void;
   onRunFrom: (nodeId: string) => void;
   onNodeSelect?: (nodeId: string | null) => void;
+  onTabClick?: (nodeId: string, tab: string) => void;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ function CanvasInner({
   onDropNode,
   onRunFrom,
   onNodeSelect,
+  onTabClick,
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
@@ -167,8 +169,8 @@ function CanvasInner({
   // ── Derive React Flow nodes/edges from props ───────────────────
   const rfNodesFromProps = useMemo(
     () =>
-      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions)),
-    [pipelineNodes, nodeStatuses, nodeDefinitions],
+      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, onTabClick)),
+    [pipelineNodes, nodeStatuses, nodeDefinitions, onTabClick],
   );
 
   const rfEdgesFromProps = useMemo(
