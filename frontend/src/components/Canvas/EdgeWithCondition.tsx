@@ -108,7 +108,7 @@ export default function EdgeWithCondition({
   // Offset label above delete button when both are present
   const conditionLabelStyle: React.CSSProperties = {
     ...labelStyle,
-    transform: `translate(-50%, -50%) translate(${labelX}px,${condition ? labelY - 16 : labelY}px)`,
+    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 16}px)`,
   };
 
   return (
@@ -170,6 +170,27 @@ export default function EdgeWithCondition({
             }}
           >
             ×
+          </button>
+        </EdgeLabelRenderer>
+      )}
+      {/* "+ Condition" button on hover when no condition exists */}
+      {hovered && !condition && !editing && onPatchEdge && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            onClick={startEditing}
+            style={{
+              ...labelStyle,
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 16}px)`,
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 11,
+              fontFamily: "inherit",
+              lineHeight: "normal",
+            }}
+            className="nodrag nopan"
+          >
+            + Condition
           </button>
         </EdgeLabelRenderer>
       )}
