@@ -20,6 +20,7 @@ export default function PipelineScreen() {
   const {
     data: pipeline,
     isLoading,
+    isFetching,
     error,
   } = useQuery({
     queryKey: ["pipeline", pipelineId],
@@ -60,6 +61,26 @@ export default function PipelineScreen() {
       setLastDoneNodeId(null);
     }
   }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId]);
+
+  // Pipeline switch transition: show skeleton while fetching new pipeline
+  const prevPipelineIdRef = useRef(pipelineId);
+  const [switched, setSwitched] = useState(false);
+
+  useEffect(() => {
+    if (prevPipelineIdRef.current !== pipelineId) {
+      setSwitched(true);
+      prevPipelineIdRef.current = pipelineId;
+    }
+  }, [pipelineId]);
+
+  // Clear switched flag once new data arrives
+  useEffect(() => {
+    if (switched && !isFetching) {
+      setSwitched(false);
+    }
+  }, [switched, isFetching]);
+
+  const showSkeleton = switched && isFetching;
 
   // Clear selection when switching pipelines
   useEffect(() => {
@@ -393,9 +414,59 @@ export default function PipelineScreen() {
       <div className="flex flex-1 min-h-0">
         <Sidebar onAddNode={handleAddNodeFromSidebar} />
         <main
-          className="flex-1 min-w-0 overflow-hidden"
+          className="flex-1 min-w-0 overflow-hidden relative"
           style={{ backgroundColor: "var(--canvas-bg)" }}
         >
+          {showSkeleton && (
+            <div
+              className="absolute inset-0"
+              style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
+            >
+              {/* Skeleton node cards scattered like a real canvas */}
+              {[
+                { x: "15%", y: "20%", w: 232, h: 100 },
+                { x: "45%", y: "15%", w: 232, h: 120 },
+                { x: "30%", y: "55%", w: 232, h: 90 },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="animate-pulse absolute"
+                  style={{
+                    left: s.x,
+                    top: s.y,
+                    width: s.w,
+                    height: s.h,
+                    borderRadius: 8,
+                    border: "1px solid var(--border-default)",
+                    background: "var(--node-bg)",
+                    opacity: 0.5,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: 3,
+                      margin: "0 8px",
+                      borderRadius: "0 0 2px 2px",
+                      background: "var(--border-default)",
+                      opacity: 0.5,
+                    }}
+                  />
+                </div>
+              ))}
+              {/* Skeleton edge lines */}
+              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.2 }}>
+                <line x1="calc(15% + 232px)" y1="calc(20% + 50px)" x2="45%" y2="calc(15% + 60px)" stroke="var(--border-default)" strokeWidth="2" />
+                <line x1="calc(45% + 116px)" y1="calc(15% + 120px)" x2="calc(30% + 116px)" y2="55%" stroke="var(--border-default)" strokeWidth="2" />
+              </svg>
+            </div>
+          )}
+          <div
+            style={{
+              opacity: showSkeleton ? 0 : 1,
+              transition: "opacity 150ms ease-out",
+              height: "100%",
+            }}
+          >
           <Canvas
             pipelineId={pipelineId}
             pipelineNodes={pipeline.nodes}
@@ -413,6 +484,7 @@ export default function PipelineScreen() {
             onRenameNode={handleRenameFromContextMenu}
             onDuplicateNode={handleDuplicateNode}
           />
+          </div>
         </main>
         <RightPanel
           pipelineId={pipelineId}
