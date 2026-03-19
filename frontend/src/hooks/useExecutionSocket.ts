@@ -65,7 +65,7 @@ export function useExecutionSocket(pipelineId: string | undefined) {
 
         // Check pipeline completion: all pending nodes resolved
         const updated = useExecutionStore.getState();
-        if (updated.isRunning && updated.pendingNodeIds.size === 0) {
+        if (updated.isRunning && updated.pendingNodeIds.length === 0) {
           store.setRunning(false);
           store.setCurrentNodeId(null);
           qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
