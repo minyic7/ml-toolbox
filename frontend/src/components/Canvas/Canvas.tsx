@@ -134,6 +134,7 @@ function CanvasInner({
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+  const setDraggingPortType = useExecutionStore((s) => s.setDraggingPortType);
   const queryClient = useQueryClient();
 
   // ── Undo toast state ──────────────────────────────────────────
@@ -234,9 +235,24 @@ function CanvasInner({
   const onConnectStart = useCallback(
     (_: unknown, params: OnConnectStartParams) => {
       setConnectStartParams(params);
+
+      // Set dragging port type for visual feedback on PortDots
+      if (params.nodeId && params.handleId) {
+        const node = pipelineNodes.find((n) => n.id === params.nodeId);
+        const port = node?.outputs.find((p) => p.name === params.handleId)
+          ?? node?.inputs.find((p) => p.name === params.handleId);
+        if (port) {
+          setDraggingPortType(port.type);
+        }
+      }
     },
-    [],
+    [pipelineNodes, setDraggingPortType],
   );
+
+  const onConnectEnd = useCallback(() => {
+    setConnectStartParams(null);
+    setDraggingPortType(null);
+  }, [setDraggingPortType]);
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
@@ -457,6 +473,7 @@ function CanvasInner({
         onEdgesDelete={(deleted) => handleDelete([], deleted)}
         onConnect={onConnect}
         onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         onSelectionChange={handleSelectionChange}
         onNodeContextMenu={onNodeContextMenu}

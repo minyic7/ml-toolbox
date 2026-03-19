@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { NodeStatus } from "../lib/types";
+import type { NodeStatus, PortType } from "../lib/types";
 
 export type WsStatus = "connected" | "disconnected" | "reconnecting";
 
@@ -23,6 +23,7 @@ interface ExecutionState {
   initialPendingCount: number;
   runId: string | null;
   wsStatus: WsStatus;
+  draggingPortType: PortType | null;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setNodeTraceback: (nodeId: string, traceback: string) => void;
@@ -32,6 +33,7 @@ interface ExecutionState {
   setPendingNodeIds: (ids: string[]) => void;
   setRunId: (id: string | null) => void;
   setWsStatus: (status: WsStatus) => void;
+  setDraggingPortType: (type: PortType | null) => void;
   reset: () => void;
 }
 
@@ -44,6 +46,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   initialPendingCount: 0,
   runId: null,
   wsStatus: "disconnected" as WsStatus,
+  draggingPortType: null,
 
   setNodeStatus: (nodeId, status) =>
     set((state) => {
@@ -85,6 +88,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
 
   setWsStatus: (status) => set({ wsStatus: status }),
 
+  setDraggingPortType: (type) => set({ draggingPortType: type }),
+
   reset: () =>
     set({
       nodeStatuses: {},
@@ -95,5 +100,6 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       initialPendingCount: 0,
       runId: null,
       wsStatus: "disconnected",
+      draggingPortType: null,
     }),
 }));
