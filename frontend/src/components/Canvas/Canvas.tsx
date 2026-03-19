@@ -9,6 +9,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   useReactFlow,
   useNodesState,
   useEdgesState,
@@ -417,6 +418,15 @@ function CanvasInner({
         <Controls
           showInteractive={false}
           style={{ borderRadius: 8, border: "1px solid var(--border-default)" }}
+        />
+        <MiniMap
+          nodeColor="var(--border-default)"
+          maskColor="rgba(0, 0, 0, 0.08)"
+          style={{
+            background: "var(--canvas-bg)",
+            borderRadius: 8,
+            border: "1px solid var(--border-default)",
+          }}
         />
       </ReactFlow>
 
