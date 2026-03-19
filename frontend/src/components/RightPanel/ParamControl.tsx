@@ -54,10 +54,14 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
   // Slider local state (commit on release, not during drag)
   const [sliderLocal, setSliderLocal] = useState<number | null>(null);
 
+  const disabledStyle: React.CSSProperties | undefined = disabled
+    ? { opacity: 0.6, pointerEvents: "none" }
+    : undefined;
+
   switch (param.type) {
     case "select":
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
           </Label>
@@ -86,7 +90,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       const step = param.step ?? 1;
       const numValue = sliderLocal ?? Number(value ?? param.default ?? min);
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <div className="flex items-center justify-between">
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {param.name}
@@ -128,7 +132,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
     case "text": {
       const isNumeric = typeof (param.default ?? value) === "number";
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
           </Label>
@@ -167,7 +171,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
     case "toggle": {
       const checked = !!(value ?? param.default);
       return (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" style={disabledStyle}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
           </Label>
@@ -182,7 +186,6 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
               backgroundColor: checked
                 ? "var(--accent-blue)"
                 : "var(--border-default)",
-              opacity: disabled ? 0.5 : 1,
             }}
           >
             <span
