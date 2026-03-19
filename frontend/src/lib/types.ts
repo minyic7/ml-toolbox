@@ -54,7 +54,7 @@ export interface NodeInstance {
   id: string;
   type: string;
   position: { x: number; y: number };
-  params: ParamDefinition[];
+  params: Record<string, unknown>;
   code: string;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
@@ -100,7 +100,7 @@ export interface OutputPreview {
   type: string;
   size: number;
   preview: { columns?: string[]; rows?: unknown[][]; total_rows?: number } | null;
-  error: string | null;
+  error?: string;
 }
 
 export interface RunInfo {

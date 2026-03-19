@@ -1,14 +1,7 @@
 import { create } from "zustand";
+import type { NodeStatus } from "../lib/types";
 
-export type NodeStatus =
-  | "idle"
-  | "dirty"
-  | "pending"
-  | "running"
-  | "done"
-  | "error"
-  | "skipped"
-  | "cached";
+export type { NodeStatus };
 
 interface ExecutionState {
   nodeStatuses: Record<string, NodeStatus>;

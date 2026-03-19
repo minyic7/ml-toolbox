@@ -5,7 +5,6 @@ import type {
   NodeStatus,
   NodeDefinition,
   PortDefinition,
-  ParamDefinition,
 } from "./types";
 
 export interface NodeCardData extends Record<string, unknown> {
@@ -14,7 +13,7 @@ export interface NodeCardData extends Record<string, unknown> {
   status: NodeStatus;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
-  params: ParamDefinition[];
+  params: Record<string, unknown>;
   code: string;
 }
 
