@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { NodeStatus } from "../lib/types";
 
+export type WsStatus = "connected" | "disconnected" | "reconnecting";
+
 const TERMINAL_STATUSES: ReadonlySet<NodeStatus> = new Set([
   "done",
   "error",
@@ -20,6 +22,7 @@ interface ExecutionState {
   pendingNodeIds: string[];
   initialPendingCount: number;
   runId: string | null;
+  wsStatus: WsStatus;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setNodeTraceback: (nodeId: string, traceback: string) => void;
@@ -28,6 +31,7 @@ interface ExecutionState {
   setCurrentNodeId: (nodeId: string | null) => void;
   setPendingNodeIds: (ids: string[]) => void;
   setRunId: (id: string | null) => void;
+  setWsStatus: (status: WsStatus) => void;
   reset: () => void;
 }
 
@@ -39,6 +43,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   pendingNodeIds: [],
   initialPendingCount: 0,
   runId: null,
+  wsStatus: "disconnected" as WsStatus,
 
   setNodeStatus: (nodeId, status) =>
     set((state) => {
@@ -78,6 +83,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
 
   setRunId: (id) => set({ runId: id }),
 
+  setWsStatus: (status) => set({ wsStatus: status }),
+
   reset: () =>
     set({
       nodeStatuses: {},
@@ -87,5 +94,6 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       pendingNodeIds: [],
       initialPendingCount: 0,
       runId: null,
+      wsStatus: "disconnected",
     }),
 }));
