@@ -29,9 +29,10 @@ import NavDrawer from "./NavDrawer";
 
 interface TopbarProps {
   pipelineId: string;
+  onViewRun?: (runId: string) => void;
 }
 
-export default function Topbar({ pipelineId }: TopbarProps) {
+export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -261,6 +262,7 @@ export default function Topbar({ pipelineId }: TopbarProps) {
         onClose={() => setHistoryOpen(false)}
         runs={runs}
         onDeleteRun={(runId) => deleteRunMutation.mutate(runId)}
+        onViewRun={onViewRun}
       />
 
       <NavDrawer

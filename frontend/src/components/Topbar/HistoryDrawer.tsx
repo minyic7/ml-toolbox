@@ -2,13 +2,14 @@ import { useEffect, useRef } from "react";
 import type { RunInfo } from "../../lib/types";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Eye } from "lucide-react";
 
 interface HistoryDrawerProps {
   open: boolean;
   onClose: () => void;
   runs: RunInfo[];
   onDeleteRun: (runId: string) => void;
+  onViewRun?: (runId: string) => void;
 }
 
 export default function HistoryDrawer({
@@ -16,6 +17,7 @@ export default function HistoryDrawer({
   onClose,
   runs,
   onDeleteRun,
+  onViewRun,
 }: HistoryDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -105,18 +107,56 @@ export default function HistoryDrawer({
                       {run.status}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-[var(--text-muted)]"
-                    onClick={() => onDeleteRun(run.id)}
-                    title="Delete run"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {onViewRun && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-[var(--text-muted)]"
+                        onClick={() => {
+                          onViewRun(run.id);
+                          onClose();
+                        }}
+                        title="View run output"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-[var(--text-muted)]"
+                      onClick={() => onDeleteRun(run.id)}
+                      title="Delete run"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
+          )}
+
+          {runs.length > 0 && (
+            <>
+              <Separator className="my-4" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs"
+                style={{ color: "var(--text-muted)" }}
+                onClick={() => {
+                  const completed = runs.filter(
+                    (r) => r.status === "done" || r.status === "error",
+                  );
+                  for (const r of completed) {
+                    onDeleteRun(r.id);
+                  }
+                }}
+              >
+                Clear completed
+              </Button>
+            </>
           )}
         </div>
       </div>

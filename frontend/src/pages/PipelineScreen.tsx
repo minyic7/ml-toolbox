@@ -409,7 +409,10 @@ export default function PipelineScreen() {
   // ── Render ────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen">
-      <Topbar pipelineId={pipelineId} />
+      <Topbar
+        pipelineId={pipelineId}
+        onViewRun={() => setRequestedTab("output")}
+      />
       <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">
         <Sidebar onAddNode={handleAddNodeFromSidebar} />
