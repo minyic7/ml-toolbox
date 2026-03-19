@@ -69,6 +69,7 @@ interface CanvasProps {
   onTabClick?: (nodeId: string, tab: string) => void;
   onRenameNode?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
+  onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>) => void;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -135,9 +136,13 @@ function CanvasInner({
   onTabClick,
   onRenameNode,
   onDuplicateNode,
+  onPasteNodes,
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+
+  // ── Clipboard for copy/paste ────────────────────────────────
+  const clipboardRef = useRef<Array<{ type: string; offsetX: number; offsetY: number; params?: unknown; code?: string }>>([]);
   const setDraggingPortType = useExecutionStore((s) => s.setDraggingPortType);
   const queryClient = useQueryClient();
 
@@ -438,11 +443,41 @@ function CanvasInner({
         setNodes((nds) => nds.map((n) => ({ ...n, selected: true })));
         return;
       }
+
+      if (mod && e.key === "c") {
+        const selected = nodes.filter((n) => n.selected);
+        if (selected.length === 0) return;
+        const minX = Math.min(...selected.map((n) => n.position.x));
+        const minY = Math.min(...selected.map((n) => n.position.y));
+        clipboardRef.current = selected.map((n) => ({
+          type: n.data.type as string,
+          offsetX: n.position.x - minX,
+          offsetY: n.position.y - minY,
+          params: n.data.params as unknown,
+          code: n.data.code as string,
+        }));
+        return;
+      }
+
+      if (mod && e.key === "v") {
+        e.preventDefault();
+        if (clipboardRef.current.length === 0 || !onPasteNodes) return;
+        const center = reactFlow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        onPasteNodes(
+          clipboardRef.current.map((c) => ({
+            type: c.type,
+            position: { x: center.x + c.offsetX, y: center.y + c.offsetY },
+            params: c.params,
+            code: c.code,
+          })),
+        );
+        return;
+      }
     };
 
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [reactFlow, closeMenus, setNodes]);
+  }, [reactFlow, closeMenus, setNodes, nodes, onPasteNodes]);
 
   // ── Connection line color ──────────────────────────────────────
   const connectionLineStyle = useMemo(() => {
@@ -534,6 +569,17 @@ function CanvasInner({
           x={canvasMenu.x}
           y={canvasMenu.y}
           onFitView={() => reactFlow.fitView({ duration: 300 })}
+          onPaste={onPasteNodes ? () => {
+            if (clipboardRef.current.length === 0) return;
+            const pos = reactFlow.screenToFlowPosition({ x: canvasMenu.x, y: canvasMenu.y });
+            onPasteNodes(clipboardRef.current.map((c) => ({
+              type: c.type,
+              position: { x: pos.x + c.offsetX, y: pos.y + c.offsetY },
+              params: c.params,
+              code: c.code,
+            })));
+          } : undefined}
+          hasCopied={clipboardRef.current.length > 0}
           onClose={closeMenus}
         />
       )}

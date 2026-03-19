@@ -371,6 +371,20 @@ export default function PipelineScreen() {
     [pipeline, addNodeMutation],
   );
 
+  const handlePasteNodes = useCallback(
+    (pastedNodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>) => {
+      for (const n of pastedNodes) {
+        addNodeMutation.mutate({
+          type: n.type,
+          position: n.position,
+          params: n.params as Record<string, unknown> | undefined,
+          code: n.code,
+        });
+      }
+    },
+    [addNodeMutation],
+  );
+
   // ── Loading state ─────────────────────────────────────────────
   if (!id) return null;
 
@@ -512,6 +526,7 @@ export default function PipelineScreen() {
             onTabClick={handleTabClick}
             onRenameNode={handleRenameFromContextMenu}
             onDuplicateNode={handleDuplicateNode}
+            onPasteNodes={handlePasteNodes}
           />
           </div>
         </main>
