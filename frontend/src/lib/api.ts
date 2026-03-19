@@ -17,11 +17,13 @@ import type {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 async function request<T>(
   url: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await fetch(`${basePath}${url}`, init);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`${res.status} ${res.statusText}: ${body}`);
@@ -219,7 +221,7 @@ export function getOutputDownloadUrl(
   runId?: string,
 ) {
   const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
-  return `/api/pipelines/${pipelineId}/outputs/${nodeId}/download${params}`;
+  return `${basePath}/api/pipelines/${pipelineId}/outputs/${nodeId}/download${params}`;
 }
 
 export function getRunOutput(
@@ -237,5 +239,5 @@ export function getRunOutputDownloadUrl(
   runId: string,
   nodeId: string,
 ) {
-  return `/api/pipelines/${pipelineId}/runs/${runId}/outputs/${nodeId}/download`;
+  return `${basePath}/api/pipelines/${pipelineId}/runs/${runId}/outputs/${nodeId}/download`;
 }
