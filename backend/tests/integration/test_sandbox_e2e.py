@@ -6,6 +6,7 @@ Skip with: pytest -m "not integration"
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 
@@ -61,10 +62,26 @@ def _wait_for_run(client: TestClient, pid: str, timeout: int = 60) -> dict:
     raise TimeoutError(f"Pipeline {pid} did not finish within {timeout}s")
 
 
+def _get_run_errors(tmp_path: Path, pid: str, run_id: str) -> str:
+    """Collect error artifacts from a run directory for CI diagnostics."""
+    run_dir = tmp_path / "projects" / pid / "runs" / run_id
+    if not run_dir.exists():
+        return f"\n(Run directory not found: {run_dir})"
+    parts: list[str] = []
+    for f in sorted(run_dir.glob("*_manifest_error.json")):
+        parts.append(f"\n--- {f.name} ---\n{f.read_text()}")
+    for f in sorted(run_dir.glob("*_logs.txt")):
+        parts.append(f"\n--- {f.name} ---\n{f.read_text()}")
+    if not parts:
+        all_files = [p.name for p in run_dir.iterdir()]
+        return f"\n(No error/log files found in {run_dir}; files: {all_files})"
+    return "".join(parts)
+
+
 class TestSandboxIntegration:
     """Tests that actually create sandbox containers and run node code."""
 
-    def test_single_node_pipeline(self, client: TestClient):
+    def test_single_node_pipeline(self, client: TestClient, tmp_path: Path):
         """Create pipeline with generate_data node, run it, verify output content."""
         # Create pipeline
         resp = client.post("/api/pipelines", json={"name": "Integration Test"})
@@ -90,7 +107,10 @@ class TestSandboxIntegration:
 
         # Wait for completion
         run = _wait_for_run(client, pid)
-        assert run["status"] == "done", f"Run failed: {run}"
+        if run["status"] == "error":
+            error_info = _get_run_errors(tmp_path, pid, run["id"])
+            assert False, f"Run failed: {run}\n{error_info}"
+        assert run["status"] == "done"
         assert run["id"] == run_id
 
         # Verify status
@@ -122,7 +142,7 @@ class TestSandboxIntegration:
         assert table.num_rows == 100  # default rows param
         assert set(table.column_names) == {"id", "value_a", "value_b", "category"}
 
-    def test_two_node_pipeline(self, client: TestClient):
+    def test_two_node_pipeline(self, client: TestClient, tmp_path: Path):
         """Generate data → clean data, verify both nodes execute and produce output."""
         resp = client.post("/api/pipelines", json={"name": "Two Node Test"})
         pid = resp.json()["id"]
@@ -162,7 +182,10 @@ class TestSandboxIntegration:
         run_id = resp.json()["run_id"]
 
         run = _wait_for_run(client, pid)
-        assert run["status"] == "done", f"Run failed: {run}"
+        if run["status"] == "error":
+            error_info = _get_run_errors(tmp_path, pid, run["id"])
+            assert False, f"Run failed: {run}\n{error_info}"
+        assert run["status"] == "done"
 
         # Verify both nodes produced output
         for node_id in (gen["id"], clean["id"]):
