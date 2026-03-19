@@ -24,9 +24,15 @@ export default function PipelineNameInput({
   }, [isEditing]);
 
   const commit = useCallback(() => {
-    setIsEditing(false);
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== name) {
+    if (!trimmed) {
+      // Shake on empty
+      inputRef.current?.classList.add("shake");
+      setTimeout(() => inputRef.current?.classList.remove("shake"), 300);
+      return;
+    }
+    setIsEditing(false);
+    if (trimmed !== name) {
       onRename(trimmed);
     } else {
       setDraft(name);

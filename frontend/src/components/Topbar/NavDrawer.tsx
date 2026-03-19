@@ -46,6 +46,7 @@ export default function NavDrawer({
       <div
         ref={panelRef}
         className="fixed top-0 left-0 h-full w-72 z-50 shadow-lg overflow-y-auto bg-background"
+        style={{ animation: "fadeIn 0.15s ease-out" }}
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">

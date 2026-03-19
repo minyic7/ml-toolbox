@@ -123,3 +123,30 @@ body {
   color: var(--text-primary);
   background-color: var(--canvas-bg);
 }
+
+/* ── PortDot normal hover scale ──────────────── */
+.react-flow__handle:hover {
+  transform: scale(1.4);
+  transition: transform 0.15s ease;
+}
+
+/* ── Pipeline name shake ─────────────────────── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+/* ── NodeCard tab hover ──────────────────────── */
+.node-card-tab:hover {
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--accent-blue) !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
