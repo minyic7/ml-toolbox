@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { Copy, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,21 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
   const [copied, setCopied] = useState(false);
   const [savedIndicator, setSavedIndicator] = useState<"saved" | "unsaved" | null>(null);
   const lastSavedRef = useRef(code);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear saved indicator timer on unmount
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
+  const showSaved = useCallback(() => {
+    setSavedIndicator("saved");
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSavedIndicator(null), 2000);
+  }, []);
+
   const [resetOpen, setResetOpen] = useState(false);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
@@ -52,8 +67,7 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           const value = editor.getValue();
           onSave(value);
           lastSavedRef.current = value;
-          setSavedIndicator("saved");
-          setTimeout(() => setSavedIndicator(null), 2000);
+          showSaved();
         },
       );
     },
@@ -134,8 +148,7 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           if (value !== undefined) {
             onSave(value);
             lastSavedRef.current = value;
-            setSavedIndicator("saved");
-            setTimeout(() => setSavedIndicator(null), 2000);
+            showSaved();
           }
         }}
       >
