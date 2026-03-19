@@ -291,9 +291,17 @@ export default function PipelineScreen() {
         currentValues[p.name] = p.default;
       }
       currentValues[name] = value;
-      patchNodeMutation.mutate({ nodeId, body: { params: currentValues } });
+      patchNodeMutation.mutate(
+        { nodeId, body: { params: currentValues } },
+        {
+          onError: () => {
+            toast.error("Failed to save parameter");
+            invalidate();
+          },
+        },
+      );
     },
-    [pipeline, patchNodeMutation],
+    [pipeline, patchNodeMutation, invalidate],
   );
 
   const handleCodeChange = useCallback(
@@ -505,6 +513,7 @@ export default function PipelineScreen() {
           node={selectedNode}
           definition={selectedDefinition}
           onParamChange={handleParamChange}
+          paramSaving={patchNodeMutation.isPending}
           onCodeChange={handleCodeChange}
           onCodeSave={handleCodeSave}
           codeSaveOk={codeSaveOk}

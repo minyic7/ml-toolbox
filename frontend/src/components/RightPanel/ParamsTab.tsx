@@ -5,9 +5,10 @@ interface ParamsTabProps {
   params: ParamDefinition[];
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
+  disabled?: boolean;
 }
 
-export function ParamsTab({ params, values, onChange }: ParamsTabProps) {
+export function ParamsTab({ params, values, onChange, disabled }: ParamsTabProps) {
   if (params.length === 0) {
     return (
       <div
@@ -27,6 +28,7 @@ export function ParamsTab({ params, values, onChange }: ParamsTabProps) {
           param={param}
           value={values[param.name]}
           onChange={onChange}
+          disabled={disabled}
         />
       ))}
     </div>

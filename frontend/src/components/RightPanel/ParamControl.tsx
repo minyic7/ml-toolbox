@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ParamDefinition } from "../../lib/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,27 +14,67 @@ interface ParamControlProps {
   param: ParamDefinition;
   value: unknown;
   onChange: (name: string, value: unknown) => void;
+  disabled?: boolean;
 }
 
-export function ParamControl({ param, value, onChange }: ParamControlProps) {
+export function ParamControl({ param, value, onChange, disabled }: ParamControlProps) {
   const [textValue, setTextValue] = useState(String(value ?? param.default ?? ""));
+  const [textError, setTextError] = useState(false);
+
+  // Sync text value when external value changes (e.g. revert on error)
+  useEffect(() => {
+    setTextValue(String(value ?? param.default ?? ""));
+    setTextError(false);
+  }, [value, param.default]);
+
+  // Debounce helper for select/text — flushes pending change on unmount
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<(() => void) | null>(null);
+  const debouncedOnChange = useCallback(
+    (name: string, val: unknown) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      const commit = () => onChange(name, val);
+      pendingRef.current = commit;
+      debounceRef.current = setTimeout(() => {
+        commit();
+        pendingRef.current = null;
+      }, 500);
+    },
+    [onChange],
+  );
+
+  // Flush pending debounce on unmount (don't lose user input)
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      pendingRef.current?.();
+    };
+  }, []);
+
+  // Slider local state (commit on release, not during drag)
+  const [sliderLocal, setSliderLocal] = useState<number | null>(null);
+
+  const disabledStyle: React.CSSProperties | undefined = disabled
+    ? { opacity: 0.6, pointerEvents: "none" }
+    : undefined;
 
   switch (param.type) {
     case "select":
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
           </Label>
           <Select
             value={String(value ?? param.default ?? "")}
             onValueChange={(v) => onChange(param.name, v)}
+            disabled={disabled}
           >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {param.options?.map((opt) => (
+              {param.options?.map((opt: string) => (
                 <SelectItem key={opt} value={opt}>
                   {opt}
                 </SelectItem>
@@ -48,9 +88,9 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
       const min = param.min ?? 0;
       const max = param.max ?? 100;
       const step = param.step ?? 1;
-      const numValue = Number(value ?? param.default ?? min);
+      const numValue = sliderLocal ?? Number(value ?? param.default ?? min);
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <div className="flex items-center justify-between">
             <Label className="text-xs font-medium text-[var(--text-secondary)]">
               {param.name}
@@ -68,7 +108,20 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
             max={max}
             step={step}
             value={numValue}
-            onChange={(e) => onChange(param.name, Number(e.target.value))}
+            disabled={disabled}
+            onChange={(e) => setSliderLocal(Number(e.target.value))}
+            onPointerUp={() => {
+              if (sliderLocal !== null) {
+                onChange(param.name, sliderLocal);
+                setSliderLocal(null);
+              }
+            }}
+            onBlur={() => {
+              if (sliderLocal !== null) {
+                onChange(param.name, sliderLocal);
+                setSliderLocal(null);
+              }
+            }}
             className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
             style={{ accentColor: "var(--accent-blue)" }}
           />
@@ -76,26 +129,49 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
       );
     }
 
-    case "text":
+    case "text": {
+      const isNumeric = typeof (param.default ?? value) === "number";
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
           </Label>
           <Input
             type="text"
             value={textValue}
-            onChange={(e) => setTextValue(e.target.value)}
-            onBlur={() => onChange(param.name, textValue)}
+            disabled={disabled}
+            onChange={(e) => {
+              setTextValue(e.target.value);
+              setTextError(false);
+            }}
+            onBlur={() => {
+              if (isNumeric) {
+                const num = Number(textValue);
+                if (isNaN(num)) {
+                  setTextError(true);
+                  return;
+                }
+                debouncedOnChange(param.name, num);
+              } else {
+                debouncedOnChange(param.name, textValue);
+              }
+            }}
             className="h-8 text-sm"
+            style={textError ? { borderColor: "var(--error-red)" } : undefined}
           />
+          {textError && (
+            <span className="text-[10px]" role="alert" aria-live="polite" style={{ color: "var(--error-red)" }}>
+              Must be a valid number
+            </span>
+          )}
         </div>
       );
+    }
 
     case "toggle": {
       const checked = !!(value ?? param.default);
       return (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" style={disabledStyle}>
           <Label className="text-xs font-medium text-[var(--text-secondary)]">
             {param.name}
           </Label>
@@ -103,6 +179,7 @@ export function ParamControl({ param, value, onChange }: ParamControlProps) {
             type="button"
             role="switch"
             aria-checked={checked}
+            disabled={disabled}
             onClick={() => onChange(param.name, !checked)}
             className="relative h-5 w-9 rounded-full transition-colors duration-200"
             style={{
