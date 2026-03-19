@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   runPipeline,
   runFromNode,
@@ -16,6 +17,10 @@ export function useRunPipeline(pipelineId: string, nodeIds: string[]) {
       setAllPending(nodeIds);
       setRunning(true);
       setRunId(data.run_id);
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : "";
+      toast.error(msg.includes("409") ? "Already running" : "Failed to start run");
     },
   });
 }
