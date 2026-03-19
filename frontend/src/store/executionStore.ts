@@ -1,6 +1,14 @@
 import { create } from "zustand";
 
-export type NodeStatus = "idle" | "running" | "success" | "error" | "skipped";
+export type NodeStatus =
+  | "idle"
+  | "dirty"
+  | "pending"
+  | "running"
+  | "done"
+  | "error"
+  | "skipped"
+  | "cached";
 
 interface ExecutionState {
   nodeStatuses: Record<string, NodeStatus>;
@@ -8,7 +16,7 @@ interface ExecutionState {
   currentNodeId: string | null;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
-  setIsRunning: (running: boolean) => void;
+  setRunning: (running: boolean) => void;
   setCurrentNodeId: (nodeId: string | null) => void;
   reset: () => void;
 }
@@ -23,7 +31,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       nodeStatuses: { ...state.nodeStatuses, [nodeId]: status },
     })),
 
-  setIsRunning: (running) => set({ isRunning: running }),
+  setRunning: (running) => set({ isRunning: running }),
 
   setCurrentNodeId: (nodeId) => set({ currentNodeId: nodeId }),
 
