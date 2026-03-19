@@ -11,6 +11,20 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("monaco-editor") || id.includes("@monaco-editor")) {
+            return "monaco";
+          }
+          if (id.includes("@xyflow") || id.includes("reactflow")) {
+            return "reactflow";
+          }
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       "/api": {

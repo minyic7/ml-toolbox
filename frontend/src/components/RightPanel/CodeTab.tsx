@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import type { OnMount } from "@monaco-editor/react";
+
+const Editor = lazy(() => import("@monaco-editor/react").then((m) => ({ default: m.default })));
 import { Copy, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -165,33 +167,44 @@ export function CodeTab({ code, defaultCode, onChange, onSave, lastSaveOk }: Cod
           }
         }}
       >
-        <Editor
-          height="100%"
-          language="python"
-          theme="vs-dark"
-          value={code}
-          onChange={(v) => {
-            onChange(v ?? "");
-            if ((v ?? "") !== lastSavedRef.current) {
-              setUnsaved(true);
-              setShowSaved(false);
-            } else {
-              setUnsaved(false);
-            }
-          }}
-          onMount={handleEditorMount}
-          options={{
-            readOnly,
-            minimap: { enabled: false },
-            lineNumbers: "on",
-            fontFamily: "JetBrains Mono, monospace",
-            fontSize: 13,
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            padding: { top: 12 },
-            wordWrap: "on",
-          }}
-        />
+        <Suspense
+          fallback={
+            <div
+              className="flex items-center justify-center h-full"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Loading editor…
+            </div>
+          }
+        >
+          <Editor
+            height="100%"
+            language="python"
+            theme="vs-dark"
+            value={code}
+            onChange={(v) => {
+              onChange(v ?? "");
+              if ((v ?? "") !== lastSavedRef.current) {
+                setUnsaved(true);
+                setShowSaved(false);
+              } else {
+                setUnsaved(false);
+              }
+            }}
+            onMount={handleEditorMount}
+            options={{
+              readOnly,
+              minimap: { enabled: false },
+              lineNumbers: "on",
+              fontFamily: "JetBrains Mono, monospace",
+              fontSize: 13,
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              padding: { top: 12 },
+              wordWrap: "on",
+            }}
+          />
+        </Suspense>
       </div>
 
       {/* Reset confirmation dialog */}
