@@ -37,18 +37,22 @@ export function useExecutionSocket(pipelineId: string | undefined) {
         // On reconnect, check if a run finished while we were disconnected
         const store = useExecutionStore.getState();
         if (store.isRunning && pipelineId) {
+          const runIdAtDisconnect = store.runId;
           const checkStatus = (attempt: number) => {
+            if (!mountedRef.current) return;
             getPipelineStatus(pipelineId).then((status) => {
+              if (!mountedRef.current) return;
               const current = useExecutionStore.getState();
-              if (current.isRunning && !status.is_running) {
+              // Only reset if the same run is still tracked and server says not running
+              if (current.isRunning && current.runId === runIdAtDisconnect && !status.is_running) {
                 current.setRunning(false);
                 current.setCurrentNodeId(null);
-                current.setRunResult(null);
+                // Don't clear runResult — let query invalidation show the actual outcome
                 qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
                 qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
               }
             }).catch(() => {
-              if (attempt < 2) {
+              if (attempt < 2 && mountedRef.current) {
                 setTimeout(() => checkStatus(attempt + 1), 1000);
               }
             });
