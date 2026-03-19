@@ -9,9 +9,7 @@ function getWsUrl(pipelineId: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
 
-  // In production behind /ml-toolbox/ base path, the backend WS is at /ws/...
-  // Vite dev proxy handles /ws/* → ws://localhost:8000
-  const basePath = import.meta.env.PROD ? "/ml-toolbox" : "";
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   return `${proto}//${host}${basePath}/ws/pipelines/${pipelineId}`;
 }
 
