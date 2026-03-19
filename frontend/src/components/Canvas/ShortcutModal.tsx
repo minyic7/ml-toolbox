@@ -5,7 +5,6 @@ interface ShortcutModalProps {
 
 const SHORTCUTS = [
   { keys: "Delete / Backspace", action: "Delete selected node or edge" },
-  { keys: "Ctrl + Z", action: "Undo delete" },
   { keys: "Ctrl + A", action: "Select all nodes" },
   { keys: "Ctrl + F", action: "Fit view" },
   { keys: "?", action: "Show keyboard shortcuts" },

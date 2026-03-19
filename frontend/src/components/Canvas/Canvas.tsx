@@ -70,59 +70,6 @@ const POSITION_DEBOUNCE_MS = 300;
 const nodeTypes = { nodeCard: NodeCard };
 const edgeTypes = { default: EdgeWithCondition };
 
-// ── Undo Toast ─────────────────────────────────────────────────────
-
-interface UndoToastProps {
-  message: string;
-  onUndo: () => void;
-  onDismiss: () => void;
-}
-
-function UndoToast({ message, onUndo, onDismiss }: UndoToastProps) {
-  useEffect(() => {
-    const timer = setTimeout(onDismiss, 5000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 60,
-        background: "var(--text-primary)",
-        color: "var(--node-bg)",
-        padding: "10px 20px",
-        borderRadius: 8,
-        fontSize: 13,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-      }}
-    >
-      <span>{message}</span>
-      <button
-        onClick={onUndo}
-        style={{
-          background: "none",
-          border: "1px solid rgba(255,255,255,0.3)",
-          color: "inherit",
-          padding: "4px 10px",
-          borderRadius: 4,
-          cursor: "pointer",
-          fontSize: 12,
-          fontFamily: "inherit",
-        }}
-      >
-        Undo
-      </button>
-    </div>
-  );
-}
-
 // ── Empty State ────────────────────────────────────────────────────
 
 function EmptyState() {
@@ -241,11 +188,12 @@ function CanvasInner({
   );
 
   // ── Connection validation ──────────────────────────────────────
-  const connectStartRef = useRef<OnConnectStartParams | null>(null);
+  const [connectStartParams, setConnectStartParams] =
+    useState<OnConnectStartParams | null>(null);
 
   const onConnectStart = useCallback(
     (_: unknown, params: OnConnectStartParams) => {
-      connectStartRef.current = params;
+      setConnectStartParams(params);
     },
     [],
   );
@@ -297,12 +245,7 @@ function CanvasInner({
     [onConnectProp],
   );
 
-  // ── Delete with undo ───────────────────────────────────────────
-  const [undoAction, setUndoAction] = useState<{
-    message: string;
-    restore: () => void;
-  } | null>(null);
-
+  // ── Delete handler ───────────────────────────────────────────
   const handleEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       onEdgesChange(changes);
@@ -312,30 +255,14 @@ function CanvasInner({
 
   const handleDelete = useCallback(
     (deletedNodes: RFNode[], deletedEdges: RFEdge[]) => {
-      if (deletedNodes.length > 0) {
-        const node = deletedNodes[0];
-        const nodeId = node.id;
-        const label = node.data.label ?? nodeId;
-        setUndoAction({
-          message: `Deleted "${label}"`,
-          restore: () => {
-            setNodes((prev) => [...prev, node]);
-          },
-        });
-        onDeleteNode(nodeId);
-      } else if (deletedEdges.length > 0) {
-        const edge = deletedEdges[0];
-        const edgeId = edge.id;
-        setUndoAction({
-          message: "Deleted edge",
-          restore: () => {
-            setEdges((prev) => [...prev, edge]);
-          },
-        });
-        onDeleteEdge(edgeId);
+      for (const node of deletedNodes) {
+        onDeleteNode(node.id);
+      }
+      for (const edge of deletedEdges) {
+        onDeleteEdge(edge.id);
       }
     },
-    [onDeleteNode, onDeleteEdge, setNodes, setEdges],
+    [onDeleteNode, onDeleteEdge],
   );
 
   // ── Drop zone ──────────────────────────────────────────────────
@@ -435,14 +362,14 @@ function CanvasInner({
 
   // ── Connection line color ──────────────────────────────────────
   const connectionLineStyle = useMemo(() => {
-    if (!connectStartRef.current) return { stroke: "var(--border-default)" };
-    const { nodeId, handleId } = connectStartRef.current;
+    if (!connectStartParams) return { stroke: "var(--border-default)" };
+    const { nodeId, handleId } = connectStartParams;
     if (!nodeId || !handleId) return { stroke: "var(--border-default)" };
     const node = pipelineNodes.find((n) => n.id === nodeId);
     const port = node?.outputs.find((p) => p.name === handleId);
     if (!port) return { stroke: "var(--border-default)" };
     return { stroke: PORT_COLORS[port.type as PortType] ?? "var(--border-default)" };
-  }, [pipelineNodes]);
+  }, [connectStartParams, pipelineNodes]);
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -519,17 +446,6 @@ function CanvasInner({
         open={shortcutModalOpen}
         onClose={() => setShortcutModalOpen(false)}
       />
-
-      {undoAction && (
-        <UndoToast
-          message={undoAction.message}
-          onUndo={() => {
-            undoAction.restore();
-            setUndoAction(null);
-          }}
-          onDismiss={() => setUndoAction(null)}
-        />
-      )}
     </div>
   );
 }
