@@ -153,10 +153,14 @@ export default function PipelineScreen() {
     mutationFn: ({
       type,
       position,
+      params,
+      code,
     }: {
       type: string;
       position: { x: number; y: number };
-    }) => api.addNode(pipelineId, { type, position }),
+      params?: Record<string, unknown>;
+      code?: string;
+    }) => api.addNode(pipelineId, { type, position, params, code }),
     onSuccess: invalidate,
   });
 
@@ -323,6 +327,8 @@ export default function PipelineScreen() {
       addNodeMutation.mutate({
         type: node.type,
         position: { x: node.position.x + 50, y: node.position.y + 50 },
+        params: node.params as unknown as Record<string, unknown>,
+        code: node.code,
       });
     },
     [pipeline, addNodeMutation],

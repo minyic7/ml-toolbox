@@ -131,6 +131,7 @@ export interface AddNodeRequest {
   type: string;
   position: { x: number; y: number };
   params?: Record<string, unknown>;
+  code?: string;
 }
 
 export interface PatchNodeRequest {
