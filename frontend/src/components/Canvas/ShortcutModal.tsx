@@ -1,3 +1,12 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+
 interface ShortcutModalProps {
   open: boolean;
   onClose: () => void;
@@ -12,97 +21,39 @@ const SHORTCUTS = [
 ];
 
 export default function ShortcutModal({ open, onClose }: ShortcutModalProps) {
-  if (!open) return null;
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.3)",
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "var(--node-bg)",
-          borderRadius: 12,
-          border: "1px solid var(--border-default)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
-          padding: 24,
-          minWidth: 340,
-          maxWidth: 420,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2
-          style={{
-            margin: "0 0 16px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "var(--text-primary)",
-          }}
-        >
-          Keyboard shortcuts
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogDescription className="sr-only">
+            Available keyboard shortcuts
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
           {SHORTCUTS.map((s) => (
             <div
               key={s.keys}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 16,
-              }}
+              className="flex items-center justify-between gap-4"
             >
               <span
-                style={{
-                  fontSize: 13,
-                  color: "var(--text-primary)",
-                }}
+                className="text-[13px]"
+                style={{ color: "var(--text-primary)" }}
               >
                 {s.action}
               </span>
-              <kbd
-                style={{
-                  fontSize: 12,
-                  fontFamily: "inherit",
-                  padding: "2px 8px",
-                  borderRadius: 4,
-                  background: "var(--canvas-bg)",
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-secondary)",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <kbd className="rounded border border-border bg-muted px-2 py-0.5 text-xs text-[var(--text-secondary)] whitespace-nowrap">
                 {s.keys}
               </kbd>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 20, textAlign: "right" }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: "6px 16px",
-              borderRadius: 6,
-              border: "1px solid var(--border-default)",
-              background: "var(--node-bg)",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-              fontSize: 13,
-              fontFamily: "inherit",
-            }}
-          >
+        <div className="flex justify-end mt-2">
+          <Button variant="outline" size="sm" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

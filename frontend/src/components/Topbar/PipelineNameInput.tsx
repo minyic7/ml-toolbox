@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface PipelineNameInputProps {
   name: string;
@@ -33,20 +35,20 @@ export default function PipelineNameInput({
 
   if (!isEditing) {
     return (
-      <button
-        type="button"
-        className="font-semibold text-sm truncate max-w-60 px-1.5 py-0.5 rounded hover:bg-black/5 transition-colors cursor-text"
+      <Button
+        variant="ghost"
+        className="font-semibold text-sm truncate max-w-60 px-1.5 py-0.5 h-auto cursor-text"
         style={{ color: "var(--text-primary)" }}
         onClick={() => setIsEditing(true)}
         title="Click to rename"
       >
         {name}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <input
+    <Input
       ref={inputRef}
       type="text"
       value={draft}
@@ -59,7 +61,7 @@ export default function PipelineNameInput({
           setIsEditing(false);
         }
       }}
-      className="font-semibold text-sm max-w-60 px-1.5 py-0.5 rounded outline-none border"
+      className="font-semibold text-sm max-w-60 h-7 px-1.5 py-0.5"
       style={{
         color: "var(--text-primary)",
         borderColor: "var(--accent-blue)",

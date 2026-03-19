@@ -1,3 +1,6 @@
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+
 interface ContextMenuProps {
   x: number;
   y: number;
@@ -6,31 +9,6 @@ interface ContextMenuProps {
   onDelete: (nodeId: string) => void;
   onClose: () => void;
 }
-
-const menuStyle: React.CSSProperties = {
-  position: "fixed",
-  zIndex: 50,
-  background: "var(--node-bg)",
-  border: "1px solid var(--border-default)",
-  borderRadius: 8,
-  boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-  padding: "4px 0",
-  minWidth: 160,
-  fontSize: 13,
-};
-
-const itemStyle: React.CSSProperties = {
-  padding: "8px 14px",
-  cursor: "pointer",
-  color: "var(--text-primary)",
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  border: "none",
-  background: "none",
-  fontFamily: "inherit",
-  fontSize: "inherit",
-};
 
 export default function ContextMenu({
   x,
@@ -45,36 +23,31 @@ export default function ContextMenu({
       style={{ position: "fixed", inset: 0, zIndex: 49 }}
       onClick={onClose}
     >
-      <div style={{ ...menuStyle, left: x, top: y }}>
-        <button
-          style={itemStyle}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(0,0,0,0.04)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+      <div
+        className="z-50 min-w-[160px] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        style={{ position: "fixed", left: x, top: y }}
+      >
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
           onClick={() => {
             onRunFrom(nodeId);
             onClose();
           }}
         >
           Run from here
-        </button>
-        <button
-          style={{
-            ...itemStyle,
-            color: "var(--error-red)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(226,75,74,0.06)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+        </Button>
+        <Separator className="my-1" />
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-[13px] font-normal text-[var(--error-red)] hover:text-[var(--error-red)]"
           onClick={() => {
             onDelete(nodeId);
             onClose();
           }}
         >
           Delete node
-        </button>
+        </Button>
       </div>
     </div>
   );

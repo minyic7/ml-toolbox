@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import { cn } from "../../lib/utils";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { ParamsTab } from "./ParamsTab";
 import { CodeTab } from "./CodeTab";
 import { OutputTab } from "./OutputTab";
@@ -39,21 +41,16 @@ export function RightPanel({
   return (
     <div
       className={cn(
-        "flex flex-col border-l overflow-hidden transition-all duration-250",
+        "flex flex-col border-l border-border bg-background overflow-hidden transition-all",
         isOpen ? "w-[360px] min-w-[360px]" : "w-0 min-w-0",
       )}
-      style={{
-        borderColor: "var(--border-default)",
-        backgroundColor: "var(--node-bg)",
-        transitionDuration: "250ms",
-      }}
+      style={{ transitionDuration: "250ms" }}
     >
       {node && definition && (
         <>
           {/* Header */}
           <div
-            className="flex items-center justify-between border-b px-4 py-3"
-            style={{ borderColor: "var(--border-default)" }}
+            className="flex items-center justify-between border-b border-border px-4 py-3"
           >
             <div className="flex flex-col gap-0.5">
               <span
@@ -69,31 +66,19 @@ export function RightPanel({
                 {definition.category}
               </span>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-[var(--text-muted)]"
               onClick={onClose}
-              className="flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:opacity-70"
-              style={{ color: "var(--text-muted)" }}
               aria-label="Close panel"
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              >
-                <path d="M1 1l12 12M13 1L1 13" />
-              </svg>
-            </button>
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
 
           {/* Tabs */}
-          <div
-            className="flex border-b"
-            style={{ borderColor: "var(--border-default)" }}
-          >
+          <div className="flex border-b border-border">
             {TABS.map((tab) => (
               <button
                 key={tab.key}
