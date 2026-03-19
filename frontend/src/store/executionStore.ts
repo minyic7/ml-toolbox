@@ -3,12 +3,14 @@ import type { NodeStatus } from "../lib/types";
 
 interface ExecutionState {
   nodeStatuses: Record<string, NodeStatus>;
+  nodeTracebacks: Record<string, string>;
   isRunning: boolean;
   currentNodeId: string | null;
   lastRunId: string | null;
   pendingNodeIds: Set<string>;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
+  setNodeTraceback: (nodeId: string, traceback: string) => void;
   setAllPending: (nodeIds: string[]) => void;
   setRunning: (running: boolean) => void;
   setCurrentNodeId: (nodeId: string | null) => void;
@@ -16,14 +18,20 @@ interface ExecutionState {
   reset: () => void;
 }
 
-const TERMINAL: ReadonlySet<NodeStatus> = new Set(["done", "error", "skipped"]);
+const TERMINAL: ReadonlySet<NodeStatus> = new Set(["done", "error", "skipped", "cached"]);
 
 export const useExecutionStore = create<ExecutionState>((set) => ({
   nodeStatuses: {},
+  nodeTracebacks: {},
   isRunning: false,
   currentNodeId: null,
   lastRunId: null,
   pendingNodeIds: new Set(),
+
+  setNodeTraceback: (nodeId, traceback) =>
+    set((state) => ({
+      nodeTracebacks: { ...state.nodeTracebacks, [nodeId]: traceback },
+    })),
 
   setNodeStatus: (nodeId, status) =>
     set((state) => {
@@ -55,6 +63,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   reset: () =>
     set({
       nodeStatuses: {},
+      nodeTracebacks: {},
       isRunning: false,
       currentNodeId: null,
       lastRunId: null,

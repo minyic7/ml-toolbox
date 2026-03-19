@@ -54,6 +54,9 @@ export function useExecutionSocket(pipelineId: string | undefined) {
             break;
           case "error":
             store.setNodeStatus(msg.node_id, "error");
+            if (msg.traceback) {
+              store.setNodeTraceback(msg.node_id, msg.traceback);
+            }
             break;
           case "skipped":
             store.setNodeStatus(msg.node_id, "skipped");
