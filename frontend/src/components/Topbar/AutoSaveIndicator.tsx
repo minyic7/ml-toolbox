@@ -43,6 +43,7 @@ export default function AutoSaveIndicator({ status, onRetry }: AutoSaveIndicator
           Save failed
           {onRetry && (
             <button
+              type="button"
               onClick={onRetry}
               className="underline cursor-pointer ml-1"
               style={{ color: "var(--error-red)", background: "none", border: "none", padding: 0, font: "inherit", fontSize: "inherit" }}
