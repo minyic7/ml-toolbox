@@ -1,6 +1,6 @@
-import { useEffect, useCallback } from "react";
-import { useExecutionStore, isTerminalStatus } from "../../store/executionStore";
-import { runPipeline, cancelPipeline } from "../../lib/api";
+import { useEffect, useRef } from "react";
+import { useExecutionStore } from "../../store/executionStore";
+import { useRunPipeline, useCancelPipeline } from "../../hooks/useExecution";
 
 interface RunButtonProps {
   pipelineId: string;
@@ -9,71 +9,49 @@ interface RunButtonProps {
 
 export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
-  const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
   const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
   const setRunning = useExecutionStore((s) => s.setRunning);
-  const setRunId = useExecutionStore((s) => s.setRunId);
-  const setPendingNodeIds = useExecutionStore((s) => s.setPendingNodeIds);
-  const setNodeStatus = useExecutionStore((s) => s.setNodeStatus);
+  const setCurrentNodeId = useExecutionStore((s) => s.setCurrentNodeId);
 
-  // Detect pipeline completion: all pending nodes have terminal status
+  const runMutation = useRunPipeline(pipelineId, nodeIds);
+  const cancelMutation = useCancelPipeline(pipelineId);
+
+  // Track initial pending count for progress calculation
+  const initialCountRef = useRef(0);
+
   useEffect(() => {
-    if (!isRunning || pendingNodeIds.length === 0) return;
-
-    const allDone = pendingNodeIds.every((id) => {
-      const status = nodeStatuses[id];
-      return status !== undefined && isTerminalStatus(status);
-    });
-
-    if (allDone) {
-      setRunning(false);
-
-      const hasError = pendingNodeIds.some(
-        (id) => nodeStatuses[id] === "error",
-      );
-
-      // Log completion status (toast integration point)
-      if (hasError) {
-        console.warn("Pipeline finished with errors");
-      } else {
-        console.info("Pipeline completed successfully");
-      }
+    if (isRunning && pendingNodeIds.length > 0 && initialCountRef.current === 0) {
+      initialCountRef.current = pendingNodeIds.length;
     }
-  }, [isRunning, pendingNodeIds, nodeStatuses, setRunning]);
-
-  const handleRun = useCallback(async () => {
-    try {
-      // Mark all nodes as pending
-      for (const id of nodeIds) {
-        setNodeStatus(id, "pending");
-      }
-      setPendingNodeIds(nodeIds);
-      setRunning(true);
-
-      const result = await runPipeline(pipelineId);
-      setRunId(result.run_id);
-    } catch (err) {
-      console.error("Failed to start pipeline:", err);
-      setRunning(false);
-      setPendingNodeIds([]);
+    if (!isRunning) {
+      initialCountRef.current = 0;
     }
-  }, [pipelineId, nodeIds, setNodeStatus, setPendingNodeIds, setRunning, setRunId]);
+  }, [isRunning, pendingNodeIds.length]);
 
-  const handleCancel = useCallback(async () => {
-    try {
-      await cancelPipeline(pipelineId);
-    } catch (err) {
-      console.error("Failed to cancel pipeline:", err);
+  // Detect pipeline completion: store removes nodes from pendingNodeIds
+  // when they reach terminal status, so length === 0 means all done.
+  useEffect(() => {
+    if (!isRunning || initialCountRef.current === 0) return;
+    if (pendingNodeIds.length > 0) return;
+
+    // All pending nodes have completed
+    setRunning(false);
+    setCurrentNodeId(null);
+
+    const nodeStatuses = useExecutionStore.getState().nodeStatuses;
+    const hasError = Object.values(nodeStatuses).some((s) => s === "error");
+
+    if (hasError) {
+      console.warn("Pipeline finished with errors");
+    } else {
+      console.info("Pipeline completed successfully");
     }
-  }, [pipelineId]);
+  }, [isRunning, pendingNodeIds.length, setRunning, setCurrentNodeId]);
 
-  // Compute progress
+  // Compute progress from how many nodes have been resolved
   const progress =
-    isRunning && pendingNodeIds.length > 0
-      ? pendingNodeIds.filter((id) => {
-          const s = nodeStatuses[id];
-          return s !== undefined && isTerminalStatus(s);
-        }).length / pendingNodeIds.length
+    isRunning && initialCountRef.current > 0
+      ? (initialCountRef.current - pendingNodeIds.length) / initialCountRef.current
       : 0;
 
   return (
@@ -89,7 +67,9 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
 
       <button
         type="button"
-        onClick={isRunning ? handleCancel : handleRun}
+        onClick={() =>
+          isRunning ? cancelMutation.mutate() : runMutation.mutate()
+        }
         disabled={!isRunning && nodeIds.length === 0}
         className="flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
