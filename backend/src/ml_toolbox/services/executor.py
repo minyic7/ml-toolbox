@@ -265,6 +265,38 @@ class PipelineExecutor:
 
         return inputs
 
+    @staticmethod
+    def _ensure_sandbox_permissions(
+        run_dir: Path, *files: Path
+    ) -> None:
+        """Make run_dir writable and parent dirs traversable for the sandbox.
+
+        The sandbox container may run as a different UID than the host
+        process (especially with bind mounts in tests).  Walk from run_dir
+        up to DATA_DIR setting 0o755, set run_dir to 0o777 (container
+        writes results here), and individual files to 0o644.
+        """
+        # run_dir needs to be world-writable so the container can create result files
+        run_dir.chmod(0o777)
+
+        # Walk up to DATA_DIR making each directory world-traversable
+        current = run_dir.parent
+        data_dir_resolved = DATA_DIR.resolve()
+        while current.resolve() != data_dir_resolved and len(str(current)) > 1:
+            try:
+                current.chmod(0o755)
+            except OSError:
+                break
+            current = current.parent
+        # DATA_DIR itself
+        try:
+            DATA_DIR.chmod(0o755)
+        except OSError:
+            pass
+
+        for f in files:
+            f.chmod(0o644)
+
     def _execute_node(
         self,
         node_id: str,
@@ -311,6 +343,12 @@ class PipelineExecutor:
         # Write params hash for caching
         hash_file = run_dir / f"{node_id}.hash"
         hash_file.write_text(self._params_hash(node))
+
+        # Ensure the sandbox container can read the manifest and write results.
+        # When using bind mounts (e.g. in tests), the container process may run
+        # as a different UID, so we make directories traversable and the run_dir
+        # writable, and files world-readable.
+        self._ensure_sandbox_permissions(run_dir, manifest_path, hash_file)
 
         client = self._get_docker()
 
