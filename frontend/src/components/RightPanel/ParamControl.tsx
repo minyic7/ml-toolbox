@@ -107,6 +107,12 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
                 setSliderLocal(null);
               }
             }}
+            onBlur={() => {
+              if (sliderLocal !== null) {
+                onChange(param.name, sliderLocal);
+                setSliderLocal(null);
+              }
+            }}
             className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
             style={{ accentColor: "var(--accent-blue)" }}
           />
