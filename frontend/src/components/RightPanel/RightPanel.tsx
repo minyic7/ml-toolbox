@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { NodeInstance, NodeDefinition, OutputPreview } from "../../lib/types";
+import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import { cn } from "../../lib/utils";
 import { ParamsTab } from "./ParamsTab";
 import { CodeTab } from "./CodeTab";
@@ -8,10 +8,9 @@ import { OutputTab } from "./OutputTab";
 type Tab = "params" | "code" | "output";
 
 interface RightPanelProps {
+  pipelineId: string;
   node: NodeInstance | null;
   definition: NodeDefinition | null;
-  output: OutputPreview | null;
-  downloadUrl: string | null;
   onParamChange: (nodeId: string, name: string, value: unknown) => void;
   onCodeChange: (nodeId: string, code: string) => void;
   onCodeBlur: (nodeId: string) => void;
@@ -25,10 +24,9 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export function RightPanel({
+  pipelineId,
   node,
   definition,
-  output,
-  downloadUrl,
   onParamChange,
   onCodeChange,
   onCodeBlur,
@@ -135,7 +133,7 @@ export function RightPanel({
               />
             )}
             {activeTab === "output" && (
-              <OutputTab output={output} downloadUrl={downloadUrl} />
+              <OutputTab pipelineId={pipelineId} nodeId={node.id} />
             )}
           </div>
         </>
