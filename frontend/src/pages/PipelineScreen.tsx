@@ -395,13 +395,36 @@ export default function PipelineScreen() {
       <div className="flex flex-1 min-h-0">
         <Sidebar onAddNode={handleAddNodeFromSidebar} />
         <main
-          className="flex-1 min-w-0 overflow-hidden"
-          style={{
-            backgroundColor: "var(--canvas-bg)",
-            opacity: transitioning ? 0 : 1,
-            transition: "opacity 150ms ease-out",
-          }}
+          className="flex-1 min-w-0 overflow-hidden relative"
+          style={{ backgroundColor: "var(--canvas-bg)" }}
         >
+          {transitioning && (
+            <div
+              className="absolute inset-0 flex items-center justify-center gap-6"
+              style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
+            >
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse"
+                  style={{
+                    width: 180,
+                    height: 80,
+                    borderRadius: 8,
+                    background: "var(--border-default)",
+                    opacity: 0.3,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          <div
+            style={{
+              opacity: transitioning ? 0 : 1,
+              transition: "opacity 150ms ease-out",
+              height: "100%",
+            }}
+          >
           <Canvas
             pipelineId={pipelineId}
             pipelineNodes={pipeline.nodes}
@@ -418,6 +441,7 @@ export default function PipelineScreen() {
             onTabClick={handleTabClick}
             onRenameNode={handleRenameFromContextMenu}
           />
+          </div>
         </main>
         <RightPanel
           pipelineId={pipelineId}
