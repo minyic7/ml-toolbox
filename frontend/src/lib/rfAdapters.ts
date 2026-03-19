@@ -47,7 +47,10 @@ export function toRFNode(
 /**
  * Convert a backend Edge to a React Flow Edge.
  */
-export function toRFEdge(edge: PipelineEdge): Edge {
+export function toRFEdge(
+  edge: PipelineEdge,
+  onDeleteEdge?: (edgeId: string) => void,
+): Edge {
   return {
     id: edge.id,
     source: edge.source,
@@ -56,6 +59,7 @@ export function toRFEdge(edge: PipelineEdge): Edge {
     targetHandle: edge.target_port,
     data: {
       condition: edge.condition,
+      onDeleteEdge,
     },
   };
 }
