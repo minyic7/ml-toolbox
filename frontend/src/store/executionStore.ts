@@ -18,6 +18,7 @@ interface ExecutionState {
   isRunning: boolean;
   currentNodeId: string | null;
   pendingNodeIds: string[];
+  initialPendingCount: number;
   runId: string | null;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
@@ -36,6 +37,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   isRunning: false,
   currentNodeId: null,
   pendingNodeIds: [],
+  initialPendingCount: 0,
   runId: null,
 
   setNodeStatus: (nodeId, status) =>
@@ -61,7 +63,11 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       for (const id of nodeIds) {
         nodeStatuses[id] = "pending";
       }
-      return { nodeStatuses, pendingNodeIds: [...nodeIds] };
+      return {
+        nodeStatuses,
+        pendingNodeIds: [...nodeIds],
+        initialPendingCount: nodeIds.length,
+      };
     }),
 
   setRunning: (running) => set({ isRunning: running }),
@@ -79,6 +85,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       isRunning: false,
       currentNodeId: null,
       pendingNodeIds: [],
+      initialPendingCount: 0,
       runId: null,
     }),
 }));

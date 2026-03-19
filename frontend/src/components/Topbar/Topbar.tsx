@@ -35,7 +35,7 @@ export default function Topbar({ pipelineId }: TopbarProps) {
 
   const isRunning = useExecutionStore((s) => s.isRunning);
   const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
-  const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+  const initialPendingCount = useExecutionStore((s) => s.initialPendingCount);
 
   // ── Queries ───────────────────────────────────────────────────────
   const { data: pipeline } = useQuery({
@@ -104,14 +104,12 @@ export default function Topbar({ pipelineId }: TopbarProps) {
   );
 
   // ── Progress bar ──────────────────────────────────────────────────
+  // pendingNodeIds shrinks as nodes reach terminal status, so progress =
+  // (initialPendingCount - remaining) / initialPendingCount
   const progress = useMemo(() => {
-    if (!isRunning || pendingNodeIds.length === 0) return 0;
-    const done = pendingNodeIds.filter((id) => {
-      const s = nodeStatuses[id];
-      return s === "done" || s === "error" || s === "skipped" || s === "cached";
-    }).length;
-    return done / pendingNodeIds.length;
-  }, [isRunning, pendingNodeIds, nodeStatuses]);
+    if (!isRunning || initialPendingCount === 0) return 0;
+    return (initialPendingCount - pendingNodeIds.length) / initialPendingCount;
+  }, [isRunning, pendingNodeIds.length, initialPendingCount]);
 
   return (
     <header
