@@ -8,27 +8,27 @@ import {
 import { useExecutionStore } from "../store/executionStore";
 
 export function useRunPipeline(pipelineId: string, nodeIds: string[]) {
-  const { setRunning, setAllPending, setLastRunId } = useExecutionStore();
+  const { setRunning, setAllPending, setRunId } = useExecutionStore();
 
   return useMutation({
     mutationFn: () => runPipeline(pipelineId),
     onSuccess: (data) => {
       setAllPending(nodeIds);
       setRunning(true);
-      setLastRunId(data.run_id);
+      setRunId(data.run_id);
     },
   });
 }
 
 export function useRunFromNode(pipelineId: string, downstreamNodeIds: string[]) {
-  const { setRunning, setAllPending, setLastRunId } = useExecutionStore();
+  const { setRunning, setAllPending, setRunId } = useExecutionStore();
 
   return useMutation({
     mutationFn: (nodeId: string) => runFromNode(pipelineId, nodeId),
     onSuccess: (data) => {
       setAllPending(downstreamNodeIds);
       setRunning(true);
-      setLastRunId(data.run_id);
+      setRunId(data.run_id);
     },
   });
 }

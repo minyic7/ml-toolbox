@@ -1,49 +1,59 @@
 import { create } from "zustand";
 import type { NodeStatus } from "../lib/types";
 
+const TERMINAL_STATUSES: ReadonlySet<NodeStatus> = new Set([
+  "done",
+  "error",
+  "skipped",
+  "cached",
+]);
+
+export function isTerminalStatus(status: NodeStatus): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
 interface ExecutionState {
   nodeStatuses: Record<string, NodeStatus>;
   nodeTracebacks: Record<string, string>;
   isRunning: boolean;
   currentNodeId: string | null;
-  lastRunId: string | null;
-  pendingNodeIds: Set<string>;
+  pendingNodeIds: string[];
+  runId: string | null;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setNodeTraceback: (nodeId: string, traceback: string) => void;
   setAllPending: (nodeIds: string[]) => void;
   setRunning: (running: boolean) => void;
   setCurrentNodeId: (nodeId: string | null) => void;
-  setLastRunId: (runId: string | null) => void;
+  setPendingNodeIds: (ids: string[]) => void;
+  setRunId: (id: string | null) => void;
   reset: () => void;
 }
-
-const TERMINAL: ReadonlySet<NodeStatus> = new Set(["done", "error", "skipped", "cached"]);
 
 export const useExecutionStore = create<ExecutionState>((set) => ({
   nodeStatuses: {},
   nodeTracebacks: {},
   isRunning: false,
   currentNodeId: null,
-  lastRunId: null,
-  pendingNodeIds: new Set(),
+  pendingNodeIds: [],
+  runId: null,
+
+  setNodeStatus: (nodeId, status) =>
+    set((state) => {
+      const nodeStatuses = { ...state.nodeStatuses, [nodeId]: status };
+      const pending = new Set(state.pendingNodeIds);
+
+      if (TERMINAL_STATUSES.has(status)) {
+        pending.delete(nodeId);
+      }
+
+      return { nodeStatuses, pendingNodeIds: [...pending] };
+    }),
 
   setNodeTraceback: (nodeId, traceback) =>
     set((state) => ({
       nodeTracebacks: { ...state.nodeTracebacks, [nodeId]: traceback },
     })),
-
-  setNodeStatus: (nodeId, status) =>
-    set((state) => {
-      const nodeStatuses = { ...state.nodeStatuses, [nodeId]: status };
-      const pendingNodeIds = new Set(state.pendingNodeIds);
-
-      if (TERMINAL.has(status)) {
-        pendingNodeIds.delete(nodeId);
-      }
-
-      return { nodeStatuses, pendingNodeIds };
-    }),
 
   setAllPending: (nodeIds) =>
     set(() => {
@@ -51,14 +61,16 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       for (const id of nodeIds) {
         nodeStatuses[id] = "pending";
       }
-      return { nodeStatuses, pendingNodeIds: new Set(nodeIds) };
+      return { nodeStatuses, pendingNodeIds: [...nodeIds] };
     }),
 
   setRunning: (running) => set({ isRunning: running }),
 
   setCurrentNodeId: (nodeId) => set({ currentNodeId: nodeId }),
 
-  setLastRunId: (runId) => set({ lastRunId: runId }),
+  setPendingNodeIds: (ids) => set({ pendingNodeIds: ids }),
+
+  setRunId: (id) => set({ runId: id }),
 
   reset: () =>
     set({
@@ -66,7 +78,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       nodeTracebacks: {},
       isRunning: false,
       currentNodeId: null,
-      lastRunId: null,
-      pendingNodeIds: new Set(),
+      pendingNodeIds: [],
+      runId: null,
     }),
 }));
