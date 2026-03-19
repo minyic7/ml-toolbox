@@ -44,6 +44,7 @@ export default function PipelineScreen() {
 
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [requestedTab, setRequestedTab] = useState<string | null>(null);
 
   // Clear selection when switching pipelines
   useEffect(() => {
@@ -223,6 +224,12 @@ export default function PipelineScreen() {
 
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
+    setRequestedTab(null);
+  }, []);
+
+  const handleTabClick = useCallback((nodeId: string, tab: string) => {
+    setSelectedNodeId(nodeId);
+    setRequestedTab(tab);
   }, []);
 
   // Track pending code edits so we can save on blur
@@ -345,6 +352,7 @@ export default function PipelineScreen() {
             onDropNode={handleDropNode}
             onRunFrom={handleRunFrom}
             onNodeSelect={handleNodeSelect}
+            onTabClick={handleTabClick}
           />
         </main>
         <RightPanel
@@ -355,6 +363,8 @@ export default function PipelineScreen() {
           onCodeChange={handleCodeChange}
           onCodeBlur={handleCodeBlur}
           onClose={handleClosePanel}
+          requestedTab={requestedTab}
+          onRequestedTabHandled={() => setRequestedTab(null)}
         />
       </div>
     </div>

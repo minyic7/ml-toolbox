@@ -11,11 +11,13 @@ import type {
 export interface NodeCardData extends Record<string, unknown> {
   label: string;
   type: string;
+  category: string;
   status: NodeStatus;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
   params: ParamDefinition[];
   code: string;
+  onTabClick?: (nodeId: string, tab: string) => void;
 }
 
 /**
@@ -26,8 +28,11 @@ export function toRFNode(
   node: NodeInstance,
   statuses: Record<string, NodeStatus>,
   nodeDefinitions: Record<string, NodeDefinition>,
+  onTabClick?: (nodeId: string, tab: string) => void,
 ): Node<NodeCardData> {
   const def = nodeDefinitions[node.type];
+  // Derive category from definition, or from the node type path (e.g. "transform/clean" → "transform")
+  const category = def?.category ?? node.type.split("/")[0] ?? "demo";
   return {
     id: node.id,
     type: "nodeCard",
@@ -35,11 +40,13 @@ export function toRFNode(
     data: {
       label: def?.label ?? node.type,
       type: node.type,
+      category,
       status: statuses[node.id] ?? "idle",
       inputs: node.inputs,
       outputs: node.outputs,
       params: node.params,
       code: node.code,
+      onTabClick,
     },
   };
 }

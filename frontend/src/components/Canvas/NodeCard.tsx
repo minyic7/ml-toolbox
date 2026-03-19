@@ -2,29 +2,80 @@ import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import type { NodeCardData } from "../../lib/rfAdapters";
 import type { NodeStatus } from "../../lib/types";
+import { CATEGORY_ACCENT_COLORS } from "../../lib/portColors";
 import PortDot from "./PortDot";
 
 // ── Status config ──────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<NodeStatus, { accent: string; label: string }> = {
-  idle: { accent: "var(--border-default)", label: "Idle" },
-  dirty: { accent: "var(--warning-amber)", label: "Dirty" },
-  pending: { accent: "var(--text-muted)", label: "Pending" },
-  running: { accent: "var(--accent-blue)", label: "Running…" },
-  done: { accent: "var(--success-green)", label: "Done" },
-  error: { accent: "var(--error-red)", label: "Error" },
-  skipped: { accent: "var(--text-secondary)", label: "Skipped" },
-  cached: { accent: "var(--success-green)", label: "Cached" },
+const STATUS_LABELS: Record<NodeStatus, string> = {
+  idle: "Idle",
+  dirty: "Dirty",
+  pending: "Pending",
+  running: "Running…",
+  done: "Done",
+  error: "Error",
+  skipped: "Skipped",
+  cached: "Cached",
 };
+
+const STATUS_BORDERS: Record<
+  NodeStatus,
+  { width: string; style: string; color: string }
+> = {
+  idle: { width: "1px", style: "solid", color: "#D3D1C7" },
+  dirty: { width: "1px", style: "dashed", color: "#D3D1C7" },
+  pending: { width: "1px", style: "solid", color: "#B5D4F4" },
+  running: { width: "1.5px", style: "solid", color: "#378ADD" },
+  done: { width: "1.5px", style: "solid", color: "#639922" },
+  error: { width: "1.5px", style: "solid", color: "#E24B4A" },
+  skipped: { width: "1.5px", style: "solid", color: "#BA7517" },
+  cached: { width: "1.5px", style: "solid", color: "#BA7517" },
+};
+
+const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
+  idle: "#D3D1C7",
+  dirty: "#D3D1C7",
+  pending: "#B5D4F4",
+  running: "#378ADD",
+  done: "#639922",
+  error: "#E24B4A",
+  skipped: "#BA7517",
+  cached: "#BA7517",
+};
+
+// ── Tab bar types ──────────────────────────────────────────────────
+
+type TabKey = "params" | "code" | "output";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "params", label: "Params" },
+  { key: "code", label: "Code" },
+  { key: "output", label: "Output" },
+];
 
 // ── NodeCard ───────────────────────────────────────────────────────
 
-function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
-  const { label, status, inputs, outputs } = data;
-  const statusStyle = STATUS_STYLES[status];
+function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
+  const { label, category, status, inputs, outputs, onTabClick } = data;
   const isError = status === "error";
   const isCached = status === "cached";
   const isRunning = status === "running";
+  const isDone = status === "done";
+
+  // Category-based accent bar color
+  const accentColor =
+    CATEGORY_ACCENT_COLORS[category.toLowerCase()] ?? "var(--border-default)";
+
+  // Border: per-status width/style/color from spec, override color when selected
+  const borderDef = STATUS_BORDERS[status];
+  const borderColor = selected ? "var(--border-selected)" : borderDef.color;
+
+  // Output badge: green dot if done/cached, red dot if error
+  const outputBadgeColor = isError
+    ? "var(--error-red)"
+    : isDone || isCached
+      ? "var(--success-green)"
+      : null;
 
   return (
     <div
@@ -33,7 +84,7 @@ function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
         width: 232,
         background: "var(--node-bg)",
         borderRadius: 8,
-        border: `1px solid ${selected ? "var(--border-selected)" : "var(--border-default)"}`,
+        border: `${borderDef.width} ${borderDef.style} ${borderColor}`,
         boxShadow: selected
           ? "0 0 0 2px var(--border-selected)"
           : "0 1px 3px rgba(0,0,0,0.06)",
@@ -42,7 +93,7 @@ function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
         fontSize: 13,
       }}
     >
-      {/* Accent bar (3px top) */}
+      {/* Accent bar (3px top) — category-based */}
       <div
         style={{
           position: "absolute",
@@ -51,25 +102,33 @@ function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
           right: 8,
           height: 3,
           borderRadius: "0 0 2px 2px",
-          background: statusStyle.accent,
+          background: accentColor,
           transition: "background 0.2s",
         }}
       />
 
-      {/* Running pulse animation */}
+      {/* Progress bar — indeterminate shimmer when running */}
       {isRunning && (
         <div
           style={{
             position: "absolute",
-            top: 0,
-            left: 8,
-            right: 8,
-            height: 3,
-            borderRadius: "0 0 2px 2px",
-            background: statusStyle.accent,
-            animation: "pulse 1.5s ease-in-out infinite",
+            top: 3,
+            left: 0,
+            right: 0,
+            height: 2,
+            overflow: "hidden",
+            borderRadius: "0 0 1px 1px",
           }}
-        />
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: `linear-gradient(90deg, transparent 0%, var(--accent-blue) 50%, transparent 100%)`,
+              animation: "shimmer 1.5s ease-in-out infinite",
+            }}
+          />
+        </div>
       )}
 
       {/* Header */}
@@ -99,9 +158,29 @@ function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
             fontSize: 11,
             color: "var(--text-secondary)",
             whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
           }}
         >
-          {statusStyle.label}
+          {STATUS_LABELS[status]}
+          <span
+            className={
+              isRunning
+                ? "status-dot-pulse"
+                : status === "pending"
+                  ? "status-dot-fade"
+                  : undefined
+            }
+            style={{
+              display: "inline-block",
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: STATUS_DOT_COLORS[status],
+              flexShrink: 0,
+            }}
+          />
         </span>
       </div>
 
@@ -154,7 +233,6 @@ function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
             color: "var(--error-red)",
             background: "rgba(226,75,74,0.08)",
             borderTop: "1px solid rgba(226,75,74,0.15)",
-            borderRadius: "0 0 8px 8px",
           }}
         >
           Error — click to view
@@ -170,12 +248,58 @@ function NodeCard({ data, selected }: NodeProps & { data: NodeCardData }) {
             color: "var(--success-green)",
             background: "rgba(99,153,34,0.08)",
             borderTop: "1px solid rgba(99,153,34,0.15)",
-            borderRadius: "0 0 8px 8px",
           }}
         >
           Cached
         </div>
       )}
+
+      {/* Tab bar */}
+      <div
+        style={{
+          display: "flex",
+          borderTop: "1px solid var(--border-default)",
+          borderRadius: "0 0 8px 8px",
+          overflow: "hidden",
+        }}
+      >
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTabClick?.(id, tab.key);
+            }}
+            style={{
+              flex: 1,
+              padding: "5px 0",
+              fontSize: 10,
+              fontWeight: 500,
+              color: "var(--text-secondary)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+            }}
+          >
+            {tab.label}
+            {tab.key === "output" && outputBadgeColor && (
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: outputBadgeColor,
+                }}
+              />
+            )}
+          </button>
+        ))}
+      </div>
 
       {/* Port dots */}
       {inputs.map((port, i) => (
