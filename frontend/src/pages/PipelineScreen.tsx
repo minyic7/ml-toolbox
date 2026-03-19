@@ -10,6 +10,7 @@ import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
+import { toast } from "sonner";
 
 export default function PipelineScreen() {
   const { id } = useParams<{ id: string }>();
@@ -205,7 +206,12 @@ export default function PipelineScreen() {
       target: string;
       targetPort: string;
     }) => {
-      addEdgeMutation.mutate(conn);
+      addEdgeMutation.mutate(conn, {
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Connection failed";
+          toast.error(msg.includes("cycle") ? "Cannot connect: would create cycle" : msg);
+        },
+      });
     },
     [addEdgeMutation],
   );
@@ -299,7 +305,10 @@ export default function PipelineScreen() {
   const handleCodeSave = useCallback(
     (nodeId: string, code: string) => {
       delete pendingCodeRef.current[nodeId];
-      patchNodeMutation.mutate({ nodeId, body: { code } });
+      patchNodeMutation.mutate(
+        { nodeId, body: { code } },
+        { onError: () => toast.error("Failed to save code") },
+      );
     },
     [patchNodeMutation],
   );

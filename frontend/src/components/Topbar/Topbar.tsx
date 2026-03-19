@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -103,10 +103,21 @@ export default function Topbar({ pipelineId }: TopbarProps) {
     },
   });
 
+  const lastRenameRef = useRef<string | null>(null);
+
   const handleRename = useCallback(
-    (name: string) => renameMutation.mutate(name),
+    (name: string) => {
+      lastRenameRef.current = name;
+      renameMutation.mutate(name);
+    },
     [renameMutation],
   );
+
+  const handleRetry = useCallback(() => {
+    if (lastRenameRef.current !== null) {
+      renameMutation.mutate(lastRenameRef.current);
+    }
+  }, [renameMutation]);
 
   const nodeIds = useMemo(
     () => pipeline?.nodes.map((n) => n.id) ?? [],
@@ -180,7 +191,7 @@ export default function Topbar({ pipelineId }: TopbarProps) {
           />
         )}
 
-        <AutoSaveIndicator status={saveStatus} />
+        <AutoSaveIndicator status={saveStatus} onRetry={handleRetry} />
 
         {currentNodeLabel && (
           <span

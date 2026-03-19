@@ -21,6 +21,8 @@ interface CodeTabProps {
 export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
   const readOnly = !defaultCode;
   const [copied, setCopied] = useState(false);
+  const [savedIndicator, setSavedIndicator] = useState<"saved" | "unsaved" | null>(null);
+  const lastSavedRef = useRef(code);
   const [resetOpen, setResetOpen] = useState(false);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
@@ -49,6 +51,9 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
         () => {
           const value = editor.getValue();
           onSave(value);
+          lastSavedRef.current = value;
+          setSavedIndicator("saved");
+          setTimeout(() => setSavedIndicator(null), 2000);
         },
       );
     },
@@ -108,6 +113,17 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
             Reset
           </Button>
         )}
+
+        {savedIndicator === "unsaved" && (
+          <span className="text-[10px]" style={{ color: "var(--warning-amber)" }}>
+            ● Unsaved
+          </span>
+        )}
+        {savedIndicator === "saved" && (
+          <span className="text-[10px]" style={{ color: "var(--success-green)" }}>
+            ✓ Saved
+          </span>
+        )}
       </div>
 
       {/* Editor */}
@@ -115,7 +131,12 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
         className="min-h-0 flex-1"
         onBlur={() => {
           const value = editorRef.current?.getValue();
-          if (value !== undefined) onSave(value);
+          if (value !== undefined) {
+            onSave(value);
+            lastSavedRef.current = value;
+            setSavedIndicator("saved");
+            setTimeout(() => setSavedIndicator(null), 2000);
+          }
         }}
       >
         <Editor
@@ -123,7 +144,14 @@ export function CodeTab({ code, defaultCode, onChange, onSave }: CodeTabProps) {
           language="python"
           theme="vs-dark"
           value={code}
-          onChange={(v) => onChange(v ?? "")}
+          onChange={(v) => {
+            onChange(v ?? "");
+            if ((v ?? "") !== lastSavedRef.current) {
+              setSavedIndicator("unsaved");
+            } else {
+              setSavedIndicator(null);
+            }
+          }}
           onMount={handleEditorMount}
           options={{
             readOnly,
