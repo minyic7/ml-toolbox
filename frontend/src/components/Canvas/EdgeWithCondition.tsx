@@ -108,7 +108,7 @@ export default function EdgeWithCondition({
   // Offset label above delete button when both are present
   const conditionLabelStyle: React.CSSProperties = {
     ...labelStyle,
-    transform: `translate(-50%, -50%) translate(${labelX}px,${condition ? labelY - 16 : labelY}px)`,
+    transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 16}px)`,
   };
 
   return (
@@ -180,7 +180,8 @@ export default function EdgeWithCondition({
             type="button"
             onClick={startEditing}
             style={{
-              ...conditionLabelStyle,
+              ...labelStyle,
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 16}px)`,
               cursor: "pointer",
               color: "var(--text-muted)",
               fontSize: 11,
