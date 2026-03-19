@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
 import type { NodeDefinition } from "../lib/types";
 import { useExecutionSocket } from "../hooks/useExecutionSocket";
+import { useExecutionStore } from "../store/executionStore";
 import Topbar from "../components/Topbar/Topbar";
 import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
@@ -45,6 +46,20 @@ export default function PipelineScreen() {
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
+
+  // Auto-switch to Output tab when selected node completes (done/error)
+  const lastDoneNodeId = useExecutionStore((s) => s.lastDoneNodeId);
+  const setLastDoneNodeId = useExecutionStore((s) => s.setLastDoneNodeId);
+  const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+
+  useEffect(() => {
+    if (lastDoneNodeId && lastDoneNodeId === selectedNodeId) {
+      setRequestedTab("output");
+      setLastDoneNodeId(null);
+    } else if (lastDoneNodeId) {
+      setLastDoneNodeId(null);
+    }
+  }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId]);
 
   // Clear selection when switching pipelines
   useEffect(() => {
@@ -224,8 +239,18 @@ export default function PipelineScreen() {
 
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
-    setRequestedTab(null);
-  }, []);
+    // Default to Output tab for nodes with done/error status
+    if (nodeId) {
+      const status = nodeStatuses[nodeId];
+      if (status === "done" || status === "error" || status === "cached") {
+        setRequestedTab("output");
+      } else {
+        setRequestedTab(null);
+      }
+    } else {
+      setRequestedTab(null);
+    }
+  }, [nodeStatuses]);
 
   const handleTabClick = useCallback((nodeId: string, tab: string) => {
     setSelectedNodeId(nodeId);

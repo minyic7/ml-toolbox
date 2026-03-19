@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -43,6 +43,9 @@ export default function Topbar({ pipelineId }: TopbarProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
   const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
   const initialPendingCount = useExecutionStore((s) => s.initialPendingCount);
+  const currentNodeId = useExecutionStore((s) => s.currentNodeId);
+  const runResult = useExecutionStore((s) => s.runResult);
+  const setRunResult = useExecutionStore((s) => s.setRunResult);
 
   // ── Queries ───────────────────────────────────────────────────────
   const { data: pipeline } = useQuery({
@@ -116,6 +119,20 @@ export default function Topbar({ pipelineId }: TopbarProps) {
     return (initialPendingCount - pendingNodeIds.length) / initialPendingCount;
   }, [isRunning, pendingNodeIds.length, initialPendingCount]);
 
+  // Clear runResult after 3s (bar fades)
+  useEffect(() => {
+    if (!runResult) return;
+    const timer = setTimeout(() => setRunResult(null), 3000);
+    return () => clearTimeout(timer);
+  }, [runResult, setRunResult]);
+
+  // Current running node label
+  const currentNodeLabel = useMemo(() => {
+    if (!isRunning || !currentNodeId || !pipeline) return null;
+    const node = pipeline.nodes.find((n) => n.id === currentNodeId);
+    return node?.name ?? node?.type ?? null;
+  }, [isRunning, currentNodeId, pipeline]);
+
   return (
     <header
       className="relative flex items-center shrink-0 px-3 gap-3 border-b border-border select-none"
@@ -125,12 +142,17 @@ export default function Topbar({ pipelineId }: TopbarProps) {
       }}
     >
       {/* Progress bar (overlays bottom edge) */}
-      {isRunning && (
+      {(isRunning || runResult) && (
         <div
           className="absolute bottom-0 left-0 h-0.5 transition-all duration-300"
           style={{
-            width: `${progress * 100}%`,
-            backgroundColor: "var(--accent-blue)",
+            width: runResult ? "100%" : `${progress * 100}%`,
+            backgroundColor: runResult === "error"
+              ? "var(--error-red)"
+              : runResult === "success"
+                ? "var(--success-green)"
+                : "var(--accent-blue)",
+            opacity: runResult ? 1 : undefined,
           }}
         />
       )}
@@ -159,6 +181,25 @@ export default function Topbar({ pipelineId }: TopbarProps) {
         )}
 
         <AutoSaveIndicator status={saveStatus} />
+
+        {currentNodeLabel && (
+          <span
+            className="flex items-center gap-1.5 text-xs"
+            style={{ color: "var(--accent-blue)" }}
+          >
+            <span
+              className="status-dot-pulse"
+              style={{
+                display: "inline-block",
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--accent-blue)",
+              }}
+            />
+            Running… {currentNodeLabel}
+          </span>
+        )}
       </div>
 
       {/* Spacer */}

@@ -24,6 +24,8 @@ interface ExecutionState {
   runId: string | null;
   wsStatus: WsStatus;
   draggingPortType: PortType | null;
+  runResult: "success" | "error" | null;
+  lastDoneNodeId: string | null;
 
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setNodeTraceback: (nodeId: string, traceback: string) => void;
@@ -34,6 +36,8 @@ interface ExecutionState {
   setRunId: (id: string | null) => void;
   setWsStatus: (status: WsStatus) => void;
   setDraggingPortType: (type: PortType | null) => void;
+  setRunResult: (result: "success" | "error" | null) => void;
+  setLastDoneNodeId: (nodeId: string | null) => void;
   reset: () => void;
 }
 
@@ -47,6 +51,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   runId: null,
   wsStatus: "disconnected" as WsStatus,
   draggingPortType: null,
+  runResult: null,
+  lastDoneNodeId: null,
 
   setNodeStatus: (nodeId, status) =>
     set((state) => {
@@ -90,6 +96,10 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
 
   setDraggingPortType: (type) => set({ draggingPortType: type }),
 
+  setRunResult: (result) => set({ runResult: result }),
+
+  setLastDoneNodeId: (nodeId) => set({ lastDoneNodeId: nodeId }),
+
   reset: () =>
     set({
       nodeStatuses: {},
@@ -101,5 +111,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       runId: null,
       wsStatus: "disconnected",
       draggingPortType: null,
+      runResult: null,
+      lastDoneNodeId: null,
     }),
 }));

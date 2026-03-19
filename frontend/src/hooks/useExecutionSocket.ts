@@ -47,12 +47,14 @@ export function useExecutionSocket(pipelineId: string | undefined) {
             break;
           case "done":
             store.setNodeStatus(msg.node_id, msg.cached ? "cached" : "done");
+            store.setLastDoneNodeId(msg.node_id);
             qc.invalidateQueries({
               queryKey: ["output", pipelineId, msg.node_id],
             });
             break;
           case "error":
             store.setNodeStatus(msg.node_id, "error");
+            store.setLastDoneNodeId(msg.node_id);
             if (msg.traceback) {
               store.setNodeTraceback(msg.node_id, msg.traceback);
             }
@@ -65,6 +67,10 @@ export function useExecutionSocket(pipelineId: string | undefined) {
         // Check pipeline completion: all pending nodes resolved
         const updated = useExecutionStore.getState();
         if (updated.isRunning && updated.pendingNodeIds.length === 0) {
+          const hasError = Object.values(updated.nodeStatuses).some(
+            (s) => s === "error",
+          );
+          store.setRunResult(hasError ? "error" : "success");
           store.setRunning(false);
           store.setCurrentNodeId(null);
           qc.invalidateQueries({ queryKey: ["runs", pipelineId] });
