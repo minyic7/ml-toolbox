@@ -127,7 +127,7 @@ export default function EdgeWithCondition({
         style={{
           stroke: isHighlighted
             ? "var(--border-selected)"
-            : "var(--dot-grid)",
+            : "var(--edge-default)",
           strokeWidth: isHighlighted ? 2.5 : 1.5,
           transition: "stroke-width 0.15s, stroke 0.15s",
           ...style,
