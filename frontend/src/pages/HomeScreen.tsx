@@ -15,11 +15,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal } from "lucide-react";
+import { Plus, MoreHorizontal, AlertCircle, RefreshCw } from "lucide-react";
 
 export default function HomeScreen() {
   const navigate = useNavigate();
-  const { data: pipelines, isLoading } = usePipelines();
+  const { data: pipelines, isLoading, isError, refetch } = usePipelines();
   const createPipeline = useCreatePipeline();
   const deletePipeline = useDeletePipeline();
   const duplicatePipeline = useDuplicatePipeline();
@@ -35,6 +35,26 @@ export default function HomeScreen() {
       <div style={styles.page}>
         <div style={styles.container}>
           <p style={{ color: "var(--text-secondary)" }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.container}>
+          <div style={styles.emptyState}>
+            <AlertCircle
+              className="h-8 w-8 mx-auto mb-3"
+              style={{ color: "var(--error-red)" }}
+            />
+            <p style={styles.emptyTitle}>Failed to load pipelines</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     );
