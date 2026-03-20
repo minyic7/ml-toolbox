@@ -1,6 +1,15 @@
-import ml_toolbox.nodes.demo as demo  # noqa: F401 — triggers @node registration
-import ml_toolbox.nodes.evaluate as evaluate  # noqa: F401 — triggers @node registration
-import ml_toolbox.nodes.export as export  # noqa: F401
-import ml_toolbox.nodes.ingest as ingest  # noqa: F401 — triggers @node registration
-import ml_toolbox.nodes.train as train  # noqa: F401 — triggers @node registration
-import ml_toolbox.nodes.transform as transform  # noqa: F401 — triggers @node registration
+"""Auto-discover and import all node modules to trigger @node registration."""
+import importlib
+import logging
+import pkgutil
+
+logger = logging.getLogger(__name__)
+
+# Import every .py module in this package so that @node decorators
+# fire and populate NODE_REGISTRY automatically.
+for _finder, _name, _ispkg in pkgutil.iter_modules(__path__, prefix=__name__ + "."):
+    try:
+        importlib.import_module(_name)
+        logger.debug("Discovered node module: %s", _name)
+    except Exception:
+        logger.exception("Failed to import node module: %s", _name)
