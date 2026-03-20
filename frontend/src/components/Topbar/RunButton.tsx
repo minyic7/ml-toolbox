@@ -40,15 +40,6 @@ export default function RunButton({ pipelineId, nodeIds, currentNodeLabel }: Run
 
     setRunning(false);
     setCurrentNodeId(null);
-
-    const nodeStatuses = useExecutionStore.getState().nodeStatuses;
-    const hasError = Object.values(nodeStatuses).some((s) => s === "error");
-
-    if (hasError) {
-      console.warn("Pipeline finished with errors");
-    } else {
-      console.info("Pipeline completed successfully");
-    }
   }, [isRunning, pendingNodeIds.length, setRunning, setCurrentNodeId]);
 
   const disabled = isRunning || nodeIds.length === 0;
