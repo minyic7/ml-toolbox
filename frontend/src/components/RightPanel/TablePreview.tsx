@@ -18,8 +18,12 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col} className="output-thead-th">
+              {columns.map((col, i) => (
+                <th
+                  key={col}
+                  className="output-thead-th"
+                  style={i === 0 ? { position: 'sticky', left: 0, zIndex: 1, background: 'var(--ghost-hover-bg)' } : undefined}
+                >
                   {col}
                 </th>
               ))}
@@ -32,6 +36,7 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
                   <td
                     key={j}
                     className={`output-td${j === 0 ? " output-td-first" : ""}`}
+                    style={j === 0 ? { position: 'sticky', left: 0, zIndex: 1, background: 'var(--node-bg)' } : undefined}
                   >
                     {cell === null ? (
                       <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>null</span>
@@ -54,6 +59,20 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
           padding: "2px 0",
         }}>
           Showing {rows.length} of {totalRows.toLocaleString()} rows
+          {columns.length > 5 && (
+            <span> · {columns.length} columns</span>
+          )}
+        </div>
+      )}
+      {rows.length >= totalRows && columns.length > 5 && (
+        <div style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 9,
+          fontWeight: 400,
+          color: "var(--text-muted)",
+          padding: "2px 0",
+        }}>
+          {columns.length} columns
         </div>
       )}
     </div>
