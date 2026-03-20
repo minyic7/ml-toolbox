@@ -19,7 +19,10 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col} className="output-thead-th">
+                <th
+                  key={col}
+                  className="output-thead-th"
+                >
                   {col}
                 </th>
               ))}
@@ -46,14 +49,14 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
         </table>
       </div>
       {rows.length < totalRows && (
-        <div style={{
-          fontFamily: "'Inter', sans-serif",
-          fontSize: 9,
-          fontWeight: 400,
-          color: "var(--text-muted)",
-          padding: "2px 0",
-        }}>
+        <div className="output-table-footer">
           Showing {rows.length} of {totalRows.toLocaleString()} rows
+          {columns.length > 5 && <span> · {columns.length} columns</span>}
+        </div>
+      )}
+      {rows.length >= totalRows && columns.length > 5 && (
+        <div className="output-table-footer">
+          {columns.length} columns
         </div>
       )}
     </div>

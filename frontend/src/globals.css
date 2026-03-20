@@ -368,6 +368,21 @@ body {
 .output-td-first {
   font-family: 'JetBrains Mono', monospace;
   color: var(--output-first-col);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--node-bg);
+}
+
+.output-row:hover .output-td-first {
+  background: var(--output-row-hover);
+}
+
+.output-thead-th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--output-thead-bg);
 }
 
 .output-row {
@@ -376,6 +391,14 @@ body {
 
 .output-row:hover {
   background: var(--output-row-hover);
+}
+
+.output-table-footer {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-muted);
+  padding: 2px 0;
 }
 
 .output-empty {
