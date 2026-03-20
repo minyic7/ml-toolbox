@@ -57,7 +57,7 @@ export default function CodePaneHeader({
             fontFamily: "'Inter', sans-serif",
             fontWeight: 600,
             fontSize: 11,
-            color: "#E2E0F0",
+            color: "var(--codepane-title-color)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -101,9 +101,9 @@ export default function CodePaneHeader({
             justifyContent: "center",
             border: "1px solid var(--accent-primary)",
             borderRadius: 4,
-            background: "#1E1A35",
+            background: "var(--codepane-save-bg)",
             cursor: "pointer",
-            color: "#9B8FC4",
+            color: "var(--codepane-save-color)",
             fontFamily: "'Inter', sans-serif",
             fontWeight: 700,
             fontSize: 10,
@@ -111,12 +111,12 @@ export default function CodePaneHeader({
             letterSpacing: "0.04em",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#252040";
-            e.currentTarget.style.color = "#C4B9E8";
+            e.currentTarget.style.background = "var(--codepane-save-hover-bg)";
+            e.currentTarget.style.color = "var(--codepane-save-hover-color)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#1E1A35";
-            e.currentTarget.style.color = "#9B8FC4";
+            e.currentTarget.style.background = "var(--codepane-save-bg)";
+            e.currentTarget.style.color = "var(--codepane-save-color)";
           }}
         >
           Save
@@ -170,22 +170,22 @@ function IconBtn({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        border: "1px solid #3D3650",
+        border: "1px solid var(--codepane-btn-border)",
         borderRadius: 4,
         background: "transparent",
         cursor: "pointer",
-        color: "var(--codepane-icon-color)",
+        color: "var(--codepane-btn-color)",
         flexShrink: 0,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#2D2640";
-        e.currentTarget.style.borderColor = "#4D4660";
-        e.currentTarget.style.color = "#E2E0F0";
+        e.currentTarget.style.background = "var(--codepane-btn-hover-bg)";
+        e.currentTarget.style.borderColor = "var(--codepane-btn-hover-border)";
+        e.currentTarget.style.color = "var(--codepane-btn-hover-color)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.borderColor = "#3D3650";
-        e.currentTarget.style.color = "var(--codepane-icon-color)";
+        e.currentTarget.style.borderColor = "var(--codepane-btn-border)";
+        e.currentTarget.style.color = "var(--codepane-btn-color)";
       }}
       onMouseDown={(e) => {
         e.currentTarget.style.transform = "scale(0.93)";
