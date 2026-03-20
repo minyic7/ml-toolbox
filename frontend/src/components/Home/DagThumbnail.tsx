@@ -18,7 +18,7 @@ const PADDING_Y = 8;
 
 const STATUS_COLORS: Record<string, { fill: string; dot: string; labelColor: string; opacity: number }> = {
   done:      { fill: "#10B981", dot: "#10B981", labelColor: "#1E293B", opacity: 0.12 },
-  error:     { fill: "#E24B4A", dot: "#E24B4A", labelColor: "#1E293B", opacity: 0.12 },
+  error:     { fill: "#9E3F4E", dot: "#9E3F4E", labelColor: "#1E293B", opacity: 0.12 },
   cancelled: { fill: "#CBD5E1", dot: "#CBD5E1", labelColor: "#94A3B8", opacity: 0.30 },
   pending:   { fill: "#CBD5E1", dot: "#CBD5E1", labelColor: "#94A3B8", opacity: 0.30 },
   skipped:   { fill: "#F59E0B", dot: "#F59E0B", labelColor: "#1E293B", opacity: 0.12 },
