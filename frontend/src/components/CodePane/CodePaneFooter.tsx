@@ -1,10 +1,8 @@
 interface CodePaneFooterProps {
   unsaved: boolean;
-  activeTab?: "params" | "code" | "output";
 }
 
-export default function CodePaneFooter({ unsaved, activeTab = "code" }: CodePaneFooterProps) {
-  if (activeTab !== "code") return null;
+export default function CodePaneFooter({ unsaved }: CodePaneFooterProps) {
   const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
   const modKey = isMac ? "\u2318" : "Ctrl+";
 
