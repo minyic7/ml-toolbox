@@ -391,6 +391,12 @@ export default function PipelineScreen() {
           newIds.push("");
         }
       }
+      // Report partial paste
+      const succeeded = newIds.filter(Boolean).length;
+      const failed = pastedNodes.length - succeeded;
+      if (failed > 0) {
+        toast.error(`Pasted ${succeeded} of ${pastedNodes.length} nodes (${failed} failed)`);
+      }
       // Recreate edges between pasted nodes
       if (pastedEdges && pastedEdges.length > 0) {
         for (const e of pastedEdges) {
