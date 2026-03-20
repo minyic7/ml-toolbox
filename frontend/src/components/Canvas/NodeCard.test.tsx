@@ -72,27 +72,40 @@ const ALL_STATUSES: NodeStatus[] = [
   "idle", "dirty", "pending", "running", "done", "error", "skipped", "cached",
 ];
 
-const STATUS_LABELS: Record<NodeStatus, string> = {
-  idle: "Idle",
-  dirty: "Dirty",
-  pending: "Pending",
-  running: "Running…",
-  done: "Done",
-  error: "Error",
-  skipped: "Skipped",
-  cached: "Cached",
+// New design: only certain statuses show a label
+const STATUS_LABEL_MAP: Partial<Record<NodeStatus, string>> = {
+  pending: "queued",
+  running: "running",
+  done: "done",
+  error: "error",
+  cached: "cached",
 };
 
 describe("NodeCard", () => {
   describe("status states", () => {
-    it.each(ALL_STATUSES)("renders %s status label", (status) => {
+    it.each(ALL_STATUSES)("renders %s status without crashing", (status) => {
+      const { container } = renderCard({ status });
+      const card = container.querySelector(".node-card");
+      expect(card).not.toBeNull();
+    });
+
+    it.each(
+      Object.entries(STATUS_LABEL_MAP) as [NodeStatus, string][],
+    )("shows status label for %s", (status, label) => {
       renderCard({ status });
-      // "error" status renders "Error" in both the status label and error strip
+      // "error" status renders label in both status area and error strip
       if (status === "error") {
-        expect(screen.getAllByText(STATUS_LABELS[status]).length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText(label, { exact: false }).length).toBeGreaterThanOrEqual(1);
       } else {
-        expect(screen.getByText(STATUS_LABELS[status])).toBeInTheDocument();
+        expect(screen.getByText(label)).toBeInTheDocument();
       }
+    });
+
+    it("does not show status label for idle", () => {
+      renderCard({ status: "idle" });
+      expect(screen.queryByText("queued")).not.toBeInTheDocument();
+      expect(screen.queryByText("running")).not.toBeInTheDocument();
+      expect(screen.queryByText("done")).not.toBeInTheDocument();
     });
 
     it("shows error strip for error status", () => {
@@ -123,35 +136,46 @@ describe("NodeCard", () => {
     });
   });
 
-  describe("accent bar color", () => {
+  describe("left accent border", () => {
     it("uses category accent CSS variable for known category", () => {
       const { container } = renderCard({ category: "train" });
-      // Accent bar is the first absolute-positioned child div
-      const accentBar = container.querySelector(
-        '.node-card > div[style*="position: absolute"]',
-      );
-      expect(accentBar).not.toBeNull();
-      expect((accentBar as HTMLElement).style.background).toBe(
-        "var(--category-train)",
-      );
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.borderLeft).toContain("var(--category-train)");
     });
 
     it("falls back to --border-default for unknown category", () => {
       const { container } = renderCard({ category: "unknown" });
-      const accentBar = container.querySelector(
-        '.node-card > div[style*="position: absolute"]',
-      );
-      expect((accentBar as HTMLElement).style.background).toBe(
-        "var(--border-default)",
-      );
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.borderLeft).toContain("var(--border-default)");
     });
   });
 
-  describe("width", () => {
-    it("renders with 232px width", () => {
+  describe("width and shape", () => {
+    it("renders with 210px width", () => {
       const { container } = renderCard();
       const card = container.querySelector(".node-card") as HTMLElement;
-      expect(card.style.width).toBe("232px");
+      expect(card.style.width).toBe("210px");
+    });
+
+    it("has flat left edge rounded right border-radius", () => {
+      const { container } = renderCard();
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.borderRadius).toBe("0 8px 8px 0");
+    });
+  });
+
+  describe("selected state", () => {
+    it("shows outline when selected", () => {
+      const { container } = renderCard({}, true);
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.outline).toBe("2px solid var(--border-selected)");
+      expect(card.style.outlineOffset).toBe("2px");
+    });
+
+    it("has no outline when not selected", () => {
+      const { container } = renderCard({}, false);
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.outline).toBe("none");
     });
   });
 
@@ -185,19 +209,18 @@ describe("NodeCard", () => {
     });
   });
 
-  describe("tab bar", () => {
-    it("renders Params, Code, and Output tabs", () => {
+  describe("action bar", () => {
+    it("renders Run, Code, and Del action buttons", () => {
       renderCard();
-      expect(screen.getByText("Params")).toBeInTheDocument();
+      expect(screen.getByText("Run")).toBeInTheDocument();
       expect(screen.getByText("Code")).toBeInTheDocument();
-      expect(screen.getByText("Output")).toBeInTheDocument();
+      expect(screen.getByText("Del")).toBeInTheDocument();
     });
   });
 
   describe("missing/broken data edge cases", () => {
     it("renders without crashing when label is empty", () => {
       const { container } = renderCard({ label: "" });
-      // Card should still render with the node type subline visible
       const card = container.querySelector(".node-card");
       expect(card).not.toBeNull();
       expect(screen.getByText(/transform/)).toBeInTheDocument();
@@ -205,21 +228,16 @@ describe("NodeCard", () => {
 
     it("renders card without port rows when inputs and outputs are empty", () => {
       renderCard({ inputs: [], outputs: [] });
-      // Card renders, tab bar still present
-      expect(screen.getByText("Params")).toBeInTheDocument();
+      // Action bar still present
+      expect(screen.getByText("Run")).toBeInTheDocument();
       // No port handles rendered
       expect(screen.queryByTestId(/^handle-/)).not.toBeInTheDocument();
     });
 
-    it("falls back to --border-default accent color when category is missing/empty", () => {
+    it("falls back to --border-default for empty category", () => {
       const { container } = renderCard({ category: "" });
-      const accentBar = container.querySelector(
-        '.node-card > div[style*="position: absolute"]',
-      );
-      expect(accentBar).not.toBeNull();
-      expect((accentBar as HTMLElement).style.background).toBe(
-        "var(--border-default)",
-      );
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.borderLeft).toContain("var(--border-default)");
     });
 
     it("renders card structure intact with all edge-case fields combined", () => {
@@ -232,8 +250,7 @@ describe("NodeCard", () => {
       });
       const card = container.querySelector(".node-card") as HTMLElement;
       expect(card).not.toBeNull();
-      expect(card.style.width).toBe("232px");
-      expect(screen.getByText("Idle")).toBeInTheDocument();
+      expect(card.style.width).toBe("210px");
     });
   });
 });

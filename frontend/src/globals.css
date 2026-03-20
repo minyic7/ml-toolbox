@@ -58,6 +58,18 @@
   --warning-amber-bg: rgba(245, 158, 11, 0.15);
   --success-green-bg-15: rgba(16, 185, 129, 0.15);
 
+  /* ── NodeCard-specific status colors ─────────────────── */
+  --status-pending: #A5B4FC;
+  --status-idle: #CBD5E1;
+
+  /* ── Port type colors ────────────────────────────────── */
+  --port-table: #9CA3AF;
+  --port-model: #639922;
+  --port-metrics: #EF9F27;
+  --port-array: #378ADD;
+  --port-value: #7F77DD;
+  --port-tensor: #D85A30;
+
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;
   --category-transform: #7F77DD;
@@ -150,10 +162,37 @@ body {
   animation: shake 0.3s ease-in-out;
 }
 
-/* ── NodeCard tab hover ──────────────────────── */
-.node-card-tab:hover {
-  color: var(--text-primary) !important;
-  border-bottom-color: var(--accent-primary) !important;
+/* ── NodeActionBar styles ──────────────────── */
+.node-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
+.node-action-btn:hover {
+  color: var(--text-secondary);
+}
+.node-action-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+.node-action-run:hover {
+  color: var(--border-selected);
+}
+.node-action-del:hover {
+  color: var(--error-red);
 }
 
 @keyframes fadeIn {

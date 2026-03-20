@@ -1,5 +1,4 @@
 .claude-hub.jsonl
-frontend/package-lock.json
 # claude-hub session files
 .claude-hub-task.md
 .claude-hub-run.sh

@@ -220,29 +220,13 @@ test.describe("Canvas smoke tests", () => {
     });
   });
 
-  test("clicking a node opens the right panel", async ({ page }) => {
+  test("clicking a node shows action bar", async ({ page }) => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
-    await expect(page.locator('[title="Generate Data"]')).toBeVisible({
-      timeout: 5000,
-    });
-
-    // Right panel should NOT be visible before any node is clicked
-    const rightPanelParamsTab = page.getByTestId("right-panel-params-tab");
-    await expect(rightPanelParamsTab).not.toBeVisible();
-
-    // Add a node
-    await page.locator('[title="Generate Data"]').click();
-    await expect(page.locator(".react-flow__node")).toBeVisible({
-      timeout: 5000,
-    });
-
-    // Click the node on canvas to select it
+    await expect(page.locator("[title=\"Generate Data\"]")).toBeVisible({ timeout: 5000 });
+    await page.locator("[title=\"Generate Data\"]").click();
+    await expect(page.locator(".react-flow__node")).toBeVisible({ timeout: 5000 });
     await page.locator(".react-flow__node").click();
-
-    // Right panel should now be open with tabs
-    await expect(rightPanelParamsTab).toBeVisible({ timeout: 3000 });
-    await expect(page.getByTestId("right-panel-code-tab")).toBeVisible();
-    await expect(page.getByTestId("right-panel-output-tab")).toBeVisible();
+    await expect(page.locator(".node-action-btn").first()).toBeVisible({ timeout: 3000 });
   });
 
   test("shows error toast when backend returns 500 on node creation", async ({
