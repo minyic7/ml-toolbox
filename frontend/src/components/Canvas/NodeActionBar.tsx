@@ -5,10 +5,10 @@ interface NodeActionBarProps {
   visible: boolean;
   nodeId: string;
   onRun?: () => void;
-  onCode?: () => void;
+  onDelete?: () => void;
 }
 
-function NodeActionBar({ visible, nodeId, onRun, onCode }: NodeActionBarProps) {
+function NodeActionBar({ visible, nodeId, onRun, onDelete }: NodeActionBarProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
   const thisNodeRunning =
@@ -29,7 +29,8 @@ function NodeActionBar({ visible, nodeId, onRun, onCode }: NodeActionBarProps) {
       }}
     >
       <button
-        className="node-action-btn node-action-run"
+        className="node-action-btn"
+        title="Run from this node"
         onClick={(e) => {
           e.stopPropagation();
           if (!runDisabled) onRun?.();
@@ -42,8 +43,8 @@ function NodeActionBar({ visible, nodeId, onRun, onCode }: NodeActionBarProps) {
         {thisNodeRunning ? (
           <svg
             className="topbar-spinner"
-            width="8"
-            height="8"
+            width="12"
+            height="12"
             viewBox="0 0 12 12"
             fill="none"
           >
@@ -59,24 +60,23 @@ function NodeActionBar({ visible, nodeId, onRun, onCode }: NodeActionBarProps) {
             />
           </svg>
         ) : (
-          <svg width="8" height="9" viewBox="0 0 8 9" fill="currentColor">
+          <svg width="12" height="14" viewBox="0 0 8 9" fill="currentColor">
             <path d="M1 1.5v6l6-3-6-3z" />
           </svg>
         )}
-        Run
       </button>
       <button
-        className="node-action-btn node-action-code"
+        className="node-action-btn"
+        title="Delete node"
         onClick={(e) => {
           e.stopPropagation();
-          onCode?.();
+          onDelete?.();
         }}
+        style={{ color: "var(--error-red)" }}
       >
-        <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M3 1L0.5 4L3 7" />
-          <path d="M7 1L9.5 4L7 7" />
+        <svg width="12" height="12" viewBox="0 0 9 10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+          <path d="M1 2.5h7M3 2.5V1.5h3v1M2 2.5l.5 6h4l.5-6" />
         </svg>
-        Code
       </button>
     </div>
   );
