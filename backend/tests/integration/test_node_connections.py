@@ -163,7 +163,7 @@ class TestNodeConnections:
         pid = _create_pipeline(client, "Test A: TABLE chain")
 
         gen = _add_node(client, pid, "ml_toolbox.nodes.demo.run", x=0)
-        clean = _add_node(client, pid, "ml_toolbox.nodes.demo.clean_data", x=200)
+        clean = _add_node(client, pid, "ml_toolbox.nodes.transform.clean", x=200)
         export = _add_node(client, pid, "ml_toolbox.nodes.export.export_table", x=400)
 
         # Set export to parquet format so we can verify output
@@ -331,7 +331,7 @@ class TestNodeConnections:
         pid = _create_pipeline(client, "Test D: Cache hit")
 
         gen = _add_node(client, pid, "ml_toolbox.nodes.demo.run", x=0)
-        clean = _add_node(client, pid, "ml_toolbox.nodes.demo.clean_data", x=200)
+        clean = _add_node(client, pid, "ml_toolbox.nodes.transform.clean", x=200)
 
         _connect(client, pid, gen["id"], "df", clean["id"], "df")
 
@@ -501,8 +501,8 @@ class TestNodeConnections:
         """
         pid = _create_pipeline(client, "Test G: Cycle detection")
 
-        node_a = _add_node(client, pid, "ml_toolbox.nodes.demo.clean_data", x=0)
-        node_b = _add_node(client, pid, "ml_toolbox.nodes.demo.clean_data", x=200)
+        node_a = _add_node(client, pid, "ml_toolbox.nodes.transform.clean", x=0)
+        node_b = _add_node(client, pid, "ml_toolbox.nodes.transform.clean", x=200)
 
         # A → B (valid)
         _connect(client, pid, node_a["id"], "df", node_b["id"], "df")

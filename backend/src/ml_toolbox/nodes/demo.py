@@ -3,7 +3,7 @@ from pathlib import Path
 
 import polars as pl
 
-from ml_toolbox.protocol import PortType, Select, Slider, node
+from ml_toolbox.protocol import PortType, Slider, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -39,34 +39,6 @@ def run(inputs: dict, params: dict) -> dict:  # noqa: ARG001
             "category": [random.choice(["A", "B", "C"]) for _ in range(n)],
         }
     )
-    out = _get_output_path("df")
-    df.write_parquet(out)
-    return {"df": str(out)}
-
-
-# ── clean_data ───────────────────────────────────────────────────────
-@node(
-    inputs={"df": PortType.TABLE},
-    outputs={"df": PortType.TABLE},
-    params={
-        "strategy": Select(["mean", "median", "drop"], default="mean"),
-    },
-)
-def clean_data(inputs: dict, params: dict) -> dict:
-    """Read parquet, handle nulls according to strategy, write parquet."""
-    import polars as pl
-
-    df = pl.read_parquet(inputs["df"])
-    strategy = params.get("strategy", "mean")
-
-    if strategy == "drop":
-        df = df.drop_nulls()
-    else:
-        numeric_cols = [c for c in df.columns if df[c].dtype.is_numeric()]
-        for col in numeric_cols:
-            fill_value = getattr(df[col], strategy)()
-            df = df.with_columns(pl.col(col).fill_null(fill_value))
-
     out = _get_output_path("df")
     df.write_parquet(out)
     return {"df": str(out)}

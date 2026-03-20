@@ -14,7 +14,6 @@ import ml_toolbox.nodes  # noqa: F401
 
 EXPECTED_NODES = {
     "ml_toolbox.nodes.demo.run",
-    "ml_toolbox.nodes.demo.clean_data",
     "ml_toolbox.nodes.demo.summarize_data",
 }
 
@@ -39,16 +38,6 @@ def test_generate_data_metadata():
     assert param["max"] == 1000
     assert "default_code" in meta
 
-
-def test_clean_data_metadata():
-    meta = NODE_REGISTRY["ml_toolbox.nodes.demo.clean_data"]
-    assert meta["inputs"] == [{"name": "df", "type": "TABLE"}]
-    assert meta["outputs"] == [{"name": "df", "type": "TABLE"}]
-    assert len(meta["params"]) == 1
-    param = meta["params"][0]
-    assert param["type"] == "select"
-    assert param["name"] == "strategy"
-    assert "mean" in param["options"]
 
 
 def test_summarize_data_metadata():
