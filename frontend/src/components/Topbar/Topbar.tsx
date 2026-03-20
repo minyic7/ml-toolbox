@@ -178,6 +178,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
               variant="ghost"
               size="icon"
               className="h-7 w-7 shrink-0 text-[var(--text-secondary)]"
+              aria-label="Pipeline list"
               onClick={() => setNavOpen(true)}
             >
               <Menu className="h-4 w-4" />
@@ -236,6 +237,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-[var(--text-secondary)]"
+              aria-label="Run history"
               onClick={() => setHistoryOpen(true)}
             >
               <Clock className="h-4 w-4" />
@@ -250,6 +252,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-[var(--text-secondary)]"
+              aria-label="Settings"
               onClick={() => setSettingsOpen(true)}
             >
               <Settings className="h-4 w-4" />
