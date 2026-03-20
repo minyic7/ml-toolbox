@@ -328,6 +328,63 @@ test.describe("Canvas smoke tests", () => {
     await expect(page.locator("text=Clean Data").first()).toBeVisible();
   });
 
+  test("right-click node and delete removes it from canvas", async ({
+    page,
+  }) => {
+    // Load pipeline with one node
+    await page.route(/\/api\/pipelines\/[^/]+$/, (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({
+          json: {
+            ...PIPELINE_FIXTURE,
+            nodes: [
+              {
+                id: "n1",
+                type: "generate_data",
+                position: { x: 200, y: 200 },
+                params: NODES_FIXTURE[0].params,
+                code: NODES_FIXTURE[0].code,
+                name: "Generate Data",
+                inputs: NODES_FIXTURE[0].inputs,
+                outputs: NODES_FIXTURE[0].outputs,
+              },
+            ],
+            edges: [],
+          },
+        });
+      } else {
+        route.fulfill({ json: {} });
+      }
+    });
+
+    // Mock DELETE /nodes/:id
+    await page.route("**/api/pipelines/*/nodes/*", (route) => {
+      if (route.request().method() === "DELETE") {
+        route.fulfill({ status: 204 });
+      } else {
+        route.continue();
+      }
+    });
+
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
+
+    // Verify node is present
+    const nodes = page.locator(".react-flow__node");
+    await expect(nodes).toHaveCount(1, { timeout: 5000 });
+
+    // Right-click the node to open context menu
+    await nodes.first().click({ button: "right" });
+
+    // Click "Delete node" in context menu
+    await page.locator("text=Delete node").click();
+
+    // Undo toast should appear confirming the delete action fired
+    await expect(page.locator("text=Undo")).toBeVisible({ timeout: 3000 });
+
+    // Context menu should be dismissed
+    await expect(page.locator("text=Delete node")).not.toBeVisible();
+  });
+
   test("home screen survives backend 500 without crashing", async ({
     page,
   }) => {
