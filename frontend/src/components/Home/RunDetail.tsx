@@ -1,6 +1,13 @@
 import { useState, useCallback } from "react";
 import { CheckCircle2, XCircle, MinusCircle, ExternalLink } from "lucide-react";
 import type { GlobalRunRecord } from "../../lib/types";
+import {
+  formatDuration,
+  relativeTime,
+  pipelineDotColor,
+  STATUS_BADGE_COLORS,
+  STATUS_LABELS,
+} from "../../lib/runConstants";
 import DagThumbnail from "./DagThumbnail";
 import ArtifactsGrid from "./ArtifactsGrid";
 
@@ -9,38 +16,16 @@ export interface RunDetailProps {
   onOpenPipeline: (pipelineId: string) => void;
 }
 
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "—";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-const PIPELINE_DOT_COLORS = ["#1D9E75", "#7F77DD", "#378ADD", "#EF9F27", "#D85A30", "#888780"];
-function pipelineDotColor(pipelineId: string): string {
-  let hash = 0;
-  for (let i = 0; i < pipelineId.length; i++) {
-    hash = (hash * 31 + pipelineId.charCodeAt(i)) | 0;
-  }
-  return PIPELINE_DOT_COLORS[Math.abs(hash) % PIPELINE_DOT_COLORS.length];
-}
+const STATUS_ICON: Record<string, typeof CheckCircle2> = {
+  done: CheckCircle2,
+  error: XCircle,
+  cancelled: MinusCircle,
+};
 
 const STATUS_BADGE: Record<string, { bg: string; color: string; icon: typeof CheckCircle2; label: string }> = {
-  done:      { bg: "#DCFCE7", color: "#166534", icon: CheckCircle2, label: "Success" },
-  error:     { bg: "#FFF7F7", color: "#9E3F4E", icon: XCircle,      label: "Failed" },
-  cancelled: { bg: "#F1F5F9", color: "#64748B", icon: MinusCircle,   label: "Cancelled" },
+  done:      { bg: STATUS_BADGE_COLORS.done.bg, color: STATUS_BADGE_COLORS.done.color, icon: STATUS_ICON.done, label: STATUS_LABELS.done },
+  error:     { bg: STATUS_BADGE_COLORS.error.bg, color: STATUS_BADGE_COLORS.error.color, icon: STATUS_ICON.error, label: STATUS_LABELS.error },
+  cancelled: { bg: STATUS_BADGE_COLORS.cancelled.bg, color: STATUS_BADGE_COLORS.cancelled.color, icon: STATUS_ICON.cancelled, label: STATUS_LABELS.cancelled },
 };
 
 function getStatusBadge(status: string) {

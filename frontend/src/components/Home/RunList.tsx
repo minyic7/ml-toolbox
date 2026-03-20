@@ -1,5 +1,6 @@
 import { CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import type { GlobalRunRecord } from "../../lib/types";
+import { formatDuration, relativeTime, pipelineDotColor } from "../../lib/runConstants";
 import TinyDag from "./TinyDag";
 
 interface RunListProps {
@@ -7,30 +8,6 @@ interface RunListProps {
   selectedRunId: string | null;
   onSelectRun: (runId: string) => void;
   isLoading: boolean;
-}
-
-/* ── Helpers ─────────────────────────────────────────────────────── */
-
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return "—";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
-}
-
-function relativeTime(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diffSec = Math.round((now - then) / 1000);
-  if (diffSec < 60) return "just now";
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} min ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay === 1) return "yesterday";
-  return `${diffDay}d ago`;
 }
 
 function dateLabel(iso: string): string {
@@ -67,20 +44,6 @@ function StatusIcon({ status }: { status: string }) {
   if (status === "done") return <CheckCircle2 size={size} color={color} style={{ flexShrink: 0 }} />;
   if (status === "error") return <XCircle size={size} color={color} style={{ flexShrink: 0 }} />;
   return <MinusCircle size={size} color={color} style={{ flexShrink: 0 }} />;
-}
-
-/* ── Pipeline dot color ──────────────────────────────────────────── */
-
-const PIPELINE_DOT_COLORS = [
-  "#1D9E75", "#7F77DD", "#378ADD", "#EF9F27", "#D85A30", "#888780",
-];
-
-function pipelineDotColor(pipelineId: string): string {
-  let hash = 0;
-  for (let i = 0; i < pipelineId.length; i++) {
-    hash = (hash * 31 + pipelineId.charCodeAt(i)) | 0;
-  }
-  return PIPELINE_DOT_COLORS[Math.abs(hash) % PIPELINE_DOT_COLORS.length];
 }
 
 /* ── Component ───────────────────────────────────────────────────── */

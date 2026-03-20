@@ -14,6 +14,7 @@ import {
   updatePipeline,
 } from "../lib/api";
 import type { Pipeline, PipelineListItem, RunFilterParams } from "../lib/types";
+import { RUN_STATUSES } from "../lib/runConstants";
 import { useAllRuns } from "../hooks/useAllRuns";
 import FilterRow from "../components/Home/FilterRow";
 import RunList from "../components/Home/RunList";
@@ -31,7 +32,7 @@ import { Plus, MoreHorizontal, AlertCircle, RefreshCw, Pencil } from "lucide-rea
 
 type View = "runs" | "pipelines";
 
-const ALL_STATUSES = ["done", "error", "cancelled"];
+const ALL_STATUSES = [...RUN_STATUSES];
 
 export default function HomeScreen() {
   const navigate = useNavigate();
