@@ -4,6 +4,7 @@ import type { NodeCardData } from "../../lib/rfAdapters";
 import type { NodeStatus } from "../../lib/types";
 import { CATEGORY_ACCENT_COLORS, PORT_COLORS } from "../../lib/portColors";
 import type { PortType } from "../../lib/types";
+import { useExecutionStore } from "../../store/executionStore";
 import PortDot from "./PortDot";
 import NodeActionBar from "./NodeActionBar";
 import {
@@ -94,6 +95,10 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
   const isRunning = status === "running";
   const [hovered, setHovered] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const traceback = useExecutionStore((s) => s.nodeTracebacks[id]);
+  const errorSummary = traceback
+    ? traceback.split("\n").filter((l) => l.trim()).pop() ?? "Error"
+    : "Error";
 
   // Category-based left accent border color
   const accentColor =
@@ -331,7 +336,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
           }}
         >
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            Error
+            {errorSummary}
           </span>
           <span
             style={{ flexShrink: 0, cursor: "pointer", textDecoration: "underline" }}
