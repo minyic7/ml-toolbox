@@ -1,6 +1,7 @@
 import { Download, FileText } from "lucide-react";
 import { getRunOutputDownloadUrl } from "../../lib/api";
 import type { RunArtifact } from "../../lib/types";
+import { ARTIFACT_TYPE_COLORS } from "../../lib/runConstants";
 
 export interface ArtifactsGridProps {
   artifacts: RunArtifact[];
@@ -8,18 +9,8 @@ export interface ArtifactsGridProps {
   runId: string;
 }
 
-const TYPE_BADGE_COLORS: Record<string, { bg: string; color: string }> = {
-  parquet: { bg: "#DCFCE7", color: "#166634" },
-  pkl:     { bg: "#EDE9FE", color: "#5B21B6" },
-  json:    { bg: "#FEF3C7", color: "#92400E" },
-  npy:     { bg: "#DBEAFE", color: "#1D4ED8" },
-  pt:      { bg: "#DBEAFE", color: "#1D4ED8" },
-  png:     { bg: "#FCE7F3", color: "#9D174D" },
-  svg:     { bg: "#FCE7F3", color: "#9D174D" },
-};
-
 function getBadgeStyle(type: string) {
-  return TYPE_BADGE_COLORS[type] ?? { bg: "#F1F5F9", color: "#64748B" };
+  return ARTIFACT_TYPE_COLORS[type] ?? { bg: "#F1F5F9", color: "#64748B" };
 }
 
 function formatBytes(bytes: number): string {

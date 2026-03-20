@@ -1,15 +1,9 @@
 import type { DagNodeSnapshot } from "../../lib/types";
+import { DAG_NODE_COLORS } from "../../lib/runConstants";
 
 interface TinyDagProps {
   nodes: DagNodeSnapshot[];
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  done: "#10B981",
-  error: "#9E3F4E",
-  pending: "#CBD5E1",
-  skipped: "#F59E0B",
-};
 
 const CIRCLE_R = 3;
 const SPACING = 14;
@@ -50,7 +44,7 @@ export default function TinyDag({ nodes }: TinyDagProps) {
           cx={CIRCLE_R + i * SPACING}
           cy={CIRCLE_R}
           r={CIRCLE_R}
-          fill={STATUS_COLORS[node.status] ?? STATUS_COLORS.pending}
+          fill={DAG_NODE_COLORS[node.status]?.dot ?? DAG_NODE_COLORS.pending.dot}
         />
       ))}
     </svg>

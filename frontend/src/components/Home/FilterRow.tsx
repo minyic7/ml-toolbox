@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, ChevronDown } from "lucide-react";
+import { STATUS_BADGE_COLORS, STATUS_LABELS } from "../../lib/runConstants";
 
 interface FilterRowProps {
   pipelines: { id: string; name: string }[];
@@ -14,12 +15,8 @@ interface FilterRowProps {
 
 /* ── Status pill definitions ─────────────────────────────────────── */
 
-const STATUS_OPTIONS = [
-  { key: "done", label: "✓ Success", onBg: "#DCFCE7", onColor: "#166534" },
-  { key: "error", label: "✗ Failed", onBg: "#FFF7F7", onColor: "#9E3F4E" },
-  { key: "cancelled", label: "Cancelled", onBg: "#F1F5F9", onColor: "#64748B" },
-] as const;
-
+const STATUS_PREFIX: Record<string, string> = { done: "\u2713 ", error: "\u2717 ", cancelled: "" };
+const STATUS_KEYS = ["done", "error", "cancelled"] as const;
 const MUTED_COLOR = "#94A3B8";
 
 /* ── Component ───────────────────────────────────────────────────── */
@@ -153,19 +150,20 @@ export default function FilterRow({
       {/* Status pills */}
       <div style={styles.section}>
         <div style={styles.pillGroup}>
-          {STATUS_OPTIONS.map((opt) => {
-            const active = selectedStatuses.includes(opt.key);
+          {STATUS_KEYS.map((key) => {
+            const active = selectedStatuses.includes(key);
+            const badge = STATUS_BADGE_COLORS[key];
             return (
               <button
-                key={opt.key}
+                key={key}
                 style={{
                   ...styles.pill,
-                  backgroundColor: active ? opt.onBg : "transparent",
-                  color: active ? opt.onColor : MUTED_COLOR,
+                  backgroundColor: active ? badge.bg : "transparent",
+                  color: active ? badge.color : MUTED_COLOR,
                 }}
-                onClick={() => handleStatusToggle(opt.key)}
+                onClick={() => handleStatusToggle(key)}
               >
-                {opt.label}
+                {`${STATUS_PREFIX[key] ?? ""}${STATUS_LABELS[key]}`}
               </button>
             );
           })}
