@@ -9,17 +9,22 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  retried: boolean;
 }
 
 export default class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, retried: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
+
+  private resetErrorBoundary = () => {
+    this.setState({ hasError: false, error: null, retried: true });
+  };
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, info.componentStack);
@@ -47,19 +52,35 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           <p style={{ fontSize: "0.9rem", color: "#888", margin: 0 }}>
             This section encountered an error
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              padding: "0.35rem 1rem",
-              fontSize: "0.85rem",
-              borderRadius: "6px",
-              border: "1px solid #ccc",
-              background: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Reload
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={this.resetErrorBoundary}
+              style={{
+                padding: "0.35rem 1rem",
+                fontSize: "0.85rem",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Try again
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: "0.35rem 1rem",
+                fontSize: "0.85rem",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                background: "#fff",
+                cursor: "pointer",
+                color: "#888",
+              }}
+            >
+              Reload
+            </button>
+          </div>
         </div>
       );
     }
@@ -79,20 +100,36 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         <h1 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>
           Something went wrong
         </h1>
-        <button
-          onClick={() => window.location.reload()}
-          style={{
-            padding: "0.5rem 1.25rem",
-            fontSize: "1rem",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-            background: "#fff",
-            cursor: "pointer",
-            marginBottom: "1.5rem",
-          }}
-        >
-          Reload
-        </button>
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem" }}>
+          <button
+            onClick={this.resetErrorBoundary}
+            style={{
+              padding: "0.5rem 1.25rem",
+              fontSize: "1rem",
+              borderRadius: "6px",
+              border: "1px solid #1a73e8",
+              background: "#1a73e8",
+              color: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            Try again
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: "0.5rem 1.25rem",
+              fontSize: "1rem",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              background: "#fff",
+              cursor: "pointer",
+              color: "#666",
+            }}
+          >
+            Reload
+          </button>
+        </div>
         <details style={{ maxWidth: "600px", width: "100%" }}>
           <summary style={{ cursor: "pointer", color: "#666" }}>
             Error details
