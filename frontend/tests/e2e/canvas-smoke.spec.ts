@@ -56,6 +56,8 @@ let nodeIdCounter = 0;
 // ── Route mocks ─────────────────────────────────────────────────
 
 function mockApi(page: import("@playwright/test").Page) {
+  // Stateful pipeline data — nodes are added dynamically
+  const pipelineState = { ...PIPELINE_FIXTURE, nodes: [] as Record<string, unknown>[], edges: [] as Record<string, unknown>[] };
   // Node definitions
   page.route("**/api/nodes", (route) => {
     if (route.request().method() === "GET") {
@@ -99,9 +101,9 @@ function mockApi(page: import("@playwright/test").Page) {
   page.route(/\/api\/pipelines\/[^/]+$/, (route) => {
     const method = route.request().method();
     if (method === "GET") {
-      route.fulfill({ json: { ...PIPELINE_FIXTURE } });
+      route.fulfill({ json: { ...pipelineState } });
     } else if (method === "PUT") {
-      route.fulfill({ json: { ...PIPELINE_FIXTURE } });
+      route.fulfill({ json: { ...pipelineState } });
     } else {
       route.fulfill({ json: {} });
     }
@@ -112,24 +114,24 @@ function mockApi(page: import("@playwright/test").Page) {
     route.fulfill({ json: { keep_outputs: true } });
   });
 
-  // Add node
+  // Add node — pushes to stateful pipeline so subsequent GET includes it
   page.route("**/api/pipelines/*/nodes", (route) => {
     if (route.request().method() === "POST") {
       const id = `node-${++nodeIdCounter}`;
       const body = route.request().postDataJSON();
-      route.fulfill({
-        status: 201,
-        json: {
-          id,
-          type: body.type,
-          position: body.position ?? { x: 250, y: 150 },
-          params: body.params ?? {},
-          code: body.code ?? "",
-          name: NODES_FIXTURE.find((n) => n.type === body.type)?.label ?? body.type,
-          inputs: NODES_FIXTURE.find((n) => n.type === body.type)?.inputs ?? [],
-          outputs: NODES_FIXTURE.find((n) => n.type === body.type)?.outputs ?? [],
-        },
-      });
+      const def = NODES_FIXTURE.find((n) => n.type === body.type);
+      const newNode = {
+        id,
+        type: body.type,
+        position: body.position ?? { x: 250, y: 150 },
+        params: def?.params ?? [],
+        code: body.code ?? "",
+        name: def?.label ?? body.type,
+        inputs: def?.inputs ?? [],
+        outputs: def?.outputs ?? [],
+      };
+      pipelineState.nodes.push(newNode);
+      route.fulfill({ status: 201, json: newNode });
     } else {
       route.continue();
     }
@@ -155,6 +157,7 @@ function mockApi(page: import("@playwright/test").Page) {
 
 test.describe("Canvas smoke tests", () => {
   test.beforeEach(async ({ page }) => {
+    nodeIdCounter = 0;
     await mockApi(page);
   });
 
@@ -164,9 +167,9 @@ test.describe("Canvas smoke tests", () => {
   });
 
   test("navigate to pipeline screen", async ({ page }) => {
-    await page.goto(`/pipeline/${PIPELINE_FIXTURE.id}`);
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
     // Topbar should show pipeline name
-    await expect(page.locator("text=Test Pipeline")).toBeVisible();
+    await expect(page.locator("text=Test Pipeline")).toBeVisible({ timeout: 5000 });
     // Sidebar should render with node categories
     await expect(page.locator("text=Generate Data")).toBeVisible({
       timeout: 5000,
@@ -174,7 +177,7 @@ test.describe("Canvas smoke tests", () => {
   });
 
   test("sidebar shows node library with categories", async ({ page }) => {
-    await page.goto(`/pipeline/${PIPELINE_FIXTURE.id}`);
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
     await expect(page.locator("text=Generate Data")).toBeVisible({
       timeout: 5000,
     });
@@ -182,7 +185,7 @@ test.describe("Canvas smoke tests", () => {
   });
 
   test("click sidebar node adds it to canvas", async ({ page }) => {
-    await page.goto(`/pipeline/${PIPELINE_FIXTURE.id}`);
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
     await expect(page.locator("text=Generate Data")).toBeVisible({
       timeout: 5000,
     });
@@ -197,7 +200,7 @@ test.describe("Canvas smoke tests", () => {
   });
 
   test("clicking a node opens the right panel", async ({ page }) => {
-    await page.goto(`/pipeline/${PIPELINE_FIXTURE.id}`);
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
     await expect(page.locator("text=Generate Data")).toBeVisible({
       timeout: 5000,
     });
@@ -211,16 +214,16 @@ test.describe("Canvas smoke tests", () => {
     // Click the node on canvas to select it
     await page.locator(".react-flow__node").click();
 
-    // Right panel should open with tabs
-    await expect(page.locator("text=Params")).toBeVisible({ timeout: 3000 });
-    await expect(page.locator("text=Code")).toBeVisible();
-    await expect(page.locator("text=Output")).toBeVisible();
+    // Right panel should open with tabs (use .nth(1) to target panel tabs, not node card tabs)
+    await expect(page.getByRole("button", { name: "Params" }).nth(1)).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole("button", { name: "Code" }).nth(1)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Output" }).nth(1)).toBeVisible();
   });
 
   test("run button is visible and disabled with no nodes", async ({
     page,
   }) => {
-    await page.goto(`/pipeline/${PIPELINE_FIXTURE.id}`);
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
     const runButton = page.locator("button", { hasText: "Run" }).first();
     await expect(runButton).toBeVisible({ timeout: 5000 });
     await expect(runButton).toBeDisabled();
