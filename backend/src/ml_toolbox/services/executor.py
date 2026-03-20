@@ -390,20 +390,26 @@ class PipelineExecutor:
         sandbox_run_dir = sandbox_vol_root / rel_run
         container_manifest = str(sandbox_run_dir / manifest_path.name)
 
-        container = client.containers.run(
-            image=SANDBOX_IMAGE,
-            command=["python", "/sandbox/runner.py", container_manifest],
-            volumes={DOCKER_VOLUME_NAME: {"bind": str(sandbox_vol_root), "mode": "rw"}},
-            network_disabled=True,
-            mem_limit="1g",
-            nano_cpus=1_000_000_000,
-            pids_limit=64,
-            read_only=True,
-            tmpfs={"/tmp": "size=128m"},
-            cap_drop=["ALL"],
-            security_opt=["no-new-privileges"],
-            detach=True,
-        )
+        try:
+            container = client.containers.run(
+                image=SANDBOX_IMAGE,
+                command=["python", "/sandbox/runner.py", container_manifest],
+                volumes={DOCKER_VOLUME_NAME: {"bind": str(sandbox_vol_root), "mode": "rw"}},
+                network_disabled=True,
+                mem_limit="1g",
+                nano_cpus=1_000_000_000,
+                pids_limit=64,
+                read_only=True,
+                tmpfs={"/tmp": "size=128m"},
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges"],
+                detach=True,
+            )
+        except ImageNotFound:
+            raise RuntimeError(
+                f"Sandbox image '{SANDBOX_IMAGE}' not found. "
+                "Build it with: docker build -t ml-toolbox-sandbox backend/sandbox/"
+            )
 
         with self._lock:
             self._current_container = container
