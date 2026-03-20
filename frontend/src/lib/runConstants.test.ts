@@ -36,6 +36,11 @@ describe("formatDuration", () => {
     expect(formatDuration(0)).toBe("0s");
   });
 
+  it("shows <1s for sub-second durations", () => {
+    expect(formatDuration(0.3)).toBe("<1s");
+    expect(formatDuration(0.9)).toBe("<1s");
+  });
+
   it("returns seconds for values < 60", () => {
     expect(formatDuration(30)).toBe("30s");
   });
@@ -52,8 +57,16 @@ describe("formatDuration", () => {
     expect(formatDuration(90)).toBe("1m 30s");
   });
 
-  it("formats large values correctly", () => {
-    expect(formatDuration(3661)).toBe("61m 1s");
+  it("formats hours and minutes for values >= 3600", () => {
+    expect(formatDuration(3661)).toBe("1h 1m");
+  });
+
+  it("formats exact hour boundary", () => {
+    expect(formatDuration(3600)).toBe("1h 0m");
+  });
+
+  it("formats multi-hour durations", () => {
+    expect(formatDuration(7380)).toBe("2h 3m");
   });
 });
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 import logging
 import os
 import threading
@@ -482,7 +483,12 @@ class PipelineExecutor:
 
         # Write run status
         status_path = run_dir / "_status.json"
-        status_path.write_text(json.dumps({"status": "running", "run_id": run_id}))
+        started_at = datetime.now(timezone.utc).isoformat()
+        status_path.write_text(json.dumps({
+            "status": "running",
+            "run_id": run_id,
+            "started_at": started_at,
+        }))
 
         had_error = False
         final_status = "done"
@@ -572,9 +578,12 @@ class PipelineExecutor:
             final_status = "error"
             raise
         finally:
+            completed_at = datetime.now(timezone.utc).isoformat()
             status_path.write_text(json.dumps({
                 "status": final_status,
                 "run_id": run_id,
+                "started_at": started_at,
+                "completed_at": completed_at,
             }))
 
 
