@@ -7,7 +7,7 @@ interface TinyDagProps {
 
 const CIRCLE_R = 3;
 const SPACING = 14;
-const LINE_COLOR = "#E2E8F0";
+const LINE_COLOR = "var(--border-default)";
 
 export default function TinyDag({ nodes }: TinyDagProps) {
   if (nodes.length === 0) return null;

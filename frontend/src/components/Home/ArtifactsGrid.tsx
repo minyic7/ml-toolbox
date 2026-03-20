@@ -10,7 +10,7 @@ export interface ArtifactsGridProps {
 }
 
 function getBadgeStyle(type: string) {
-  return ARTIFACT_TYPE_COLORS[type] ?? { bg: "#F1F5F9", color: "#64748B" };
+  return ARTIFACT_TYPE_COLORS[type] ?? { bg: "var(--status-cancelled-bg)", color: "var(--status-cancelled-text)" };
 }
 
 function formatBytes(bytes: number): string {
@@ -41,7 +41,7 @@ function BarChart({ bars }: { bars: number[] }) {
             width={barWidth}
             height={h}
             rx={1}
-            fill="#7F77DD"
+            fill="var(--port-value)"
             opacity={0.7}
           />
         );
@@ -67,7 +67,7 @@ function ChartCard({
         {artifact.bars && artifact.bars.length > 0 ? (
           <BarChart bars={artifact.bars} />
         ) : (
-          <FileText size={24} style={{ color: "#94A3B8" }} />
+          <FileText size={24} style={{ color: "var(--text-muted)" }} />
         )}
       </div>
       <div style={styles.cardFooter}>
@@ -109,7 +109,7 @@ function FileCard({
   return (
     <div style={styles.card}>
       <div style={styles.previewArea}>
-        <FileText size={24} style={{ color: "#94A3B8" }} />
+        <FileText size={24} style={{ color: "var(--text-muted)" }} />
         <span
           style={{
             ...styles.typeBadge,

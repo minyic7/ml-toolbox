@@ -9,9 +9,9 @@ export type DagNodeStatus = (typeof DAG_NODE_STATUSES)[number];
 
 /* 2. Status badge colors (FilterRow, RunDetail) */
 export const STATUS_BADGE_COLORS: Record<string, { bg: string; color: string }> = {
-  done: { bg: "#DCFCE7", color: "#166534" },
-  error: { bg: "#FFF7F7", color: "#9E3F4E" },
-  cancelled: { bg: "#F1F5F9", color: "#64748B" },
+  done: { bg: "var(--status-done-bg)", color: "var(--status-done-text)" },
+  error: { bg: "var(--error-bg-light)", color: "var(--error-red)" },
+  cancelled: { bg: "var(--status-cancelled-bg)", color: "var(--status-cancelled-text)" },
 };
 
 /* 3. Status labels */
@@ -23,22 +23,22 @@ export const STATUS_LABELS: Record<string, string> = {
 
 /* 4. DAG node colors (DagThumbnail, TinyDag) */
 export const DAG_NODE_COLORS: Record<string, { fill: string; dot: string; labelColor: string; opacity: number }> = {
-  done: { fill: "#10B981", dot: "#10B981", labelColor: "#1E293B", opacity: 0.12 },
-  error: { fill: "#9E3F4E", dot: "#9E3F4E", labelColor: "#1E293B", opacity: 0.12 },
-  cancelled: { fill: "#CBD5E1", dot: "#CBD5E1", labelColor: "#94A3B8", opacity: 0.30 },
-  pending: { fill: "#CBD5E1", dot: "#CBD5E1", labelColor: "#94A3B8", opacity: 0.30 },
-  skipped: { fill: "#F59E0B", dot: "#F59E0B", labelColor: "#1E293B", opacity: 0.12 },
+  done: { fill: "var(--success-green)", dot: "var(--success-green)", labelColor: "var(--text-primary)", opacity: 0.12 },
+  error: { fill: "var(--error-red)", dot: "var(--error-red)", labelColor: "var(--text-primary)", opacity: 0.12 },
+  cancelled: { fill: "var(--status-idle)", dot: "var(--status-idle)", labelColor: "var(--text-muted)", opacity: 0.30 },
+  pending: { fill: "var(--status-idle)", dot: "var(--status-idle)", labelColor: "var(--text-muted)", opacity: 0.30 },
+  skipped: { fill: "var(--warning-amber)", dot: "var(--warning-amber)", labelColor: "var(--text-primary)", opacity: 0.12 },
 };
 
 /* 5. Artifact type badge colors (ArtifactsGrid) */
 export const ARTIFACT_TYPE_COLORS: Record<string, { bg: string; color: string }> = {
-  parquet: { bg: "#DCFCE7", color: "#166634" },
-  pkl: { bg: "#EDE9FE", color: "#5B21B6" },
-  json: { bg: "#FEF3C7", color: "#92400E" },
-  npy: { bg: "#DBEAFE", color: "#1D4ED8" },
-  pt: { bg: "#DBEAFE", color: "#1D4ED8" },
-  png: { bg: "#FCE7F3", color: "#9D174D" },
-  svg: { bg: "#FCE7F3", color: "#9D174D" },
+  parquet: { bg: "var(--status-done-bg)", color: "var(--output-healthy-text)" },
+  pkl: { bg: "var(--artifact-pkl-bg)", color: "var(--artifact-pkl-text)" },
+  json: { bg: "var(--artifact-json-bg)", color: "var(--artifact-json-text)" },
+  npy: { bg: "var(--artifact-npy-bg)", color: "var(--artifact-npy-text)" },
+  pt: { bg: "var(--artifact-npy-bg)", color: "var(--artifact-npy-text)" },
+  png: { bg: "var(--artifact-png-bg)", color: "var(--artifact-png-text)" },
+  svg: { bg: "var(--artifact-png-bg)", color: "var(--artifact-png-text)" },
 };
 
 /* 6. Formatting helpers */
@@ -65,7 +65,14 @@ export function relativeTime(iso: string): string {
 }
 
 /* 7. Pipeline dot color helper */
-const PIPELINE_DOT_COLORS = ["#1D9E75", "#7F77DD", "#378ADD", "#EF9F27", "#D85A30", "#888780"];
+const PIPELINE_DOT_COLORS = [
+  "var(--category-ingest)",
+  "var(--category-transform)",
+  "var(--category-train)",
+  "var(--category-evaluate)",
+  "var(--category-export)",
+  "var(--category-demo)",
+];
 export function pipelineDotColor(pipelineId: string): string {
   let hash = 0;
   for (let i = 0; i < pipelineId.length; i++) {

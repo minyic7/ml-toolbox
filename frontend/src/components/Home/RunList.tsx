@@ -35,11 +35,11 @@ function groupByDate(runs: GlobalRunRecord[]): [string, GlobalRunRecord[]][] {
 const STATUS_ICON_COLOR: Record<string, string> = {
   done: "var(--success-green)",
   error: "var(--error-red)",
-  cancelled: "#94A3B8",
+  cancelled: "var(--text-muted)",
 };
 
 function StatusIcon({ status }: { status: string }) {
-  const color = STATUS_ICON_COLOR[status] ?? "#CBD5E1";
+  const color = STATUS_ICON_COLOR[status] ?? "var(--status-idle)";
   const size = 18;
   if (status === "done") return <CheckCircle2 size={size} color={color} style={{ flexShrink: 0 }} />;
   if (status === "error") return <XCircle size={size} color={color} style={{ flexShrink: 0 }} />;
@@ -154,7 +154,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "background-color 0.1s",
   },
   rowSelected: {
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "var(--bg-selected)",
     borderLeft: "2px solid var(--accent-primary)",
   },
   rowTop: {
@@ -224,7 +224,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "10px 12px",
   },
   skeletonRect: {
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "var(--border-default)",
     borderRadius: 4,
     animation: "pulse 1.5s ease-in-out infinite",
   },
