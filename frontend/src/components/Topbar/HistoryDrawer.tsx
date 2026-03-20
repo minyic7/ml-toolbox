@@ -1,4 +1,5 @@
 import type { RunInfo } from "../../lib/types";
+import { formatDuration } from "../../lib/runConstants";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -75,6 +76,14 @@ export default function HistoryDrawer({
                     >
                       {run.status}
                     </div>
+                    {run.duration != null && (
+                      <div
+                        className="text-xs mt-0.5 font-mono"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {formatDuration(run.duration)}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
