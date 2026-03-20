@@ -22,7 +22,10 @@ export default function DisconnectionBanner() {
       dismissTimerRef.current = null;
     }
 
-    if (wsStatus === "reconnecting") {
+    if (wsStatus === "failed") {
+      wasDisconnectedRef.current = true;
+      setVisible(true);
+    } else if (wsStatus === "reconnecting") {
       wasDisconnectedRef.current = true;
       setVisible(true);
       // Check if a run was in progress at the moment of disconnect
@@ -67,10 +70,14 @@ export default function DisconnectionBanner() {
 
   if (!visible) return null;
 
+  const isFailed = wsStatus === "failed";
   const isReconnecting = wsStatus === "reconnecting" || wsStatus === "disconnected";
+  const isDisrupted = isFailed || isReconnecting;
 
   let text: string;
-  if (midRunDisconnect && isReconnecting) {
+  if (isFailed) {
+    text = "Connection lost — server may be down.";
+  } else if (midRunDisconnect && isReconnecting) {
     text = "Run may still be in progress. Refresh to check.";
   } else if (isReconnecting) {
     text = "Connection lost. Reconnecting\u2026";
@@ -78,11 +85,11 @@ export default function DisconnectionBanner() {
     text = "Reconnected";
   }
 
-  const bgColor = isReconnecting
+  const bgColor = isDisrupted
     ? "rgba(186, 117, 23, 0.15)" // --warning-amber at 15%
     : "rgba(99, 153, 34, 0.15)"; // --success-green at 15%
 
-  const textColor = isReconnecting
+  const textColor = isDisrupted
     ? "var(--warning-amber)"
     : "var(--success-green)";
 
@@ -100,7 +107,7 @@ export default function DisconnectionBanner() {
         animation: "banner-slide-down 0.2s ease-out",
       }}
     >
-      {isReconnecting && (
+      {isDisrupted && (
         <span
           style={{
             display: "inline-block",
@@ -108,12 +115,22 @@ export default function DisconnectionBanner() {
             height: 6,
             borderRadius: "50%",
             backgroundColor: "var(--warning-amber)",
-            animation: "banner-pulse 1.5s ease-in-out infinite",
+            animation: isFailed ? undefined : "banner-pulse 1.5s ease-in-out infinite",
           }}
         />
       )}
       <span>{text}</span>
-      {midRunDisconnect && (
+      {isFailed && (
+        <Button
+          variant="link"
+          className="h-auto p-0 text-xs underline"
+          style={{ color: textColor }}
+          onClick={() => window.location.reload()}
+        >
+          Reload page
+        </Button>
+      )}
+      {midRunDisconnect && !isFailed && (
         <Button
           variant="link"
           className="h-auto p-0 text-xs underline"
