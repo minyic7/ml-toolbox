@@ -147,6 +147,7 @@ export interface AddEdgeRequest {
   source_port: string;
   target: string;
   target_port: string;
+  condition?: string;
 }
 
 export interface PatchEdgeRequest {

@@ -138,12 +138,14 @@ export default function PipelineScreen() {
       sourcePort: string;
       target: string;
       targetPort: string;
+      condition?: string;
     }) =>
       api.addEdge(pipelineId, {
         source: conn.source,
         source_port: conn.sourcePort,
         target: conn.target,
         target_port: conn.targetPort,
+        ...(conn.condition ? { condition: conn.condition } : {}),
       }),
     onSuccess: invalidate,
   });
@@ -398,7 +400,6 @@ export default function PipelineScreen() {
       }
       // Recreate edges between pasted nodes
       if (pastedEdges && pastedEdges.length > 0) {
-        let conditionsDropped = 0;
         for (const e of pastedEdges) {
           const source = newIds[e.sourceIdx];
           const target = newIds[e.targetIdx];
@@ -408,14 +409,9 @@ export default function PipelineScreen() {
               sourcePort: e.sourcePort,
               target,
               targetPort: e.targetPort,
+              ...(e.condition ? { condition: e.condition } : {}),
             });
-            if (e.condition) conditionsDropped++;
           }
-        }
-        if (conditionsDropped > 0) {
-          toast.warning(
-            `${conditionsDropped} edge condition(s) were not preserved — re-add them manually`,
-          );
         }
       }
       return newIds.filter(Boolean);
