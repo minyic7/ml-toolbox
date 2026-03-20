@@ -10,6 +10,7 @@ interface NodeActionBarProps {
 function NodeActionBar({ visible, onRun, onCode, onDelete }: NodeActionBarProps) {
   return (
     <div
+      className="nodrag nopan"
       style={{
         display: "flex",
         borderTop: "1px solid var(--border-default)",
