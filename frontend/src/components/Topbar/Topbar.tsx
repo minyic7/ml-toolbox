@@ -234,43 +234,12 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
       {/* ── Auto-save indicator ── */}
       <AutoSaveIndicator status={saveStatus} onRetry={handleRetry} retryDisabled={renameMutation.isPending} />
 
-      {/* ── Running node label ── */}
-      {currentNodeLabel && (
-        <span
-          className="flex items-center gap-1.5"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontWeight: 600,
-            fontSize: 11,
-            color: "var(--accent-primary)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            maxWidth: "20ch",
-          }}
-          title={`Running: ${currentNodeLabel}`}
-        >
-          <span
-            className="status-dot-pulse"
-            style={{
-              display: "inline-block",
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "var(--accent-primary)",
-              flexShrink: 0,
-            }}
-          />
-          {currentNodeLabel}
-        </span>
-      )}
-
       {/* ── Spacer ── */}
       <div className="flex-1" />
 
       {/* ── Right section: Run + Cancel + ghost buttons ── */}
       <div className="flex items-center gap-1.5">
-        <RunButton pipelineId={pipelineId} nodeIds={nodeIds} />
+        <RunButton pipelineId={pipelineId} nodeIds={nodeIds} currentNodeLabel={currentNodeLabel} />
 
         {isRunning && <CancelButton pipelineId={pipelineId} />}
 

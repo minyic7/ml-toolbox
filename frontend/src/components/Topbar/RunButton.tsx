@@ -10,9 +10,10 @@ import {
 interface RunButtonProps {
   pipelineId: string;
   nodeIds: string[];
+  currentNodeLabel?: string | null;
 }
 
-export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
+export default function RunButton({ pipelineId, nodeIds, currentNodeLabel }: RunButtonProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
   const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
   const setRunning = useExecutionStore((s) => s.setRunning);
@@ -76,6 +77,10 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
             cursor: disabled ? "not-allowed" : "pointer",
             opacity: disabled && !isRunning ? 0.5 : 1,
             transition: "background 0.15s, transform 0.1s",
+            maxWidth: isRunning ? 160 : undefined,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
           onMouseEnter={(e) => {
             if (!disabled) e.currentTarget.style.background = "var(--primary-dark)";
@@ -114,7 +119,7 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
               <path d="M1 1.5v9l8-4.5z" />
             </svg>
           )}
-          {isRunning ? "Running…" : "Run All"}
+          {isRunning ? (currentNodeLabel ?? "Running…") : "Run All"}
         </button>
       </TooltipTrigger>
       {nodeIds.length === 0 && !isRunning && (
