@@ -17,7 +17,7 @@ interface FilterRowProps {
 
 const STATUS_PREFIX: Record<string, string> = { done: "\u2713 ", error: "\u2717 ", cancelled: "" };
 const STATUS_KEYS = ["done", "error", "cancelled"] as const;
-const MUTED_COLOR = "#94A3B8";
+const MUTED_COLOR = "var(--text-muted)";
 
 /* ── Component ───────────────────────────────────────────────────── */
 

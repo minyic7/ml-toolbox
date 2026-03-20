@@ -21,13 +21,6 @@ function getStatusStyle(status: string) {
   return DAG_NODE_COLORS[status] ?? DAG_NODE_COLORS.pending;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 function truncateLabel(name: string, maxChars: number = 7): string {
   return name.length > maxChars ? name.slice(0, maxChars - 1) + "\u2026" : name;
 }
@@ -73,7 +66,7 @@ export default function DagThumbnail({ dagSnapshot, selectedNodeId, onNodeClick 
                   y1={y + NODE_H / 2}
                   x2={x + NODE_W + GAP}
                   y2={y + NODE_H / 2}
-                  stroke="#E2E8F0"
+                  stroke="var(--border-default)"
                   strokeWidth={1}
                 />
               )}
@@ -85,8 +78,9 @@ export default function DagThumbnail({ dagSnapshot, selectedNodeId, onNodeClick 
                 width={NODE_W}
                 height={NODE_H}
                 rx={RX}
-                fill={hexToRgba(style.fill, style.opacity)}
-                stroke={isSelected ? "#4A4558" : isHovered ? "#94A3B8" : "none"}
+                fill={style.fill}
+                fillOpacity={style.opacity}
+                stroke={isSelected ? "var(--accent-primary)" : isHovered ? "var(--text-muted)" : "none"}
                 strokeWidth={isSelected ? 2 : 1}
               />
 
@@ -153,8 +147,8 @@ const detailStyles: Record<string, React.CSSProperties> = {
   done: {
     fontSize: 11,
     fontFamily: "'Inter', sans-serif",
-    color: "#166534",
-    backgroundColor: "#DCFCE7",
+    color: "var(--status-done-text)",
+    backgroundColor: "var(--status-done-bg)",
     borderRadius: 6,
     padding: "6px 10px",
     marginTop: 6,
@@ -162,8 +156,8 @@ const detailStyles: Record<string, React.CSSProperties> = {
   error: {
     fontSize: 11,
     fontFamily: "'Inter', sans-serif",
-    color: "#FECDD3",
-    backgroundColor: "#1A1625",
+    color: "var(--error-border-light)",
+    backgroundColor: "var(--codepane-bg)",
     borderRadius: 6,
     padding: "6px 10px",
     marginTop: 6,
