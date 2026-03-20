@@ -38,6 +38,7 @@ interface ExecutionState {
   setDraggingPortType: (type: PortType | null) => void;
   setRunResult: (result: "success" | "error" | null) => void;
   setLastDoneNodeId: (nodeId: string | null) => void;
+  markDirty: (nodeId: string) => void;
   reset: () => void;
 }
 
@@ -99,6 +100,17 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   setRunResult: (result) => set({ runResult: result }),
 
   setLastDoneNodeId: (nodeId) => set({ lastDoneNodeId: nodeId }),
+
+  markDirty: (nodeId) =>
+    set((state) => {
+      const current = state.nodeStatuses[nodeId];
+      if (current === "done" || current === "cached") {
+        return {
+          nodeStatuses: { ...state.nodeStatuses, [nodeId]: "dirty" },
+        };
+      }
+      return {};
+    }),
 
   reset: () =>
     set({
