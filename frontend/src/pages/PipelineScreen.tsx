@@ -10,6 +10,7 @@ import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
 export default function PipelineScreen() {
@@ -500,7 +501,9 @@ export default function PipelineScreen() {
       />
       <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">
-        <Sidebar onAddNode={handleAddNodeFromSidebar} />
+        <ErrorBoundary key={pipelineId} variant="compact">
+          <Sidebar onAddNode={handleAddNodeFromSidebar} />
+        </ErrorBoundary>
         <main
           className="flex-1 min-w-0 overflow-hidden relative"
           style={{ backgroundColor: "var(--canvas-bg)" }}
@@ -555,6 +558,7 @@ export default function PipelineScreen() {
               height: "100%",
             }}
           >
+          <ErrorBoundary key={pipelineId} variant="compact">
           <Canvas
             pipelineId={pipelineId}
             pipelineNodes={pipeline.nodes}
@@ -574,8 +578,10 @@ export default function PipelineScreen() {
             onPasteNodes={handlePasteNodes}
             viewportCenterRef={viewportCenterRef}
           />
+          </ErrorBoundary>
           </div>
         </main>
+        <ErrorBoundary key={pipelineId} variant="compact">
         <RightPanel
           pipelineId={pipelineId}
           node={selectedNode}
@@ -595,6 +601,7 @@ export default function PipelineScreen() {
           requestedRunId={requestedRunId}
           onRequestedRunHandled={() => setRequestedRunId(null)}
         />
+        </ErrorBoundary>
       </div>
     </div>
   );
