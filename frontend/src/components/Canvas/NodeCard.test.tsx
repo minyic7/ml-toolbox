@@ -168,7 +168,7 @@ describe("NodeCard", () => {
     it("shows outline when selected", () => {
       const { container } = renderCard({}, true);
       const card = container.querySelector(".node-card") as HTMLElement;
-      expect(card.style.outline).toBe("2px solid #4A4558");
+      expect(card.style.outline).toBe("2px solid var(--border-selected)");
       expect(card.style.outlineOffset).toBe("2px");
     });
 
