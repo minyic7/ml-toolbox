@@ -409,11 +409,17 @@ class PipelineExecutor:
         try:
             result = container.wait(timeout=300)
             exit_code = result.get("StatusCode", -1)
-        except Exception:
+        except Exception as exc:
             try:
                 container.stop(timeout=5)
             except Exception:
                 pass
+            exc_str = str(exc).lower()
+            if "timeout" in exc_str or "timed out" in exc_str or "read timed out" in exc_str:
+                raise RuntimeError(
+                    "Node execution timed out after 5 minutes. "
+                    "Check your code for infinite loops or reduce the input data size."
+                ) from exc
             raise
         finally:
             # Capture logs before removing
@@ -430,6 +436,12 @@ class PipelineExecutor:
                 pass
             with self._lock:
                 self._current_container = None
+
+        if exit_code == 137:
+            raise RuntimeError(
+                "Node was killed — likely out of memory (1GB limit). "
+                "Try reducing the input data size or simplifying the computation."
+            )
 
         if exit_code != 0:
             error_path = run_dir / f"{node_id}_manifest_error.json"
