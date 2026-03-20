@@ -24,6 +24,7 @@ export default function NodeIconChip({
     <button
       type="button"
       title={label}
+      aria-label={label}
       onClick={onClick}
       style={{
         width: 28,
@@ -64,7 +65,7 @@ export default function NodeIconChip({
           height: 7,
           borderRadius: "50%",
           backgroundColor: colors.dot,
-          border: "1.5px solid #fff",
+          border: "1.5px solid var(--node-bg)",
         }}
       />
     </button>
