@@ -210,6 +210,7 @@ export function RightPanel({
                 onClick={() => setActiveTab(tab.key)}
                 className="flex-1 py-2 text-xs font-medium transition-colors"
                 style={{
+                  fontFamily: "'Inter', sans-serif",
                   color:
                     activeTab === tab.key
                       ? "var(--accent-primary)"
