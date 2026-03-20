@@ -78,8 +78,7 @@ export default function HistoryDrawer({
                     </div>
                     {run.duration != null && (
                       <div
-                        className="text-xs mt-0.5 font-mono"
-                        style={{ color: "var(--text-muted)" }}
+                        className="text-xs mt-0.5 font-mono text-[var(--text-muted)]"
                       >
                         {formatDuration(run.duration)}
                       </div>
