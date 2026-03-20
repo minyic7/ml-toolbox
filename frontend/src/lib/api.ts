@@ -63,8 +63,21 @@ export function listPipelines() {
   return request<PipelineListItem[]>("/api/pipelines");
 }
 
-export function getPipeline(pipelineId: string) {
-  return request<Pipeline>(`/api/pipelines/${pipelineId}`);
+export async function getPipeline(pipelineId: string) {
+  const pipeline = await request<Pipeline>(`/api/pipelines/${pipelineId}`);
+  // Normalize params: backend may return dict format for legacy data.
+  // Convert to ParamDefinition[] so the rest of the frontend can assume arrays.
+  for (const node of pipeline.nodes) {
+    if (!Array.isArray(node.params)) {
+      const dict = node.params as Record<string, unknown>;
+      node.params = Object.entries(dict).map(([name, value]) => ({
+        type: "text" as const,
+        name,
+        default: value,
+      }));
+    }
+  }
+  return pipeline;
 }
 
 export function createPipeline(body: CreatePipelineRequest) {

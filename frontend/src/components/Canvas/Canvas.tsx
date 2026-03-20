@@ -208,9 +208,7 @@ function CanvasInner({
       const snapshot = {
         type: node.type,
         position: { ...node.position },
-        params: Array.isArray(node.params)
-          ? Object.fromEntries(node.params.map((p) => [p.name, p.default]))
-          : { ...(node.params as Record<string, unknown>) },
+        params: Object.fromEntries(node.params.map((p) => [p.name, p.default])),
       };
 
       setUndoToast({

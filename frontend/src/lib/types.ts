@@ -55,7 +55,7 @@ export interface NodeInstance {
   type: string;
   name?: string | null;
   position: { x: number; y: number };
-  params: ParamDefinition[] | Record<string, unknown>;
+  params: ParamDefinition[];
   code: string;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
