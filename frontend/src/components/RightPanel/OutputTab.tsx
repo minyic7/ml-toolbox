@@ -199,8 +199,10 @@ function OutputContent({
     );
   }
 
+  const type = normalizeType(output.type);
+
   // Build summary text
-  const summaryParts: string[] = [output.type];
+  const summaryParts: string[] = [type];
   if (output.preview?.total_rows != null) {
     summaryParts.push(`${output.preview.total_rows.toLocaleString()} rows`);
   }
@@ -233,7 +235,7 @@ function OutputContent({
             {summaryText}
           </span>
           {/* Healthy pill — shown for TABLE/METRICS/VALUE when no error */}
-          {(output.type === "TABLE" || output.type === "METRICS" || output.type === "VALUE") && !output.error && (
+          {(type === "TABLE" || type === "METRICS" || type === "VALUE") && !output.error && (
             <span style={{
               display: "inline-flex",
               alignItems: "center",
@@ -289,7 +291,7 @@ function OutputContent({
             }}
           >
             <Download style={{ width: 10, height: 10 }} />
-            {output.type === "TABLE" ? "Export CSV" : "Download"}
+            {type === "TABLE" ? "Export CSV" : "Download"}
           </a>
         </div>
       </div>
@@ -302,8 +304,24 @@ function OutputContent({
   );
 }
 
+/** Map file-extension types returned by the backend to PortType enum values. */
+const EXT_TO_PORT_TYPE: Record<string, string> = {
+  parquet: "TABLE",
+  csv: "TABLE",
+  json: "METRICS",
+  joblib: "MODEL",
+  pkl: "MODEL",
+  npy: "ARRAY",
+  pt: "TENSOR",
+};
+
+function normalizeType(type: string): string {
+  return EXT_TO_PORT_TYPE[type] ?? type;
+}
+
 function renderPreview(output: OutputPreview) {
-  const { type, preview } = output;
+  const { preview } = output;
+  const type = normalizeType(output.type);
 
   if (!preview) {
     return (
