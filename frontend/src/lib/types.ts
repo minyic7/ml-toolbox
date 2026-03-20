@@ -102,7 +102,19 @@ export interface OutputPreview {
   file: string;
   type: string;
   size: number;
-  preview: { columns?: string[]; rows?: unknown[][]; total_rows?: number } | null;
+  preview: {
+    columns?: string[];
+    rows?: unknown[][];
+    total_rows?: number;
+    // ARRAY (.npy) previews
+    shape?: number[];
+    dtype?: string;
+    values?: number[];
+    total_elements?: number;
+    // MODEL / TENSOR previews
+    format?: string;
+    file_size?: number;
+  } | null;
   error: string | null;
 }
 

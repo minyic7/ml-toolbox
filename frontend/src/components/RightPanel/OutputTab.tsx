@@ -353,6 +353,29 @@ function renderPreview(output: OutputPreview) {
     case "MODEL":
       return <ModelDisplay preview={preview} size={output.size} />;
 
+    case "ARRAY":
+      if (preview.shape) {
+        return (
+          <div style={{ padding: 12 }}>
+            <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
+              shape: [{preview.shape.join(", ")}] · dtype: {preview.dtype}
+            </div>
+            {preview.values && (
+              <div className="text-xs font-mono mt-2" style={{ color: "var(--text-primary)" }}>
+                [{preview.values.join(", ")}{(preview.total_elements ?? 0) > 20 ? ", ..." : ""}]
+              </div>
+            )}
+            <div className="output-table-footer mt-1">
+              {preview.total_elements?.toLocaleString()} elements
+            </div>
+          </div>
+        );
+      }
+      return null;
+
+    case "TENSOR":
+      return <ModelDisplay preview={preview} size={output.size} />;
+
     case "ERROR":
       return <ErrorTraceback error={JSON.stringify(preview, null, 2)} />;
 
