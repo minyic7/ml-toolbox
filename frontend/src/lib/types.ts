@@ -28,6 +28,8 @@ export interface ParamDefinition {
   min?: number;
   max?: number;
   step?: number;
+  description?: string;
+  placeholder?: string;
 }
 
 export interface PortDefinition {

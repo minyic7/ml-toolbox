@@ -19,8 +19,8 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     inputs={"df": PortType.TABLE},
     outputs={"file": PortType.TABLE},
     params={
-        "format": Select(["csv", "parquet"], default="csv"),
-        "filename": Text(default="output"),
+        "format": Select(["csv", "parquet"], default="csv", description="Output file format"),
+        "filename": Text(default="output", description="Name for the exported file (without extension)", placeholder="output"),
     },
     label="Export Table",
     category="Export",
@@ -57,7 +57,7 @@ def export_table(inputs: dict, params: dict) -> dict:
     inputs={"model": PortType.MODEL},
     outputs={"model": PortType.MODEL},
     params={
-        "filename": Text(default="model"),
+        "filename": Text(default="model", description="Name for the exported model file (without extension)", placeholder="model"),
     },
     label="Export Model",
     category="Export",

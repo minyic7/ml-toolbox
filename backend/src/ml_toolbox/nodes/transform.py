@@ -19,10 +19,11 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     inputs={"df": PortType.TABLE},
     outputs={"df": PortType.TABLE},
     params={
-        "drop_nulls": Toggle(default=True),
-        "drop_duplicates": Toggle(default=True),
+        "drop_nulls": Toggle(default=True, description="Remove rows that contain any null values"),
+        "drop_duplicates": Toggle(default=True, description="Remove duplicate rows"),
         "fill_strategy": Select(
-            ["none", "mean", "median", "zero", "ffill"], default="none"
+            ["none", "mean", "median", "zero", "ffill"], default="none",
+            description="Strategy to fill missing values (overrides drop_nulls)",
         ),
     },
     label="Clean Data",
@@ -63,9 +64,9 @@ def clean(inputs: dict, params: dict) -> dict:
     inputs={"df": PortType.TABLE},
     outputs={"df": PortType.TABLE},
     params={
-        "scale_columns": Text(default=""),
-        "encode_columns": Text(default=""),
-        "bin_columns": Text(default=""),
+        "scale_columns": Text(default="", description="Columns to standardize (zero mean, unit variance)", placeholder="col1, col2"),
+        "encode_columns": Text(default="", description="Categorical columns to one-hot encode", placeholder="col1, col2"),
+        "bin_columns": Text(default="", description="Numeric columns to split into quartile bins", placeholder="col1, col2"),
     },
     label="Feature Engineering",
     category="Transform",
@@ -104,9 +105,9 @@ def feature_eng(inputs: dict, params: dict) -> dict:
     inputs={"df": PortType.TABLE},
     outputs={"train": PortType.TABLE, "test": PortType.TABLE},
     params={
-        "test_size": Slider(min=0.05, max=0.5, step=0.05, default=0.2),
-        "random_seed": Slider(min=0, max=100, step=1, default=42),
-        "stratify_column": Text(default=""),
+        "test_size": Slider(min=0.05, max=0.5, step=0.05, default=0.2, description="Fraction of data reserved for the test set"),
+        "random_seed": Slider(min=0, max=100, step=1, default=42, description="Random seed for reproducible splits"),
+        "stratify_column": Text(default="", description="Column to stratify by (preserves class ratios)", placeholder="target"),
     },
     label="Train/Test Split",
     category="Transform",
@@ -147,9 +148,10 @@ def split(inputs: dict, params: dict) -> dict:
     inputs={"df": PortType.TABLE},
     outputs={"stats": PortType.VALUE},
     params={
-        "column": Text(default=""),
+        "column": Text(default="", description="Column to compute the statistic on (empty = first numeric)", placeholder="column_name"),
         "statistic": Select(
-            ["mean", "median", "std", "min", "max", "count", "sum"], default="mean"
+            ["mean", "median", "std", "min", "max", "count", "sum"], default="mean",
+            description="Summary statistic to compute",
         ),
     },
     label="Compute Stats",

@@ -18,9 +18,9 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
 @node(
     outputs={"df": PortType.TABLE},
     params={
-        "path": Text(default=""),
-        "separator": Text(default=","),
-        "header": Toggle(default=True),
+        "path": Text(default="", description="Absolute path to the CSV file on disk", placeholder="/path/to/data.csv"),
+        "separator": Text(default=",", description="Column delimiter character", placeholder=","),
+        "header": Toggle(default=True, description="First row contains column names"),
     },
     label="CSV Reader",
     category="Ingest",
@@ -48,8 +48,8 @@ def csv_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
 @node(
     outputs={"df": PortType.TABLE},
     params={
-        "path": Text(default=""),
-        "columns": Text(default=""),
+        "path": Text(default="", description="Absolute path to the Parquet file on disk", placeholder="/path/to/data.parquet"),
+        "columns": Text(default="", description="Comma-separated list of columns to load (empty = all)", placeholder="col1, col2, col3"),
     },
     label="Parquet Reader",
     category="Ingest",
