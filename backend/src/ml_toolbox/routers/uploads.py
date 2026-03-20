@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import uuid
+from pathlib import PurePosixPath
+
 from fastapi import APIRouter, UploadFile, HTTPException
 
 from ml_toolbox.config import DATA_DIR
@@ -18,19 +21,23 @@ async def upload_file(file: UploadFile) -> dict[str, str | int]:
     upload_dir = DATA_DIR / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    # Sanitize filename: strip path separators and parent-dir traversal
-    safe_name = file.filename.replace("..", "").replace("/", "").replace("\\", "")
+    # Sanitize: extract just the filename component (no directory traversal)
+    safe_name = PurePosixPath(file.filename).name
     if not safe_name:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    content = await file.read()
+    # Read at most MAX_UPLOAD_BYTES + 1 to detect oversized files
+    # without buffering the entire upload
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=413,
             detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
         )
 
-    dest = upload_dir / safe_name
+    # Prefix with a short UUID to avoid silent overwrites
+    unique_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
+    dest = upload_dir / unique_name
     dest.write_bytes(content)
 
-    return {"path": str(dest), "filename": safe_name, "size": len(content)}
+    return {"path": str(dest), "filename": unique_name, "size": len(content)}
