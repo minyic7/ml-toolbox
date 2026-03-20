@@ -96,6 +96,16 @@
   --border: var(--border-default);
   --input: var(--border-default);
   --ring: var(--accent-primary);
+
+  /* ── CodePane tokens ───────────────────────────────── */
+  --codepane-width: 340px;
+  --codepane-bg: #1A1625;
+  --codepane-header-bg: #211C2E;
+  --codepane-footer-bg: #211C2E;
+  --codepane-border: #2D2640;
+  --codepane-icon-color: #7C7A8E;
+  --codepane-footer-lang: #6D6A80;
+  --codepane-unsaved-amber: #F59E0B;
 }
 
 @keyframes pulse {
