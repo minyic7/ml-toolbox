@@ -31,6 +31,8 @@ def csv_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     import pandas as pd
 
     path = params.get("path", "")
+    if not path:
+        raise ValueError("path parameter is required — upload a file or enter a file path")
     separator = params.get("separator", ",")
     header = params.get("header", True)
 
@@ -60,6 +62,8 @@ def parquet_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     import polars as pl
 
     path = params["path"]
+    if not path:
+        raise ValueError("path parameter is required — upload a file or enter a file path")
     columns_param = params.get("columns", "")
     columns = [c.strip() for c in columns_param.split(",") if c.strip()] or None
 
