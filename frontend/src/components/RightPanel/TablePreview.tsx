@@ -18,11 +18,10 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {columns.map((col, i) => (
+              {columns.map((col) => (
                 <th
                   key={col}
                   className="output-thead-th"
-                  style={i === 0 ? { position: 'sticky', left: 0, zIndex: 1, background: 'var(--ghost-hover-bg)' } : undefined}
                 >
                   {col}
                 </th>
@@ -36,7 +35,6 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
                   <td
                     key={j}
                     className={`output-td${j === 0 ? " output-td-first" : ""}`}
-                    style={j === 0 ? { position: 'sticky', left: 0, zIndex: 1, background: 'var(--node-bg)' } : undefined}
                   >
                     {cell === null ? (
                       <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>null</span>

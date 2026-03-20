@@ -368,6 +368,20 @@ body {
 .output-td-first {
   font-family: 'JetBrains Mono', monospace;
   color: var(--output-first-col);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--node-bg);
+}
+
+.output-row:hover .output-td-first {
+  background: var(--output-row-hover);
+}
+
+.output-thead-th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
 }
 
 .output-row {
