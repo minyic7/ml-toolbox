@@ -86,8 +86,8 @@ export default function DisconnectionBanner() {
   }
 
   const bgColor = isDisrupted
-    ? "rgba(186, 117, 23, 0.15)" // --warning-amber at 15%
-    : "rgba(99, 153, 34, 0.15)"; // --success-green at 15%
+    ? "var(--warning-amber-bg)" // --warning-amber at 15%
+    : "var(--success-green-bg-15)"; // --success-green at 15%
 
   const textColor = isDisrupted
     ? "var(--warning-amber)"

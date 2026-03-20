@@ -47,7 +47,7 @@ export default function NodeLibraryItem({ node, onAdd }: NodeLibraryItemProps) {
           draggable
           onDragStart={handleDragStart}
           onClick={() => onAdd(node.type)}
-          className="flex cursor-grab items-center justify-between rounded px-2 py-1.5 text-sm transition-colors hover:bg-[rgba(55,138,221,0.08)] active:cursor-grabbing"
+          className="flex cursor-grab items-center justify-between rounded px-2 py-1.5 text-sm transition-colors hover:bg-[var(--primary-hover-bg)] active:cursor-grabbing"
         >
           <span className="truncate" style={{ color: "var(--text-primary)" }}>
             {node.label}
