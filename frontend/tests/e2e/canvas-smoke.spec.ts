@@ -206,7 +206,7 @@ test.describe("Canvas smoke tests", () => {
     });
 
     // Right panel should NOT be visible before any node is clicked
-    const rightPanelParamsTab = page.getByRole("button", { name: "Params" }).nth(1);
+    const rightPanelParamsTab = page.getByTestId("right-panel-params-tab");
     await expect(rightPanelParamsTab).not.toBeVisible();
 
     // Add a node
@@ -220,8 +220,8 @@ test.describe("Canvas smoke tests", () => {
 
     // Right panel should now be open with tabs
     await expect(rightPanelParamsTab).toBeVisible({ timeout: 3000 });
-    await expect(page.getByRole("button", { name: "Code" }).nth(1)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Output" }).nth(1)).toBeVisible();
+    await expect(page.getByTestId("right-panel-code-tab")).toBeVisible();
+    await expect(page.getByTestId("right-panel-output-tab")).toBeVisible();
   });
 
   test("shows error toast when backend returns 500 on node creation", async ({
