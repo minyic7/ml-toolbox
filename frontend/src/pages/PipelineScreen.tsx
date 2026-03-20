@@ -376,21 +376,20 @@ export default function PipelineScreen() {
       pastedNodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>,
       pastedEdges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>,
     ) => {
-      // Create all nodes and collect new IDs
-      const newIds: string[] = [];
-      for (const n of pastedNodes) {
-        try {
-          const created = await addNodeMutation.mutateAsync({
+      // Create all nodes in parallel and collect new IDs (order preserved)
+      const results = await Promise.allSettled(
+        pastedNodes.map((n) =>
+          addNodeMutation.mutateAsync({
             type: n.type,
             position: n.position,
             params: n.params as Record<string, unknown> | undefined,
             code: n.code,
-          });
-          newIds.push(created.id);
-        } catch {
-          newIds.push("");
-        }
-      }
+          }),
+        ),
+      );
+      const newIds = results.map((r) =>
+        r.status === "fulfilled" ? r.value.id : "",
+      );
       // Report partial paste
       const succeeded = newIds.filter(Boolean).length;
       const failed = pastedNodes.length - succeeded;
