@@ -25,12 +25,19 @@ export default function CanvasContextMenu({
       onClick={onClose}
     >
       <div
-        className="z-50 min-w-[140px] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-        style={{ position: "fixed", left: x, top: y }}
+        className="z-50 min-w-[140px] overflow-hidden border border-border bg-popover p-1 text-popover-foreground"
+        style={{
+          position: "fixed",
+          left: x,
+          top: y,
+          borderRadius: 8,
+          boxShadow: "0 4px 16px rgba(0,0,0,.08)",
+        }}
       >
         <Button
           variant="ghost"
-          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+          className="w-full justify-start h-8 px-2 font-medium"
+          style={{ fontFamily: "'Inter', sans-serif", fontSize: 12 }}
           onClick={() => {
             onFitView();
             onClose();
@@ -40,7 +47,8 @@ export default function CanvasContextMenu({
         </Button>
         <Button
           variant="ghost"
-          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+          className="w-full justify-start h-8 px-2 font-medium"
+          style={{ fontFamily: "'Inter', sans-serif", fontSize: 12 }}
           onClick={() => {
             onSelectAll();
             onClose();
@@ -51,7 +59,8 @@ export default function CanvasContextMenu({
         {onPaste && (
           <Button
             variant="ghost"
-            className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+            className="w-full justify-start h-8 px-2 font-medium"
+            style={{ fontFamily: "'Inter', sans-serif", fontSize: 12 }}
             disabled={!hasCopied}
             onClick={() => {
               onPaste();
