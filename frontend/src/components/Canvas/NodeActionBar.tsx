@@ -4,10 +4,9 @@ interface NodeActionBarProps {
   visible: boolean;
   onRun?: () => void;
   onCode?: () => void;
-  onDelete?: () => void;
 }
 
-function NodeActionBar({ visible, onRun, onCode, onDelete }: NodeActionBarProps) {
+function NodeActionBar({ visible, onRun, onCode }: NodeActionBarProps) {
   return (
     <div
       style={{
@@ -45,18 +44,6 @@ function NodeActionBar({ visible, onRun, onCode, onDelete }: NodeActionBarProps)
           <path d="M7 1L9.5 4L7 7" />
         </svg>
         Code
-      </button>
-      <button
-        className="node-action-btn node-action-del"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete?.();
-        }}
-      >
-        <svg width="9" height="10" viewBox="0 0 9 10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
-          <path d="M1 2.5h7M3 2.5V1.5h3v1M2 2.5l.5 6h4l.5-6" />
-        </svg>
-        Del
       </button>
     </div>
   );
