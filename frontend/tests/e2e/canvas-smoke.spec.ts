@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 //
 // Intentionally NOT covered (wrong test layer for e2e):
 //
-// 1. Drag-to-canvas from sidebar — HTML5 drag-and-drop across React Flow's
+// 1. Drag-to-canvas — HTML5 drag-and-drop across React Flow's
 //    drop zone requires synthetic DragEvents with dataTransfer, which is
 //    unreliable in Playwright. Click-to-add tests the same code path.
 //
@@ -188,31 +188,31 @@ test.describe("Canvas smoke tests", () => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
     // Topbar should show pipeline name
     await expect(page.locator("text=Test Pipeline")).toBeVisible({ timeout: 5000 });
-    // Sidebar should render with node categories
-    await expect(page.locator("text=Generate Data")).toBeVisible({
+    // Toolbar should render with node chips
+    await expect(page.getByTestId("toolbar")).toBeVisible({
       timeout: 5000,
     });
   });
 
-  test("sidebar shows node library with categories", async ({ page }) => {
+  test("toolbar shows node library with category groups", async ({ page }) => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
-    // Category heading should render
-    await expect(page.locator("text=demo").first()).toBeVisible({
+    // Toolbar should render
+    await expect(page.getByTestId("toolbar")).toBeVisible({
       timeout: 5000,
     });
-    // Node items should render within the category
-    await expect(page.locator("text=Generate Data")).toBeVisible();
-    await expect(page.locator("text=Clean Data")).toBeVisible();
+    // Node chips should be accessible by title
+    await expect(page.locator('[title="Generate Data"]')).toBeVisible();
+    await expect(page.locator('[title="Clean Data"]')).toBeVisible();
   });
 
-  test("click sidebar node adds it to canvas", async ({ page }) => {
+  test("click toolbar node chip adds it to canvas", async ({ page }) => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
-    await expect(page.locator("text=Generate Data")).toBeVisible({
+    await expect(page.locator('[title="Generate Data"]')).toBeVisible({
       timeout: 5000,
     });
 
-    // Click the node in sidebar to add it
-    await page.locator("text=Generate Data").click();
+    // Click the node chip in toolbar to add it
+    await page.locator('[title="Generate Data"]').click();
 
     // A React Flow node should appear on the canvas
     await expect(page.locator(".react-flow__node")).toBeVisible({
@@ -222,7 +222,7 @@ test.describe("Canvas smoke tests", () => {
 
   test("clicking a node opens the right panel", async ({ page }) => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
-    await expect(page.locator("text=Generate Data")).toBeVisible({
+    await expect(page.locator('[title="Generate Data"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -231,7 +231,7 @@ test.describe("Canvas smoke tests", () => {
     await expect(rightPanelParamsTab).not.toBeVisible();
 
     // Add a node
-    await page.locator("text=Generate Data").click();
+    await page.locator('[title="Generate Data"]').click();
     await expect(page.locator(".react-flow__node")).toBeVisible({
       timeout: 5000,
     });
@@ -249,7 +249,7 @@ test.describe("Canvas smoke tests", () => {
     page,
   }) => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
-    await expect(page.locator("text=Generate Data")).toBeVisible({
+    await expect(page.locator('[title="Generate Data"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -262,16 +262,16 @@ test.describe("Canvas smoke tests", () => {
       }
     });
 
-    // Click sidebar node to trigger the failing POST
-    await page.locator("text=Generate Data").click();
+    // Click toolbar node chip to trigger the failing POST
+    await page.locator('[title="Generate Data"]').click();
 
     // Error toast should appear
     await expect(page.locator("text=Failed to add node")).toBeVisible({
       timeout: 5000,
     });
 
-    // Page should not crash — sidebar and topbar still visible
-    await expect(page.locator("text=Clean Data")).toBeVisible();
+    // Page should not crash — toolbar and topbar still visible
+    await expect(page.locator('[title="Clean Data"]')).toBeVisible();
   });
 
   test("run button is visible and disabled with no nodes", async ({
