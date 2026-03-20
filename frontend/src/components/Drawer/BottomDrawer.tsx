@@ -110,10 +110,16 @@ export default function BottomDrawer({
                 gap: 6,
               }}
             >
-              <svg width="10" height="11" viewBox="0 0 8 9" fill="currentColor">
-                <path d="M1 1.5v6l6-3-6-3z" />
-              </svg>
-              Run
+              {isRunning ? (
+                <svg className="topbar-spinner" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="20 10" opacity="0.8" />
+                </svg>
+              ) : (
+                <svg width="10" height="11" viewBox="0 0 8 9" fill="currentColor">
+                  <path d="M1 1.5v6l6-3-6-3z" />
+                </svg>
+              )}
+              {isRunning ? "Running..." : "Run"}
             </button>
           </div>
         </>
