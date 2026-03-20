@@ -476,7 +476,7 @@ function CanvasInner({
           }));
         clipboardRef.current = { nodes: copiedNodes, edges: copiedEdges };
         pasteCountRef.current = 0;
-        toast.success(`Copied ${selected.length} node(s)`);
+        toast.info(`Copied ${selected.length} node(s)`);
         return;
       }
 
