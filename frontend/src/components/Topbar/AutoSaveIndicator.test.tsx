@@ -10,13 +10,11 @@ describe("AutoSaveIndicator", () => {
       expect(screen.getByText("Saving…")).toBeInTheDocument();
     });
 
-    it("shows an amber pulse dot", () => {
+    it("renders as a pill badge with correct background", () => {
       const { container } = render(<AutoSaveIndicator status="saving" />);
-      const dot = container.querySelector(".animate-pulse");
-      expect(dot).not.toBeNull();
-      expect((dot as HTMLElement).style.backgroundColor).toBe(
-        "var(--warning-amber)",
-      );
+      const pill = container.firstChild as HTMLElement;
+      expect(pill.style.background).toBe("var(--saving-bg)");
+      expect(pill.style.color).toBe("var(--saving-text)");
     });
 
     it("does not show Retry button", () => {
@@ -26,17 +24,16 @@ describe("AutoSaveIndicator", () => {
   });
 
   describe("saved state", () => {
-    it("shows 'Saved' text", () => {
+    it("shows 'Saved ✓' text", () => {
       render(<AutoSaveIndicator status="saved" />);
-      expect(screen.getByText("Saved")).toBeInTheDocument();
+      expect(screen.getByText("Saved ✓")).toBeInTheDocument();
     });
 
-    it("shows a green dot", () => {
+    it("renders as a pill badge with correct background", () => {
       const { container } = render(<AutoSaveIndicator status="saved" />);
-      const dot = container.querySelector("span > span");
-      expect((dot as HTMLElement).style.backgroundColor).toBe(
-        "var(--success-green)",
-      );
+      const pill = container.firstChild as HTMLElement;
+      expect(pill.style.background).toBe("var(--save-bg)");
+      expect(pill.style.color).toBe("var(--save-text)");
     });
 
     it("does not show Retry button", () => {
@@ -46,21 +43,18 @@ describe("AutoSaveIndicator", () => {
   });
 
   describe("error state", () => {
-    it("shows 'Save failed' text in red", () => {
-      const { container } = render(
+    it("shows 'Save failed' text", () => {
+      render(
         <AutoSaveIndicator status="error" onRetry={vi.fn()} />,
       );
       expect(screen.getByText("Save failed")).toBeInTheDocument();
-      // Root span should have error-red color
-      const root = container.firstChild as HTMLElement;
-      expect(root.style.color).toBe("var(--error-red)");
     });
 
-    it("shows a red dot", () => {
+    it("renders as a pill badge with error background", () => {
       const { container } = render(<AutoSaveIndicator status="error" />);
-      const dots = container.querySelectorAll("span > span");
-      const redDot = dots[0] as HTMLElement;
-      expect(redDot.style.backgroundColor).toBe("var(--error-red)");
+      const pill = container.firstChild as HTMLElement;
+      expect(pill.style.background).toBe("var(--error-bg-light)");
+      expect(pill.style.color).toBe("var(--error-red)");
     });
 
     it("shows Retry button when onRetry is provided", () => {

@@ -12,7 +12,6 @@ import {
 } from "../../lib/api";
 import type { PipelineSettings } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +21,7 @@ import { Menu, Clock, Settings } from "lucide-react";
 import { toast } from "sonner";
 import PipelineNameInput from "./PipelineNameInput";
 import RunButton from "./RunButton";
+import CancelButton from "./CancelButton";
 import AutoSaveIndicator from "./AutoSaveIndicator";
 import type { SaveStatus } from "./AutoSaveIndicator";
 import SettingsModal from "./SettingsModal";
@@ -43,8 +43,6 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
   const [navOpen, setNavOpen] = useState(false);
 
   const isRunning = useExecutionStore((s) => s.isRunning);
-  const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
-  const initialPendingCount = useExecutionStore((s) => s.initialPendingCount);
   const currentNodeId = useExecutionStore((s) => s.currentNodeId);
   const runResult = useExecutionStore((s) => s.runResult);
   const setRunResult = useExecutionStore((s) => s.setRunResult);
@@ -130,12 +128,6 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
     [pipeline],
   );
 
-  // ── Progress bar ──────────────────────────────────────────────────
-  const progress = useMemo(() => {
-    if (!isRunning || initialPendingCount === 0) return 0;
-    return (initialPendingCount - pendingNodeIds.length) / initialPendingCount;
-  }, [isRunning, pendingNodeIds.length, initialPendingCount]);
-
   // Clear runResult after 3s (bar fades)
   useEffect(() => {
     if (!runResult) return;
@@ -152,118 +144,170 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
 
   return (
     <header
-      className="relative flex items-center shrink-0 px-3 gap-3 border-b border-border select-none"
+      className="relative flex items-center shrink-0 px-3 gap-3 border-b select-none"
       style={{
-        height: 48,
+        height: 46,
         backgroundColor: "var(--node-bg)",
+        borderColor: "var(--border-default)",
       }}
     >
-      {/* Progress bar (overlays bottom edge) */}
-      {(isRunning || runResult) && (
-        <div
-          className="absolute bottom-0 left-0 h-0.5 transition-all duration-300"
-          style={{
-            width: runResult ? "100%" : `${progress * 100}%`,
-            backgroundColor: runResult === "error"
-              ? "var(--error-red)"
-              : runResult === "success"
-                ? "var(--success-green)"
-                : "var(--accent-primary)",
-            opacity: runResult ? 1 : undefined,
-          }}
+      {/* ── Progress bar (bottom edge, 2px full-width) ── */}
+      <div className="absolute bottom-0 left-0 right-0" style={{ height: 2 }}>
+        {isRunning && !runResult && (
+          <div className="topbar-progress-indeterminate" />
+        )}
+        {runResult && (
+          <div
+            className="topbar-progress-fill"
+            style={{
+              backgroundColor:
+                runResult === "error"
+                  ? "var(--error-red)"
+                  : "var(--success-green)",
+            }}
+          />
+        )}
+      </div>
+
+      {/* ── Left section: nav menu ── */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="topbar-ghost-btn shrink-0 flex items-center justify-center"
+            aria-label="Open pipeline list"
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              border: "none",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+            onClick={() => setNavOpen(true)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--ghost-hover-bg)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <Menu style={{ width: 16, height: 16 }} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Pipelines</TooltipContent>
+      </Tooltip>
+
+      {/* ── Logo ── */}
+      <span
+        style={{
+          fontFamily: "'Manrope', sans-serif",
+          fontWeight: 800,
+          color: "var(--accent-primary)",
+          letterSpacing: "-0.02em",
+          fontSize: 15,
+          whiteSpace: "nowrap",
+          userSelect: "none",
+        }}
+      >
+        ML-Toolbox
+      </span>
+
+      {/* ── Vertical divider ── */}
+      <div
+        style={{
+          width: 1,
+          height: 20,
+          backgroundColor: "var(--border-default)",
+          flexShrink: 0,
+        }}
+      />
+
+      {/* ── Pipeline name ── */}
+      {pipeline && (
+        <PipelineNameInput
+          name={pipeline.name}
+          onRename={handleRename}
         />
       )}
 
-      {/* Left section: nav + pipeline name */}
-      <div className="flex items-center gap-2 min-w-0">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 text-[var(--text-secondary)]"
-              onClick={() => setNavOpen(true)}
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Pipelines</TooltipContent>
-        </Tooltip>
+      {/* ── Auto-save indicator ── */}
+      <AutoSaveIndicator status={saveStatus} onRetry={handleRetry} retryDisabled={renameMutation.isPending} />
 
-        {pipeline && (
-          <PipelineNameInput
-            name={pipeline.name}
-            onRename={handleRename}
-          />
-        )}
-
-        <AutoSaveIndicator status={saveStatus} onRetry={handleRetry} retryDisabled={renameMutation.isPending} />
-
-        {currentNodeLabel && (
-          <span
-            className="flex items-center gap-1.5 text-xs"
-            style={{
-              color: "var(--accent-primary)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "20ch",
-            }}
-            title={`Running: ${currentNodeLabel}`}
-          >
-            <span
-              className="status-dot-pulse"
-              style={{
-                display: "inline-block",
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--accent-primary)",
-                flexShrink: 0,
-              }}
-            />
-            Running… {currentNodeLabel}
-          </span>
-        )}
-      </div>
-
-      {/* Spacer */}
+      {/* ── Spacer ── */}
       <div className="flex-1" />
 
-      {/* Right section: run button + toolbar */}
+      {/* ── Right section: Run + Cancel + ghost buttons ── */}
       <div className="flex items-center gap-1.5">
-        <RunButton pipelineId={pipelineId} nodeIds={nodeIds} />
+        <RunButton pipelineId={pipelineId} nodeIds={nodeIds} currentNodeLabel={currentNodeLabel} />
 
+        {isRunning && <CancelButton pipelineId={pipelineId} />}
+
+        {/* ⚙ Settings ghost button */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-[var(--text-secondary)]"
-              onClick={() => setHistoryOpen(true)}
-            >
-              <Clock className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Run history</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-[var(--text-secondary)]"
+            <button
+              type="button"
+              className="topbar-ghost-btn flex items-center justify-center shrink-0"
+              aria-label="Settings"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: "1px solid var(--border-default)",
+                background: "transparent",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                transition: "background 0.15s",
+              }}
               onClick={() => setSettingsOpen(true)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--ghost-hover-bg)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
             >
-              <Settings className="h-4 w-4" />
-            </Button>
+              <Settings style={{ width: 14, height: 14 }} />
+            </button>
           </TooltipTrigger>
           <TooltipContent>Settings</TooltipContent>
         </Tooltip>
+
+        {/* 🕐 History ghost button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="topbar-ghost-btn flex items-center justify-center shrink-0"
+              aria-label="Run history"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: "1px solid var(--border-default)",
+                background: "transparent",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                transition: "background 0.15s",
+              }}
+              onClick={() => setHistoryOpen(true)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--ghost-hover-bg)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <Clock style={{ width: 14, height: 14 }} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Run history</TooltipContent>
+        </Tooltip>
       </div>
 
-      {/* Modals & Drawers */}
+      {/* ── Modals & Drawers ── */}
       {pipeline && (
         <SettingsModal
           open={settingsOpen}
