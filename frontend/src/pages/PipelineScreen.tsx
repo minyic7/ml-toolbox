@@ -515,9 +515,9 @@ export default function PipelineScreen() {
             >
               {/* Skeleton node cards scattered like a real canvas */}
               {[
-                { x: "15%", y: "20%", w: 232, h: 100 },
-                { x: "45%", y: "15%", w: 232, h: 120 },
-                { x: "30%", y: "55%", w: 232, h: 90 },
+                { x: "15%", y: "20%", w: 210, h: 100 },
+                { x: "45%", y: "15%", w: 210, h: 120 },
+                { x: "30%", y: "55%", w: 210, h: 90 },
               ].map((s, i) => (
                 <div
                   key={i}
