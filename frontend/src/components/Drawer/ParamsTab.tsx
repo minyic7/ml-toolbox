@@ -70,7 +70,7 @@ export function ParamsTab({ params, values, onChange, disabled, onCodePaneOpen }
             fontSize: 10,
             textTransform: "uppercase",
             letterSpacing: "0.04em",
-            color: "var(--accent-blue)",
+            color: "var(--accent-primary)",
             opacity: 0.7,
             background: "none",
             border: "none",

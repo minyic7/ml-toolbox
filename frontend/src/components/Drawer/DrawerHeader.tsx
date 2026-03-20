@@ -27,7 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
   idle: "var(--text-muted)",
   dirty: "var(--warning-amber)",
   pending: "var(--warning-amber)",
-  running: "var(--accent-blue)",
+  running: "var(--accent-primary)",
   done: "var(--success-green)",
   error: "var(--error-red)",
   skipped: "var(--text-muted)",
@@ -194,8 +194,8 @@ export function DrawerHeader({
                 fontSize: 10,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                color: isActive ? "var(--accent-blue)" : "var(--text-muted)",
-                borderBottom: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
+                color: isActive ? "var(--accent-primary)" : "var(--text-muted)",
+                borderBottom: isActive ? "2px solid var(--accent-primary)" : "2px solid transparent",
               }}
             >
               <Icon className="h-3 w-3" />
