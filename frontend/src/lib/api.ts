@@ -8,6 +8,8 @@ import type {
   Edge,
   OutputPreview,
   RunInfo,
+  GlobalRunRecord,
+  RunFilterParams,
   CreatePipelineRequest,
   AddNodeRequest,
   PatchNodeRequest,
@@ -193,6 +195,17 @@ export function getPipelineStatus(pipelineId: string) {
 
 export function listRuns(pipelineId: string) {
   return request<RunInfo[]>(`/api/pipelines/${pipelineId}/runs`);
+}
+
+export function listAllRuns(params?: RunFilterParams) {
+  const qs = new URLSearchParams();
+  if (params?.pipeline_id) qs.set("pipeline_id", params.pipeline_id);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.search) qs.set("search", params.search);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.offset) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return request<GlobalRunRecord[]>(`/api/runs${query ? `?${query}` : ""}`);
 }
 
 export function deleteRun(pipelineId: string, runId: string) {

@@ -110,6 +110,44 @@ export interface RunInfo {
   status: string;
 }
 
+// ── Global Runs (cross-pipeline) ──────────────────────────────────
+
+export interface DagNodeSnapshot {
+  node_id: string;
+  node_name: string;
+  node_type: string;
+  status: string; // "done" | "error" | "pending"
+}
+
+export interface RunArtifact {
+  node_id: string;
+  node_name: string;
+  filename: string;
+  type: string; // "parquet" | "pkl" | "json" | "npy" | "png" | "svg"
+  size: number;
+  bars?: number[];
+}
+
+export interface GlobalRunRecord {
+  id: string;
+  pipeline_id: string;
+  pipeline_name: string;
+  status: string; // "done" | "error" | "cancelled" | "unknown"
+  started_at: string;
+  completed_at: string | null;
+  duration: number | null;
+  dag_snapshot: DagNodeSnapshot[];
+  artifacts: RunArtifact[];
+}
+
+export interface RunFilterParams {
+  pipeline_id?: string;
+  status?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
 // ── WebSocket ───────────────────────────────────────────────────────
 
 export interface WsMessage {
