@@ -32,6 +32,27 @@ DOCKER_VOLUME_NAME = os.environ.get("ML_TOOLBOX_DOCKER_VOLUME", "ml-toolbox_ml_d
 BroadcastFn = Callable[[str, dict[str, Any]], None]
 
 
+def _translate_params_for_sandbox(
+    params: dict[str, Any],
+    data_dir: str,
+    sandbox_root: str,
+) -> dict[str, Any]:
+    """Translate host DATA_DIR paths in param values to sandbox container paths.
+
+    Uploaded files are stored under DATA_DIR on the host, but the sandbox
+    container mounts the data volume at *sandbox_root* (``/ml_data``).  Any
+    string param value that starts with *data_dir* is rewritten so the
+    sandbox can find the file.
+    """
+    translated: dict[str, Any] = {}
+    for key, value in params.items():
+        if isinstance(value, str) and value.startswith(data_dir):
+            translated[key] = sandbox_root + value[len(data_dir):]
+        else:
+            translated[key] = value
+    return translated
+
+
 class CycleError(Exception):
     """Raised when the pipeline graph contains a cycle."""
 
@@ -318,6 +339,13 @@ class PipelineExecutor:
             params = {p["name"]: p.get("default") for p in raw_params if "name" in p}
         else:
             params = raw_params
+
+        # Translate host DATA_DIR paths in param values to sandbox container paths.
+        # Uploaded files get stored under DATA_DIR with host paths, but the sandbox
+        # mounts the data volume at /ml_data/.
+        data_dir_str = str(DATA_DIR)
+        sandbox_data_root = "/ml_data"
+        params = _translate_params_for_sandbox(params, data_dir_str, sandbox_data_root)
 
         # Extract entry function name from node type (e.g. "ml_toolbox.nodes.demo.clean_data" -> "clean_data")
         entry_fn = node.get("type", "run").rsplit(".", 1)[-1]
