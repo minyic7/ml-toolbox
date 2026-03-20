@@ -115,10 +115,26 @@ export default function CodePane({
     }
   }, [node.id, onSave]);
 
+  // Cmd+S at the pane level (covers focus outside the editor)
+  const paneRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = paneRef.current;
+    if (!el) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    el.addEventListener("keydown", handler);
+    return () => el.removeEventListener("keydown", handler);
+  }, [handleSave]);
+
   const displayName = node.name || definition.label || node.type;
 
   return (
     <div
+      ref={paneRef}
       className="flex flex-col h-full"
       style={{
         width: "var(--codepane-width)",
