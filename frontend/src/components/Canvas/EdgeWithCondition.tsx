@@ -138,6 +138,7 @@ export default function EdgeWithCondition({
         <EdgeLabelRenderer>
           <button
             type="button"
+            aria-label="Delete edge"
             onClick={handleDelete}
             style={{
               position: "absolute",

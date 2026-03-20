@@ -60,6 +60,7 @@ export default function NavDrawer({
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-[var(--text-secondary)]"
+              aria-label="Close drawer"
               onClick={onClose}
             >
               <X className="h-4 w-4" />

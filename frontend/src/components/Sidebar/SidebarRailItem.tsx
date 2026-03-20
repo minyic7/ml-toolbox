@@ -38,6 +38,7 @@ export default function SidebarRailItem({
       <button
         className="flex h-8 w-8 items-center justify-center rounded transition-colors hover:bg-[var(--canvas-bg)]"
         title={category}
+        aria-label={`${category} nodes`}
       >
         <Icon size={18} color={color} strokeWidth={2} />
       </button>
