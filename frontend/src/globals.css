@@ -393,6 +393,14 @@ body {
   background: var(--output-row-hover);
 }
 
+.output-table-footer {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-muted);
+  padding: 2px 0;
+}
+
 .output-empty {
   font-family: 'Inter', sans-serif;
   font-size: 11px;
