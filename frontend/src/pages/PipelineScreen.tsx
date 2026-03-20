@@ -550,7 +550,7 @@ export default function PipelineScreen() {
               height: "100%",
             }}
           >
-          <ErrorBoundary variant="compact">
+          <ErrorBoundary key={pipelineId} variant="compact">
           <Canvas
             pipelineId={pipelineId}
             pipelineNodes={pipeline.nodes}
@@ -573,7 +573,7 @@ export default function PipelineScreen() {
           </ErrorBoundary>
           </div>
         </main>
-        <ErrorBoundary variant="compact">
+        <ErrorBoundary key={pipelineId} variant="compact">
         <RightPanel
           pipelineId={pipelineId}
           node={selectedNode}
