@@ -71,9 +71,14 @@ export function groupByDate(runs: GlobalRunRecord[]): [string, GlobalRunRecord[]
 export function formatDuration(seconds: number | null): string {
   if (seconds == null) return "\u2014";
   if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return `${m}m ${s}s`;
+  }
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return `${h}h ${m}m`;
 }
 
 export function relativeTime(iso: string): string {
