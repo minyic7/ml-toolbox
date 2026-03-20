@@ -119,6 +119,23 @@
   --output-healthy-dot: #10B981;
   --output-first-col: #64748B;
 
+  /* ── Home Screen status badge colors ──────────────── */
+  --status-done-bg: #DCFCE7;
+  --status-done-text: #166534;
+  --status-cancelled-bg: #F1F5F9;
+  --status-cancelled-text: #64748B;
+  --bg-selected: #F1F5F9;
+
+  /* ── Artifact type badge colors ─────────────────── */
+  --artifact-pkl-bg: #EDE9FE;
+  --artifact-pkl-text: #5B21B6;
+  --artifact-json-bg: #FEF3C7;
+  --artifact-json-text: #92400E;
+  --artifact-npy-bg: #DBEAFE;
+  --artifact-npy-text: #1D4ED8;
+  --artifact-png-bg: #FCE7F3;
+  --artifact-png-text: #9D174D;
+
   /* ── CodePane tokens ───────────────────────────────── */
   --codepane-width: 340px;
   --codepane-bg: #1A1625;
