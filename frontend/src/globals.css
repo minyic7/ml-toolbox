@@ -61,6 +61,14 @@
   --status-pending: #A5B4FC;
   --status-idle: #CBD5E1;
 
+  /* ── Port type colors ────────────────────────────────── */
+  --port-table: #9CA3AF;
+  --port-model: #639922;
+  --port-metrics: #EF9F27;
+  --port-array: #378ADD;
+  --port-value: #7F77DD;
+  --port-tensor: #D85A30;
+
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;
   --category-transform: #7F77DD;

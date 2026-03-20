@@ -55,7 +55,7 @@ function TypeBadge({ type }: { type: PortType }) {
         fontWeight: 700,
         textTransform: "uppercase",
         color,
-        background: `${color}26`,
+        background: `color-mix(in srgb, ${color} 15%, transparent)`,
         padding: "1px 4px",
         borderRadius: 6,
         lineHeight: "normal",
