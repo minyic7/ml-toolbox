@@ -651,7 +651,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
         try:
             import numpy as np
 
-            arr = np.load(output_file)
+            arr = np.load(output_file, mmap_mode="r")
             meta["preview"] = {
                 "shape": list(arr.shape),
                 "dtype": str(arr.dtype),
