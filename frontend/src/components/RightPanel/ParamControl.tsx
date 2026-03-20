@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Info, Upload } from "lucide-react";
+import { toast } from "sonner";
 import type { ParamDefinition } from "../../lib/types";
 import { uploadFile } from "../../lib/api";
 import { Input } from "@/components/ui/input";
@@ -205,6 +206,12 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
+                    const MAX_SIZE = 100 * 1024 * 1024; // 100MB, matches backend
+                    if (file.size > MAX_SIZE) {
+                      toast.error(`File too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum is 100MB.`);
+                      e.target.value = "";
+                      return;
+                    }
                     setUploading(true);
                     try {
                       const result = await uploadFile(file);
