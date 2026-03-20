@@ -372,17 +372,42 @@ export default function PipelineScreen() {
   );
 
   const handlePasteNodes = useCallback(
-    (pastedNodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>) => {
+    async (
+      pastedNodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>,
+      pastedEdges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>,
+    ) => {
+      // Create all nodes and collect new IDs
+      const newIds: string[] = [];
       for (const n of pastedNodes) {
-        addNodeMutation.mutate({
-          type: n.type,
-          position: n.position,
-          params: n.params as Record<string, unknown> | undefined,
-          code: n.code,
-        });
+        try {
+          const created = await addNodeMutation.mutateAsync({
+            type: n.type,
+            position: n.position,
+            params: n.params as Record<string, unknown> | undefined,
+            code: n.code,
+          });
+          newIds.push(created.id);
+        } catch {
+          newIds.push("");
+        }
+      }
+      // Recreate edges between pasted nodes
+      if (pastedEdges && pastedEdges.length > 0) {
+        for (const e of pastedEdges) {
+          const source = newIds[e.sourceIdx];
+          const target = newIds[e.targetIdx];
+          if (source && target) {
+            addEdgeMutation.mutate({
+              source,
+              sourcePort: e.sourcePort,
+              target,
+              targetPort: e.targetPort,
+            });
+          }
+        }
       }
     },
-    [addNodeMutation],
+    [addNodeMutation, addEdgeMutation],
   );
 
   // ── Loading state ─────────────────────────────────────────────

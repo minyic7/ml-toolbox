@@ -69,7 +69,7 @@ interface CanvasProps {
   onTabClick?: (nodeId: string, tab: string) => void;
   onRenameNode?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
-  onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>) => void;
+  onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>, edges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>) => void;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -142,7 +142,9 @@ function CanvasInner({
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
 
   // ── Clipboard for copy/paste ────────────────────────────────
-  const clipboardRef = useRef<Array<{ type: string; offsetX: number; offsetY: number; params?: unknown; code?: string }>>([]);
+  interface ClipboardNode { id: string; type: string; offsetX: number; offsetY: number; params?: unknown; code?: string }
+  interface ClipboardEdge { sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }
+  const clipboardRef = useRef<{ nodes: ClipboardNode[]; edges: ClipboardEdge[] }>({ nodes: [], edges: [] });
   const pasteCountRef = useRef(0);
   const setDraggingPortType = useExecutionStore((s) => s.setDraggingPortType);
   const queryClient = useQueryClient();
@@ -450,32 +452,46 @@ function CanvasInner({
       if (mod && e.key === "c") {
         const selected = nodes.filter((n) => n.selected);
         if (selected.length === 0) return;
+        const selectedIds = new Set(selected.map((n) => n.id));
         const minX = Math.min(...selected.map((n) => n.position.x));
         const minY = Math.min(...selected.map((n) => n.position.y));
-        clipboardRef.current = selected.map((n) => ({
+        const copiedNodes: ClipboardNode[] = selected.map((n) => ({
+          id: n.id,
           type: n.data.type as string,
           offsetX: n.position.x - minX,
           offsetY: n.position.y - minY,
           params: n.data.params as unknown,
           code: n.data.code as string,
         }));
+        // Capture edges where both source and target are in selection
+        const copiedEdges: ClipboardEdge[] = edges
+          .filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target))
+          .map((e) => ({
+            sourceIdx: selected.findIndex((n) => n.id === e.source),
+            targetIdx: selected.findIndex((n) => n.id === e.target),
+            sourcePort: (e.sourceHandle ?? "") as string,
+            targetPort: (e.targetHandle ?? "") as string,
+            condition: (e.data as Record<string, unknown>)?.condition as string | undefined,
+          }));
+        clipboardRef.current = { nodes: copiedNodes, edges: copiedEdges };
         pasteCountRef.current = 0;
         return;
       }
 
       if (mod && e.key === "v") {
         e.preventDefault();
-        if (clipboardRef.current.length === 0 || !onPasteNodes) return;
+        if (clipboardRef.current.nodes.length === 0 || !onPasteNodes) return;
         pasteCountRef.current += 1;
         const offset = pasteCountRef.current * 30;
         const center = reactFlow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
         onPasteNodes(
-          clipboardRef.current.map((c) => ({
+          clipboardRef.current.nodes.map((c) => ({
             type: c.type,
             position: { x: center.x + c.offsetX + offset, y: center.y + c.offsetY + offset },
             params: c.params,
             code: c.code,
           })),
+          clipboardRef.current.edges,
         );
         return;
       }
@@ -576,16 +592,19 @@ function CanvasInner({
           y={canvasMenu.y}
           onFitView={() => reactFlow.fitView({ duration: 300 })}
           onPaste={onPasteNodes ? () => {
-            if (clipboardRef.current.length === 0) return;
+            if (clipboardRef.current.nodes.length === 0) return;
             const pos = reactFlow.screenToFlowPosition({ x: canvasMenu.x, y: canvasMenu.y });
-            onPasteNodes(clipboardRef.current.map((c) => ({
-              type: c.type,
-              position: { x: pos.x + c.offsetX, y: pos.y + c.offsetY },
-              params: c.params,
-              code: c.code,
-            })));
+            onPasteNodes(
+              clipboardRef.current.nodes.map((c) => ({
+                type: c.type,
+                position: { x: pos.x + c.offsetX, y: pos.y + c.offsetY },
+                params: c.params,
+                code: c.code,
+              })),
+              clipboardRef.current.edges,
+            );
           } : undefined}
-          hasCopied={clipboardRef.current.length > 0}
+          hasCopied={clipboardRef.current.nodes.length > 0}
           onClose={closeMenus}
         />
       )}
