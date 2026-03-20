@@ -1,5 +1,23 @@
 import { test, expect } from "@playwright/test";
 
+// ── Coverage notes ──────────────────────────────────────────────
+//
+// Intentionally NOT covered (wrong test layer for e2e):
+//
+// 1. Drag-to-canvas from sidebar — HTML5 drag-and-drop across React Flow's
+//    drop zone requires synthetic DragEvents with dataTransfer, which is
+//    unreliable in Playwright. Click-to-add tests the same code path.
+//
+// 2. Edge connection via port drag — React Flow handles port connections
+//    through internal SVG coordinate math. Port handles are 8px circles
+//    positioned with transforms that don't map to screen coordinates.
+//    Edge rendering is verified via pre-loaded pipeline state instead.
+//
+// 3. Pipeline execution (Run → WS feedback) — Would require mocking the
+//    entire WebSocket execution sequence (pending→running→done per node).
+//    Execution logic is covered by 192 backend unit/integration tests.
+//
+
 // ── Fixture data ────────────────────────────────────────────────
 
 const NODES_FIXTURE = [
