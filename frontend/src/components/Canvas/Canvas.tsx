@@ -99,22 +99,25 @@ function EmptyState() {
     >
       <p
         style={{
-          fontSize: 16,
+          fontFamily: "'Manrope', sans-serif",
+          fontWeight: 700,
+          fontSize: 12,
           color: "var(--text-muted)",
           margin: 0,
         }}
       >
-        Drag nodes from the sidebar to get started
+        No nodes yet
       </p>
       <p
         style={{
-          fontSize: 13,
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 500,
+          fontSize: 10,
           color: "var(--text-muted)",
           margin: "8px 0 0",
-          opacity: 0.7,
         }}
       >
-        Press ? for keyboard shortcuts
+        Click a node in the toolbar to get started
       </p>
     </div>
   );
@@ -583,7 +586,12 @@ function CanvasInner({
         <Background gap={24} size={1} color="var(--dot-grid)" />
         <Controls
           showInteractive={false}
-          style={{ borderRadius: 8, border: "1px solid var(--border-default)" }}
+          style={{
+            background: "var(--node-bg)",
+            boxShadow: "0 1px 4px rgba(0,0,0,.08)",
+            border: "1px solid var(--border-default)",
+            borderRadius: 8,
+          }}
         />
         <MiniMap
           nodeColor="var(--border-default)"
