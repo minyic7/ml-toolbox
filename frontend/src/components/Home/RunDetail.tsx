@@ -17,8 +17,8 @@ function formatDuration(seconds: number | null): string {
   return `${m}m ${s}s`;
 }
 
-function formatRelativeTime(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins} min ago`;
@@ -26,6 +26,15 @@ function formatRelativeTime(isoDate: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+const PIPELINE_DOT_COLORS = ["#1D9E75", "#7F77DD", "#378ADD", "#EF9F27", "#D85A30", "#888780"];
+function pipelineDotColor(pipelineId: string): string {
+  let hash = 0;
+  for (let i = 0; i < pipelineId.length; i++) {
+    hash = (hash * 31 + pipelineId.charCodeAt(i)) | 0;
+  }
+  return PIPELINE_DOT_COLORS[Math.abs(hash) % PIPELINE_DOT_COLORS.length];
 }
 
 const STATUS_BADGE: Record<string, { bg: string; color: string; icon: typeof CheckCircle2; label: string }> = {
@@ -87,12 +96,12 @@ function RunDetailHeader({
         <span
           style={{
             ...headerStyles.dot,
-            backgroundColor: badge.color,
+            backgroundColor: pipelineDotColor(run.pipeline_id),
           }}
         />
         <span style={headerStyles.pipelineName}>{run.pipeline_name}</span>
         <span style={headerStyles.metaSep}>&middot;</span>
-        <span style={headerStyles.metaText}>{formatRelativeTime(run.started_at)}</span>
+        <span style={headerStyles.metaText}>{relativeTime(run.started_at)}</span>
         {run.duration != null && (
           <>
             <span style={headerStyles.metaSep}>&middot;</span>
