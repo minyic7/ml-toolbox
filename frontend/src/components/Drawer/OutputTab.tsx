@@ -1,9 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import type { OutputPreview } from "../../lib/types";
-import { PORT_COLORS } from "../../lib/portColors";
 import { useOutput, useRuns } from "../../hooks/useOutputs";
 import { getOutputDownloadUrl } from "../../lib/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -124,29 +122,66 @@ function OutputContent({
     return <ErrorTraceback error={output.error} />;
   }
 
-  const typeBadgeColor =
-    PORT_COLORS[output.type as keyof typeof PORT_COLORS] ?? "var(--text-muted)";
-
   return (
     <>
-      <div className="flex items-center justify-between">
+      {/* Summary bar */}
+      <div
+        className="flex items-center justify-between pb-2"
+        style={{ borderBottom: "1px solid var(--border-default)" }}
+      >
         <div className="flex items-center gap-2">
-          <Badge
-            className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white border-0"
-            style={{ backgroundColor: typeBadgeColor }}
+          <span
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 700,
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "var(--text-muted)",
+            }}
           >
             {output.type}
-          </Badge>
+            {output.preview?.total_rows != null && ` · ${output.preview.total_rows.toLocaleString()} rows`}
+            {output.preview?.columns && ` · ${output.preview.columns.length} cols`}
+          </span>
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             {formatSize(output.size)}
           </span>
+          {!output.error && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--success-green) 10%, transparent)",
+                fontSize: 9,
+                fontWeight: 600,
+                color: "var(--success-green)",
+              }}
+            >
+              <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "var(--success-green)" }} />
+              Healthy
+            </span>
+          )}
         </div>
-        <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-          <a href={downloadUrl} download>
-            <Download className="h-3 w-3" />
-            Download
-          </a>
-        </Button>
+        <a
+          href={downloadUrl}
+          download
+          className="inline-flex items-center gap-1 transition-colors"
+          style={{
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 700,
+            fontSize: 9,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "var(--text-secondary)",
+            border: "1px solid var(--border-default)",
+            borderRadius: 4,
+            padding: "3px 8px",
+            textDecoration: "none",
+          }}
+        >
+          <Download className="h-3 w-3" />
+          Export CSV
+        </a>
       </div>
 
       {renderPreview(output)}

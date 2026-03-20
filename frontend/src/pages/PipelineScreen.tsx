@@ -9,7 +9,8 @@ import Topbar from "../components/Topbar/Topbar";
 import Toolbar from "../components/Toolbar/Toolbar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
-import { RightPanel } from "../components/RightPanel/RightPanel";
+import { BottomDrawer } from "../components/Drawer/BottomDrawer";
+import { CodePane } from "../components/CodePane/CodePane";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ export default function PipelineScreen() {
   const [codeSaveOk, setCodeSaveOk] = useState(false);
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
   const [requestedRunId, setRequestedRunId] = useState<string | null>(null);
+  const [codePaneOpen, setCodePaneOpen] = useState(false);
 
   // Auto-switch to Output tab when selected node completes (done/error)
   const lastDoneNodeId = useExecutionStore((s) => s.lastDoneNodeId);
@@ -337,6 +339,15 @@ export default function PipelineScreen() {
 
   const handleClosePanel = useCallback(() => {
     setSelectedNodeId(null);
+    setCodePaneOpen(false);
+  }, []);
+
+  const handleCodePaneOpen = useCallback(() => {
+    setCodePaneOpen(true);
+  }, []);
+
+  const handleCodePaneClose = useCallback(() => {
+    setCodePaneOpen(false);
   }, []);
 
   // ── Rename ─────────────────────────────────────────────────────
@@ -504,104 +515,127 @@ export default function PipelineScreen() {
       </ErrorBoundary>
       <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">
-        <main
-          className="flex-1 min-w-0 overflow-hidden relative"
-          style={{ backgroundColor: "var(--canvas-bg)" }}
-        >
-          {showSkeleton && (
-            <div
-              className="absolute inset-0"
-              style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
+        {/* Main content area: canvas + code pane horizontally, drawer below */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Top row: canvas + optional code pane */}
+          <div className="flex flex-1 min-h-0">
+            <main
+              className="flex-1 min-w-0 overflow-hidden relative"
+              style={{
+                backgroundColor: "var(--canvas-bg)",
+                transition: "all 250ms ease",
+              }}
             >
-              {/* Skeleton node cards scattered like a real canvas */}
-              {[
-                { x: "15%", y: "20%", w: 210, h: 100 },
-                { x: "45%", y: "15%", w: 210, h: 120 },
-                { x: "30%", y: "55%", w: 210, h: 90 },
-              ].map((s, i) => (
+              {showSkeleton && (
                 <div
-                  key={i}
-                  className="animate-pulse absolute"
-                  style={{
-                    left: s.x,
-                    top: s.y,
-                    width: s.w,
-                    height: s.h,
-                    borderRadius: 8,
-                    border: "1px solid var(--border-default)",
-                    background: "var(--node-bg)",
-                    opacity: 0.5,
-                  }}
+                  className="absolute inset-0"
+                  style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
                 >
-                  <div
-                    style={{
-                      height: 3,
-                      margin: "0 8px",
-                      borderRadius: "0 0 2px 2px",
-                      background: "var(--border-default)",
-                      opacity: 0.5,
-                    }}
-                  />
+                  {[
+                    { x: "15%", y: "20%", w: 210, h: 100 },
+                    { x: "45%", y: "15%", w: 210, h: 120 },
+                    { x: "30%", y: "55%", w: 210, h: 90 },
+                  ].map((s, i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse absolute"
+                      style={{
+                        left: s.x,
+                        top: s.y,
+                        width: s.w,
+                        height: s.h,
+                        borderRadius: 8,
+                        border: "1px solid var(--border-default)",
+                        background: "var(--node-bg)",
+                        opacity: 0.5,
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: 3,
+                          margin: "0 8px",
+                          borderRadius: "0 0 2px 2px",
+                          background: "var(--border-default)",
+                          opacity: 0.5,
+                        }}
+                      />
+                    </div>
+                  ))}
+                  <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.2 }}>
+                    <line x1="calc(15% + 210px)" y1="calc(20% + 50px)" x2="45%" y2="calc(15% + 60px)" stroke="var(--border-default)" strokeWidth="2" />
+                    <line x1="calc(45% + 105px)" y1="calc(15% + 120px)" x2="calc(30% + 105px)" y2="55%" stroke="var(--border-default)" strokeWidth="2" />
+                  </svg>
                 </div>
-              ))}
-              {/* Skeleton edge lines */}
-              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.2 }}>
-                <line x1="calc(15% + 232px)" y1="calc(20% + 50px)" x2="45%" y2="calc(15% + 60px)" stroke="var(--border-default)" strokeWidth="2" />
-                <line x1="calc(45% + 116px)" y1="calc(15% + 120px)" x2="calc(30% + 116px)" y2="55%" stroke="var(--border-default)" strokeWidth="2" />
-              </svg>
-            </div>
-          )}
-          <div
-            style={{
-              opacity: showSkeleton ? 0 : 1,
-              transition: "opacity 150ms ease-out",
-              height: "100%",
-            }}
-          >
-          <ErrorBoundary key={pipelineId} variant="compact">
-          <Canvas
-            pipelineId={pipelineId}
-            pipelineNodes={pipeline.nodes}
-            pipelineEdges={pipeline.edges}
-            nodeDefinitions={nodeDefinitions}
-            onNodePositionChange={handleNodePositionChange}
-            onConnect={handleConnect}
-            onDeleteNode={handleDeleteNode}
-            onDeleteEdge={handleDeleteEdge}
-            onPatchEdge={handlePatchEdge}
-            onDropNode={handleDropNode}
-            onRunFrom={handleRunFrom}
-            onNodeSelect={handleNodeSelect}
-            onTabClick={handleTabClick}
-            onRenameNode={handleRenameFromContextMenu}
-            onDuplicateNode={handleDuplicateNode}
-            onPasteNodes={handlePasteNodes}
-            viewportCenterRef={viewportCenterRef}
-          />
-          </ErrorBoundary>
+              )}
+              <div
+                style={{
+                  opacity: showSkeleton ? 0 : 1,
+                  transition: "opacity 150ms ease-out",
+                  height: "100%",
+                }}
+              >
+                <ErrorBoundary key={pipelineId} variant="compact">
+                  <Canvas
+                    pipelineId={pipelineId}
+                    pipelineNodes={pipeline.nodes}
+                    pipelineEdges={pipeline.edges}
+                    nodeDefinitions={nodeDefinitions}
+                    onNodePositionChange={handleNodePositionChange}
+                    onConnect={handleConnect}
+                    onDeleteNode={handleDeleteNode}
+                    onDeleteEdge={handleDeleteEdge}
+                    onPatchEdge={handlePatchEdge}
+                    onDropNode={handleDropNode}
+                    onRunFrom={handleRunFrom}
+                    onNodeSelect={handleNodeSelect}
+                    onTabClick={handleTabClick}
+                    onRenameNode={handleRenameFromContextMenu}
+                    onDuplicateNode={handleDuplicateNode}
+                    onPasteNodes={handlePasteNodes}
+                    viewportCenterRef={viewportCenterRef}
+                  />
+                </ErrorBoundary>
+              </div>
+            </main>
+
+            {/* Code Pane: dark-theme right split */}
+            <ErrorBoundary key={pipelineId} variant="compact">
+              <CodePane
+                open={codePaneOpen && selectedNode !== null}
+                code={selectedNode?.code ?? ""}
+                defaultCode={selectedDefinition?.default_code}
+                title={selectedNode?.name || selectedDefinition?.label || "Code"}
+                onChange={(code) => selectedNode && handleCodeChange(selectedNode.id, code)}
+                onSave={(code) => selectedNode && handleCodeSave(selectedNode.id, code)}
+                lastSaveOk={codeSaveOk}
+                onClose={handleCodePaneClose}
+              />
+            </ErrorBoundary>
           </div>
-        </main>
-        <ErrorBoundary key={pipelineId} variant="compact">
-        <RightPanel
-          pipelineId={pipelineId}
-          node={selectedNode}
-          definition={selectedDefinition}
-          onParamChange={handleParamChange}
-          paramSaving={patchNodeMutation.isPending}
-          onCodeChange={handleCodeChange}
-          onCodeSave={handleCodeSave}
-          codeSaveOk={codeSaveOk}
-          onClose={handleClosePanel}
-          requestedTab={requestedTab}
-          onRequestedTabHandled={() => setRequestedTab(null)}
-          onRename={handleRename}
-          onRunFrom={handleRunFrom}
-          renameRequested={renameRequested}
-          onRenameHandled={handleRenameHandled}
-          requestedRunId={requestedRunId}
-          onRequestedRunHandled={() => setRequestedRunId(null)}
-        />
-        </ErrorBoundary>
+
+          {/* Bottom Drawer */}
+          <ErrorBoundary key={pipelineId} variant="compact">
+            <BottomDrawer
+              pipelineId={pipelineId}
+              node={selectedNode}
+              definition={selectedDefinition}
+              status={selectedNodeId ? nodeStatuses[selectedNodeId] : undefined}
+              onParamChange={handleParamChange}
+              paramSaving={patchNodeMutation.isPending}
+              onClose={handleClosePanel}
+              onRename={handleRename}
+              onRunFrom={handleRunFrom}
+              onCodePaneOpen={handleCodePaneOpen}
+              requestedTab={requestedTab}
+              onRequestedTabHandled={() => setRequestedTab(null)}
+              renameRequested={renameRequested}
+              onRenameHandled={handleRenameHandled}
+              requestedRunId={requestedRunId}
+              onRequestedRunHandled={() => setRequestedRunId(null)}
+              codePaneOpen={codePaneOpen}
+            />
+          </ErrorBoundary>
+        </div>
       </div>
     </div>
   );

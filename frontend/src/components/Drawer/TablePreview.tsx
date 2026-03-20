@@ -7,21 +7,22 @@ interface TablePreviewProps {
 export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
   return (
     <div className="flex flex-col gap-2">
-      <div
-        className="text-xs"
-        style={{ color: "var(--text-muted)" }}
-      >
-        {totalRows.toLocaleString()} rows
-      </div>
-      <div className="overflow-x-auto rounded-md border" style={{ borderColor: "var(--border-default)" }}>
+      <div className="overflow-x-auto rounded-md border" style={{ borderColor: "var(--border-default)", maxHeight: 200 }}>
         <table className="w-full text-xs">
-          <thead>
-            <tr style={{ backgroundColor: "var(--canvas-bg)" }}>
+          <thead className="sticky top-0" style={{ backgroundColor: "var(--canvas-bg)" }}>
+            <tr>
               {columns.map((col) => (
                 <th
                   key={col}
-                  className="px-2 py-1.5 text-left font-medium whitespace-nowrap"
-                  style={{ color: "var(--text-secondary)", borderColor: "var(--border-default)" }}
+                  className="px-2.5 py-1 text-left whitespace-nowrap"
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 9,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "var(--text-muted)",
+                  }}
                 >
                   {col}
                 </th>
@@ -32,14 +33,19 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
             {rows.map((row, i) => (
               <tr
                 key={i}
-                className="border-t"
-                style={{ borderColor: "var(--border-default)" }}
+                className="transition-colors"
+                style={{ borderTop: "1px solid var(--canvas-bg)" }}
               >
                 {row.map((cell, j) => (
                   <td
                     key={j}
-                    className="px-2 py-1 whitespace-nowrap"
-                    style={{ color: "var(--text-primary)" }}
+                    className="px-2.5 py-1 whitespace-nowrap"
+                    style={{
+                      color: "var(--text-primary)",
+                      fontFamily: j === 0 ? "'JetBrains Mono', monospace" : "'Inter', sans-serif",
+                      fontSize: 10,
+                      fontWeight: 400,
+                    }}
                   >
                     {cell === null ? (
                       <span style={{ color: "var(--text-muted)" }}>null</span>

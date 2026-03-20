@@ -62,7 +62,16 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
     case "select":
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+          <Label
+            style={{
+              fontFamily: "var(--drawer-label-font)",
+              fontWeight: 700,
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "var(--text-muted)",
+            }}
+          >
             {param.name}
           </Label>
           <Select
@@ -70,7 +79,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
             onValueChange={(v) => onChange(param.name, v)}
             disabled={disabled}
           >
-            <SelectTrigger className="h-8 text-sm">
+            <SelectTrigger className="h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -92,7 +101,16 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium text-[var(--text-secondary)]">
+            <Label
+            style={{
+              fontFamily: "var(--drawer-label-font)",
+              fontWeight: 700,
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "var(--text-muted)",
+            }}
+          >
               {param.name}
             </Label>
             <span
@@ -133,7 +151,16 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       const isNumeric = typeof (param.default ?? value) === "number";
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+          <Label
+            style={{
+              fontFamily: "var(--drawer-label-font)",
+              fontWeight: 700,
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "var(--text-muted)",
+            }}
+          >
             {param.name}
           </Label>
           <Input
@@ -156,7 +183,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
                 debouncedOnChange(param.name, textValue);
               }
             }}
-            className="h-8 text-sm"
+            className="h-8 text-xs"
             style={textError ? { borderColor: "var(--error-red)" } : undefined}
           />
           {textError && (
@@ -172,7 +199,16 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       const checked = !!(value ?? param.default);
       return (
         <div className="flex items-center justify-between" style={disabledStyle}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)]">
+          <Label
+            style={{
+              fontFamily: "var(--drawer-label-font)",
+              fontWeight: 700,
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "var(--text-muted)",
+            }}
+          >
             {param.name}
           </Label>
           <button
