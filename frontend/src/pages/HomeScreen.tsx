@@ -193,7 +193,7 @@ function PipelineCard({
               fontSize: 16,
               fontWeight: 500,
               color: "var(--text-primary)",
-              borderColor: "var(--accent-primary, #4A4558)",
+              borderColor: "var(--accent-primary)",
             }}
           />
         ) : (
