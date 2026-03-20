@@ -31,7 +31,7 @@ class TestNodesAPI:
         assert len(nodes) >= 3
         types = {n["type"] for n in nodes}
         assert "ml_toolbox.nodes.demo.run" in types
-        assert "ml_toolbox.nodes.demo.clean_data" in types
+        assert "ml_toolbox.nodes.transform.clean" in types
         assert "ml_toolbox.nodes.demo.summarize_data" in types
 
     def test_list_nodes_entry_shape(self):
@@ -256,7 +256,7 @@ class TestDeleteNode:
         r2 = client.post(
             f"/api/pipelines/{pid}/nodes",
             json={
-                "type": "ml_toolbox.nodes.demo.clean_data",
+                "type": "ml_toolbox.nodes.transform.clean",
                 "position": {"x": 100, "y": 0},
             },
         )
@@ -421,7 +421,7 @@ class TestAddEdge:
         r2 = client.post(
             f"/api/pipelines/{pid}/nodes",
             json={
-                "type": "ml_toolbox.nodes.demo.clean_data",
+                "type": "ml_toolbox.nodes.transform.clean",
                 "position": {"x": 100, "y": 0},
             },
         )
@@ -501,7 +501,7 @@ class TestAddEdge:
         rb = client.post(
             f"/api/pipelines/{pid}/nodes",
             json={
-                "type": "ml_toolbox.nodes.demo.clean_data",
+                "type": "ml_toolbox.nodes.transform.clean",
                 "position": {"x": 100, "y": 0},
             },
         )
@@ -510,7 +510,7 @@ class TestAddEdge:
         rc = client.post(
             f"/api/pipelines/{pid}/nodes",
             json={
-                "type": "ml_toolbox.nodes.demo.clean_data",
+                "type": "ml_toolbox.nodes.transform.clean",
                 "position": {"x": 200, "y": 0},
             },
         )
@@ -590,7 +590,7 @@ class TestDeleteEdge:
         r2 = client.post(
             f"/api/pipelines/{pid}/nodes",
             json={
-                "type": "ml_toolbox.nodes.demo.clean_data",
+                "type": "ml_toolbox.nodes.transform.clean",
                 "position": {"x": 100, "y": 0},
             },
         )
@@ -635,7 +635,7 @@ class TestUpdateEdge:
         r2 = client.post(
             f"/api/pipelines/{pid}/nodes",
             json={
-                "type": "ml_toolbox.nodes.demo.clean_data",
+                "type": "ml_toolbox.nodes.transform.clean",
                 "position": {"x": 100, "y": 0},
             },
         )

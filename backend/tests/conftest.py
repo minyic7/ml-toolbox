@@ -44,7 +44,7 @@ def two_node_pipeline(client, create_pipeline):
     r2 = client.post(
         f"/api/pipelines/{pid}/nodes",
         json={
-            "type": "ml_toolbox.nodes.demo.clean_data",
+            "type": "ml_toolbox.nodes.transform.clean",
             "position": {"x": 200, "y": 0},
         },
     )
