@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+from datetime import datetime
 import threading
 import uuid
 from collections import defaultdict
@@ -513,7 +514,7 @@ async def list_runs(pipeline_id: str) -> list[dict]:
     _load_pipeline(pipeline_id)  # 404 if missing
     runs = file_store.list_runs(pipeline_id)
 
-    # Enrich with status from _status.json
+    # Enrich with status, completed_at, duration from _status.json
     for run in runs:
         run_dir = file_store._runs_dir(pipeline_id) / run["id"]
         status_file = run_dir / "_status.json"
@@ -521,10 +522,27 @@ async def list_runs(pipeline_id: str) -> list[dict]:
             try:
                 status_data = json.loads(status_file.read_text())
                 run["status"] = status_data.get("status", "unknown")
+                run["completed_at"] = status_data.get("completed_at")
+                # Prefer timestamps from _status.json for started_at
+                if "started_at" in status_data:
+                    run["started_at"] = status_data["started_at"]
+                # Compute duration if both timestamps are available
+                sa = status_data.get("started_at")
+                ca = status_data.get("completed_at")
+                if sa and ca:
+                    t0 = datetime.fromisoformat(sa)
+                    t1 = datetime.fromisoformat(ca)
+                    run["duration"] = round((t1 - t0).total_seconds(), 1)
+                else:
+                    run["duration"] = None
             except Exception:
                 run["status"] = "unknown"
+                run["completed_at"] = None
+                run["duration"] = None
         else:
             run["status"] = "unknown"
+            run["completed_at"] = None
+            run["duration"] = None
 
     return runs
 
