@@ -31,9 +31,12 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
 )
 def clean(inputs: dict, params: dict) -> dict:
     """Drop nulls, duplicates, or fill missing values in a DataFrame."""
+    import json
+
     import pandas as pd
 
     df = pd.read_parquet(inputs["df"])
+    rows_before = len(df)
 
     drop_nulls = params.get("drop_nulls", True)
     drop_duplicates = params.get("drop_duplicates", True)
@@ -55,8 +58,20 @@ def clean(inputs: dict, params: dict) -> dict:
     if drop_duplicates:
         df = df.drop_duplicates()
 
+    rows_after = len(df)
+
     out = _get_output_path("df")
     df.to_parquet(out, index=False)
+
+    # Write cleaning summary as a small JSON alongside the output
+    summary = {
+        "rows_before": rows_before,
+        "rows_after": rows_after,
+        "rows_dropped": rows_before - rows_after,
+    }
+    summary_path = _get_output_path("clean_summary", ext=".json")
+    summary_path.write_text(json.dumps(summary))
+
     return {"df": str(out)}
 
 
