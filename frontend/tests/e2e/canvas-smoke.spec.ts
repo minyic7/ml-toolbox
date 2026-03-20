@@ -95,31 +95,21 @@ function mockApi(page: import("@playwright/test").Page) {
     }
   });
 
-  // Single pipeline
-  page.route("**/api/pipelines/test-pipeline-1", (route) => {
-    if (route.request().method() === "GET") {
+  // Single pipeline — match any pipeline ID with a path segment after /pipelines/
+  page.route(/\/api\/pipelines\/[^/]+$/, (route) => {
+    const method = route.request().method();
+    if (method === "GET") {
       route.fulfill({ json: { ...PIPELINE_FIXTURE } });
-    } else {
+    } else if (method === "PUT") {
       route.fulfill({ json: { ...PIPELINE_FIXTURE } });
-    }
-  });
-
-  page.route("**/api/pipelines/new-pipeline", (route) => {
-    if (route.request().method() === "GET") {
-      route.fulfill({
-        json: {
-          id: "new-pipeline",
-          name: "New Pipeline",
-          nodes: [],
-          edges: [],
-          settings: { keep_outputs: true },
-          created_at: "2026-01-01T00:00:00Z",
-          updated_at: "2026-01-01T00:00:00Z",
-        },
-      });
     } else {
       route.fulfill({ json: {} });
     }
+  });
+
+  // Settings
+  page.route("**/api/pipelines/*/settings", (route) => {
+    route.fulfill({ json: { keep_outputs: true } });
   });
 
   // Add node
@@ -231,7 +221,7 @@ test.describe("Canvas smoke tests", () => {
     page,
   }) => {
     await page.goto(`/pipeline/${PIPELINE_FIXTURE.id}`);
-    const runButton = page.locator("button", { hasText: "Run All" });
+    const runButton = page.locator("button", { hasText: "Run" }).first();
     await expect(runButton).toBeVisible({ timeout: 5000 });
     await expect(runButton).toBeDisabled();
   });
