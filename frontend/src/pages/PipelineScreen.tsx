@@ -313,8 +313,12 @@ export default function PipelineScreen() {
       const node = pipeline?.nodes.find((n) => n.id === nodeId);
       if (!node) return;
       const currentValues: Record<string, unknown> = {};
-      for (const p of node.params) {
-        currentValues[p.name] = p.default;
+      if (Array.isArray(node.params)) {
+        for (const p of node.params) {
+          currentValues[p.name] = p.default;
+        }
+      } else {
+        Object.assign(currentValues, node.params as Record<string, unknown>);
       }
       currentValues[name] = value;
       patchNodeMutation.mutate(

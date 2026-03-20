@@ -280,7 +280,24 @@ async def update_node(pipeline_id: str, node_id: str, body: UpdateNodeRequest) -
                     param_def["default"] = body.params[param_def["name"]]
             node["params"] = existing_params
         else:
-            node["params"] = body.params
+            # Legacy dict or empty — recover array from NODE_REGISTRY template
+            template = NODE_REGISTRY.get(node.get("type", ""), {})
+            template_params = list(template.get("params", []))
+            if template_params:
+                import copy
+
+                template_params = copy.deepcopy(template_params)
+                merged: dict[str, Any] = {}
+                if isinstance(existing_params, dict):
+                    merged.update(existing_params)
+                merged.update(body.params)  # new values take precedence
+                for param_def in template_params:
+                    if param_def["name"] in merged:
+                        param_def["default"] = merged[param_def["name"]]
+                node["params"] = template_params
+            else:
+                # No template available — store dict as last resort
+                node["params"] = body.params
     if body.code is not None:
         node["code"] = body.code
     if body.position is not None:
