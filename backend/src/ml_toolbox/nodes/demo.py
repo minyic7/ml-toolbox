@@ -21,7 +21,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
 # ── generate_data ────────────────────────────────────────────────────
 @node(
     outputs={"df": PortType.TABLE},
-    params={"rows": Slider(min=10, max=1000, step=10, default=100)},
+    params={"rows": Slider(min=10, max=1000, step=10, default=100, description="Number of rows to generate")},
     label="Generate Data",
     description="Generate a random DataFrame and write it to parquet.",
 )
