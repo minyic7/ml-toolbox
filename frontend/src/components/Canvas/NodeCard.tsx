@@ -6,6 +6,14 @@ import { CATEGORY_ACCENT_COLORS, PORT_COLORS } from "../../lib/portColors";
 import type { PortType } from "../../lib/types";
 import PortDot from "./PortDot";
 import NodeActionBar from "./NodeActionBar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../ui/dialog";
 
 // ── Status config ──────────────────────────────────────────────────
 
@@ -85,6 +93,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
   const isCached = status === "cached";
   const isRunning = status === "running";
   const [hovered, setHovered] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Category-based left accent border color
   const accentColor =
@@ -351,12 +360,95 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         </div>
       )}
 
+      {/* Trash icon — top-right, visible on hover */}
+      <button
+        className="node-delete-icon"
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 6,
+          width: 16,
+          height: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          opacity: hovered ? 0.7 : 0,
+          pointerEvents: hovered ? "auto" : "none",
+          transition: "opacity 150ms ease",
+          zIndex: 1,
+          borderRadius: 3,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setConfirmOpen(true);
+        }}
+        title="Delete node"
+      >
+        <svg width="12" height="12" viewBox="0 0 9 10" fill="none" stroke="var(--error-red)" strokeWidth="1.2" strokeLinecap="round">
+          <path d="M1 2.5h7M3 2.5V1.5h3v1M2 2.5l.5 6h4l.5-6" />
+        </svg>
+      </button>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-xs" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Delete node</DialogTitle>
+            <DialogDescription>
+              Delete &ldquo;{label}&rdquo;? Connected edges will also be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 6,
+                border: "1px solid var(--border-default)",
+                background: "transparent",
+                cursor: "pointer",
+                color: "var(--text-primary)",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmOpen(false);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 6,
+                border: "none",
+                background: "var(--error-red)",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmOpen(false);
+                onDeleteNode?.(id);
+              }}
+            >
+              Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Action bar — visible on hover or selected */}
       <NodeActionBar
         visible={hovered || !!selected}
         onRun={() => onRunFrom?.(id)}
         onCode={() => onTabClick?.(id, "code")}
-        onDelete={() => onDeleteNode?.(id)}
       />
 
       {/* Port dots */}

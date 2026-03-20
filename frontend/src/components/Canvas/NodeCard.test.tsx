@@ -210,11 +210,22 @@ describe("NodeCard", () => {
   });
 
   describe("action bar", () => {
-    it("renders Run, Code, and Del action buttons", () => {
+    it("renders Run and Code action buttons", () => {
       renderCard();
       expect(screen.getByText("Run")).toBeInTheDocument();
       expect(screen.getByText("Code")).toBeInTheDocument();
-      expect(screen.getByText("Del")).toBeInTheDocument();
+    });
+
+    it("does not render Del in action bar", () => {
+      renderCard();
+      expect(screen.queryByText("Del")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("delete icon", () => {
+    it("renders a trash icon button with title", () => {
+      renderCard();
+      expect(screen.getByTitle("Delete node")).toBeInTheDocument();
     });
   });
 
