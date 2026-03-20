@@ -1,10 +1,6 @@
-import { useEffect, useState } from "react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
-import { DrawerOutputTab } from "./DrawerOutputTab";
-
-type DrawerTab = "params" | "code" | "output";
 
 interface BottomDrawerProps {
   pipelineId: string;
@@ -13,61 +9,27 @@ interface BottomDrawerProps {
   onParamChange: (nodeId: string, name: string, value: unknown) => void;
   paramSaving?: boolean;
   onClose: () => void;
-  requestedTab?: string | null;
-  onRequestedTabHandled?: () => void;
-  requestedRunId?: string | null;
-  onRequestedRunHandled?: () => void;
   onRunFrom: (nodeId: string) => void;
-  onCodeTabClick?: () => void;
-  onOutputTabClick?: () => void;
+  onCodeClick: () => void;
+  onOutputClick: () => void;
+  rightPanelOpen: boolean;
+  rightPanelMode: "code" | "output";
 }
 
 const DRAWER_HEIGHT = 220;
 const DRAWER_HEADER_HEIGHT = 38;
 
 export default function BottomDrawer({
-  pipelineId,
   node,
   definition,
   onParamChange,
   paramSaving,
   onClose,
-  requestedTab,
-  onRequestedTabHandled,
-  requestedRunId,
-  onRequestedRunHandled,
-  onRunFrom,
-  onCodeTabClick,
-  onOutputTabClick,
+  onCodeClick,
+  onOutputClick,
+  rightPanelOpen,
+  rightPanelMode,
 }: BottomDrawerProps) {
-  const [activeTab, setActiveTab] = useState<DrawerTab>("params");
-
-  // Handle external tab requests
-  useEffect(() => {
-    if (requestedTab === "params") {
-      setActiveTab(requestedTab);
-      onRequestedTabHandled?.();
-    } else if (requestedTab === "code") {
-      setActiveTab("code");
-      onCodeTabClick?.();
-      onRequestedTabHandled?.();
-    } else if (requestedTab === "output") {
-      setActiveTab("output");
-      onOutputTabClick?.();
-      onRequestedTabHandled?.();
-    }
-  }, [requestedTab, onRequestedTabHandled, onCodeTabClick, onOutputTabClick]);
-
-  const handleTabChange = (tab: DrawerTab) => {
-    setActiveTab(tab);
-    if (tab === "code") {
-      onCodeTabClick?.();
-    } else if (tab === "output") {
-      onOutputTabClick?.();
-    }
-    // Switching tabs never closes panels — only explicit close buttons do
-  };
-
   const isOpen = node !== null;
   const drawerHeight = isOpen ? DRAWER_HEIGHT : 0;
 
@@ -96,9 +58,11 @@ export default function BottomDrawer({
           <DrawerHeader
             node={node}
             definition={definition}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
             onClose={onClose}
+            onCodeClick={onCodeClick}
+            onOutputClick={onOutputClick}
+            rightPanelOpen={rightPanelOpen}
+            rightPanelMode={rightPanelMode}
           />
           <div
             style={{
@@ -106,23 +70,12 @@ export default function BottomDrawer({
               overflowY: "auto",
             }}
           >
-            {activeTab === "params" && (
-              <ParamsTab
-                params={definition.params}
-                values={buildParamValues(node)}
-                onChange={(name, value) => onParamChange(node.id, name, value)}
-                disabled={paramSaving}
-              />
-            )}
-            {activeTab === "output" && (
-              <DrawerOutputTab
-                pipelineId={pipelineId}
-                nodeId={node.id}
-                requestedRunId={requestedRunId}
-                onRequestedRunHandled={onRequestedRunHandled}
-                onRunFrom={() => onRunFrom(node.id)}
-              />
-            )}
+            <ParamsTab
+              params={definition.params}
+              values={buildParamValues(node)}
+              onChange={(name, value) => onParamChange(node.id, name, value)}
+              disabled={paramSaving}
+            />
           </div>
         </>
       )}

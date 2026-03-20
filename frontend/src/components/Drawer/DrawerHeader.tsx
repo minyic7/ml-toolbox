@@ -1,8 +1,6 @@
 import type { NodeInstance, NodeDefinition, NodeStatus } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
-import { X } from "lucide-react";
-
-type DrawerTab = "params" | "code" | "output";
+import { X, Code2, Table } from "lucide-react";
 
 const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
   idle: "var(--status-idle)",
@@ -15,26 +13,24 @@ const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
   cached: "var(--success-green)",
 };
 
-const TABS: { key: DrawerTab; label: string; icon: string }[] = [
-  { key: "params", label: "Params", icon: "▤" },
-  { key: "code", label: "Code", icon: "</>" },
-  { key: "output", label: "Output", icon: "▦" },
-];
-
 interface DrawerHeaderProps {
   node: NodeInstance;
   definition: NodeDefinition;
-  activeTab: DrawerTab;
-  onTabChange: (tab: DrawerTab) => void;
   onClose: () => void;
+  onCodeClick: () => void;
+  onOutputClick: () => void;
+  rightPanelOpen: boolean;
+  rightPanelMode: "code" | "output";
 }
 
 export default function DrawerHeader({
   node,
   definition,
-  activeTab,
-  onTabChange,
   onClose,
+  onCodeClick,
+  onOutputClick,
+  rightPanelOpen,
+  rightPanelMode,
 }: DrawerHeaderProps) {
   const status = useExecutionStore(
     (s) => s.nodeStatuses[node.id] ?? "idle",
@@ -42,6 +38,9 @@ export default function DrawerHeader({
   const dotColor = STATUS_DOT_COLORS[status];
   const displayName = node.name || definition.label || node.type;
   const nodeType = `${definition.category} · ${node.type}`;
+
+  const codeActive = rightPanelOpen && rightPanelMode === "code";
+  const outputActive = rightPanelOpen && rightPanelMode === "output";
 
   return (
     <div
@@ -97,44 +96,82 @@ export default function DrawerHeader({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Tab buttons — Inter 700 10px uppercase */}
-      <div className="flex items-center gap-1">
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontWeight: 700,
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: isActive ? "var(--accent-primary)" : "var(--text-muted)",
-                borderBottom: isActive
-                  ? "2px solid var(--accent-primary)"
-                  : "2px solid transparent",
-                background: "none",
-                border: "none",
-                borderBottomStyle: "solid",
-                borderBottomWidth: 2,
-                borderBottomColor: isActive
-                  ? "var(--accent-primary)"
-                  : "transparent",
-                padding: "4px 8px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <span style={{ fontSize: 11 }}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Params label — always active */}
+      <span
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 700,
+          fontSize: 10,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          color: "var(--accent-primary)",
+          padding: "4px 8px",
+        }}
+      >
+        Params
+      </span>
+
+      {/* Code icon button */}
+      <button
+        onClick={onCodeClick}
+        aria-label="Toggle code panel"
+        style={{
+          width: 28,
+          height: 28,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid var(--border-default)",
+          borderRadius: 4,
+          background: codeActive ? "var(--ghost-hover-bg)" : "transparent",
+          cursor: "pointer",
+          flexShrink: 0,
+          color: codeActive ? "var(--accent-primary)" : "var(--text-muted)",
+        }}
+        onMouseEnter={(e) => {
+          if (!codeActive) {
+            (e.currentTarget as HTMLElement).style.background = "var(--ghost-hover-bg)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!codeActive) {
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+          }
+        }}
+      >
+        <Code2 size={14} />
+      </button>
+
+      {/* Output icon button */}
+      <button
+        onClick={onOutputClick}
+        aria-label="Toggle output panel"
+        style={{
+          width: 28,
+          height: 28,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid var(--border-default)",
+          borderRadius: 4,
+          background: outputActive ? "var(--ghost-hover-bg)" : "transparent",
+          cursor: "pointer",
+          flexShrink: 0,
+          color: outputActive ? "var(--accent-primary)" : "var(--text-muted)",
+        }}
+        onMouseEnter={(e) => {
+          if (!outputActive) {
+            (e.currentTarget as HTMLElement).style.background = "var(--ghost-hover-bg)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!outputActive) {
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+          }
+        }}
+      >
+        <Table size={14} />
+      </button>
 
       {/* Close button — 24x24px */}
       <button

@@ -50,17 +50,17 @@ export default function PipelineScreen() {
 
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [requestedTab, setRequestedTab] = useState<string | null>(null);
   const [requestedRunId, setRequestedRunId] = useState<string | null>(null);
 
-  // Auto-switch to Output tab when selected node completes (done/error)
+  // Auto-open output panel when selected node completes (done/error)
   const lastDoneNodeId = useExecutionStore((s) => s.lastDoneNodeId);
   const setLastDoneNodeId = useExecutionStore((s) => s.setLastDoneNodeId);
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
 
   useEffect(() => {
     if (lastDoneNodeId && lastDoneNodeId === selectedNodeId) {
-      setRequestedTab("output");
+      setRightPanelMode("output");
+      setRightPanelOpen(true);
       setLastDoneNodeId(null);
     } else if (lastDoneNodeId) {
       setLastDoneNodeId(null);
@@ -295,9 +295,8 @@ export default function PipelineScreen() {
       setRightPanelOpen(false);
       const status = nodeStatuses[nodeId];
       if (status === "done" || status === "error" || status === "cached") {
-        setRequestedTab("output");
-      } else {
-        setRequestedTab("params");
+        setRightPanelMode("output");
+        setRightPanelOpen(true);
       }
     }
     // Clicking blank canvas — keep drawer open with last selected node
@@ -306,7 +305,13 @@ export default function PipelineScreen() {
   const handleTabClick = useCallback((nodeId: string, tab: string) => {
     setSelectedNodeId(nodeId);
     setDrawerOpen(true);
-    setRequestedTab(tab);
+    if (tab === "code") {
+      setRightPanelMode("code");
+      setRightPanelOpen(true);
+    } else if (tab === "output") {
+      setRightPanelMode("output");
+      setRightPanelOpen(true);
+    }
   }, []);
 
   const handleParamChange = useCallback(
@@ -340,15 +345,23 @@ export default function PipelineScreen() {
     setSelectedNodeId(null);
   }, []);
 
-  const handleCodeTabClick = useCallback(() => {
-    setRightPanelMode("code");
-    setRightPanelOpen(true);
-  }, []);
+  const handleCodeToggle = useCallback(() => {
+    if (rightPanelOpen && rightPanelMode === "code") {
+      setRightPanelOpen(false);
+    } else {
+      setRightPanelMode("code");
+      setRightPanelOpen(true);
+    }
+  }, [rightPanelOpen, rightPanelMode]);
 
-  const handleOutputTabClick = useCallback(() => {
-    setRightPanelMode("output");
-    setRightPanelOpen(true);
-  }, []);
+  const handleOutputToggle = useCallback(() => {
+    if (rightPanelOpen && rightPanelMode === "output") {
+      setRightPanelOpen(false);
+    } else {
+      setRightPanelMode("output");
+      setRightPanelOpen(true);
+    }
+  }, [rightPanelOpen, rightPanelMode]);
 
   const handleRightPanelClose = useCallback(() => {
     setRightPanelOpen(false);
@@ -509,7 +522,8 @@ export default function PipelineScreen() {
       <Topbar
         pipelineId={pipelineId}
         onViewRun={selectedNodeId ? (runId) => {
-          setRequestedTab("output");
+          setRightPanelMode("output");
+          setRightPanelOpen(true);
           setRequestedRunId(runId);
         } : undefined}
       />
@@ -604,13 +618,11 @@ export default function PipelineScreen() {
               onParamChange={handleParamChange}
               paramSaving={patchNodeMutation.isPending}
               onClose={handleClosePanel}
-              requestedTab={requestedTab}
-              onRequestedTabHandled={() => setRequestedTab(null)}
               onRunFrom={handleRunFrom}
-              requestedRunId={requestedRunId}
-              onRequestedRunHandled={() => setRequestedRunId(null)}
-              onCodeTabClick={handleCodeTabClick}
-              onOutputTabClick={handleOutputTabClick}
+              onCodeClick={handleCodeToggle}
+              onOutputClick={handleOutputToggle}
+              rightPanelOpen={rightPanelOpen}
+              rightPanelMode={rightPanelMode}
             />
             </ErrorBoundary>
           </main>
