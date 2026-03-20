@@ -100,7 +100,7 @@ test.describe("Home screen — Runs dashboard", () => {
     await page.goto("/");
 
     // Default view is Runs — should see date headers
-    await expect(page.locator("text=Today")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Today", { exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText("Yesterday", { exact: true }).first()).toBeVisible();
 
     // Should see run entries (run IDs are sliced to first 8 chars in RunList)
