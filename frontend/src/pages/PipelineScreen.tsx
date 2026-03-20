@@ -609,7 +609,6 @@ export default function PipelineScreen() {
               onRunFrom={handleRunFrom}
               requestedRunId={requestedRunId}
               onRequestedRunHandled={() => setRequestedRunId(null)}
-              rightPanelOpen={rightPanelOpen}
               onCodeTabClick={handleCodeTabClick}
               onOutputTabClick={handleOutputTabClick}
             />
