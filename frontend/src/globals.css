@@ -247,12 +247,6 @@ body {
   outline: 2px solid var(--accent-primary);
   outline-offset: -2px;
 }
-.node-action-run:hover {
-  color: var(--border-selected);
-}
-.node-delete-icon:hover {
-  opacity: 1 !important;
-}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateX(-10px); }

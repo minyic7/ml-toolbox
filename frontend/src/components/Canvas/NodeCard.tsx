@@ -19,14 +19,14 @@ import {
 
 const STATUS_BORDERS: Record<
   NodeStatus,
-  { width: string; style: string; color: string }
+  { width: string; style: string; color: string; shadow?: string }
 > = {
   idle: { width: "1px", style: "solid", color: "var(--border-default)" },
   dirty: { width: "1px", style: "dashed", color: "var(--border-default)" },
-  pending: { width: "1px", style: "solid", color: "var(--status-pending)" },
-  running: { width: "1.5px", style: "solid", color: "var(--accent-primary)" },
-  done: { width: "1.5px", style: "solid", color: "var(--success-green)" },
-  error: { width: "1.5px", style: "solid", color: "var(--error-red)" },
+  pending: { width: "1.5px", style: "solid", color: "var(--status-pending)" },
+  running: { width: "2px", style: "solid", color: "var(--accent-primary)", shadow: "0 0 8px rgba(59,130,246,0.35)" },
+  done: { width: "2px", style: "solid", color: "var(--success-green)", shadow: "0 0 8px rgba(34,197,94,0.3)" },
+  error: { width: "2px", style: "solid", color: "var(--error-red)", shadow: "0 0 8px rgba(239,68,68,0.35)" },
   skipped: { width: "1.5px", style: "solid", color: "var(--warning-amber)" },
   cached: { width: "1.5px", style: "solid", color: "var(--warning-amber)" },
 };
@@ -118,9 +118,11 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         borderRight: `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
         borderTop: `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
         borderBottom: `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
-        boxShadow: hovered
-          ? "0 4px 16px rgba(0,0,0,0.08)"
-          : "0 1px 3px rgba(0,0,0,0.06)",
+        boxShadow: borderDef.shadow
+          ? borderDef.shadow
+          : hovered
+            ? "0 4px 16px rgba(0,0,0,0.08)"
+            : "0 1px 3px rgba(0,0,0,0.06)",
         outline: selected ? "2px solid var(--border-selected)" : "none",
         outlineOffset: selected ? 2 : 0,
         position: "relative",
@@ -210,8 +212,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             }
             style={{
               display: "inline-block",
-              width: 7,
-              height: 7,
+              width: 8,
+              height: 8,
               borderRadius: "50%",
               background: STATUS_DOT_COLORS[status],
               flexShrink: 0,
@@ -360,39 +362,6 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         </div>
       )}
 
-      {/* Trash icon — top-right, visible on hover */}
-      <button
-        className="node-delete-icon"
-        style={{
-          position: "absolute",
-          top: 6,
-          right: 6,
-          width: 16,
-          height: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: 0,
-          opacity: hovered ? 0.7 : 0,
-          pointerEvents: hovered ? "auto" : "none",
-          transition: "opacity 150ms ease",
-          zIndex: 1,
-          borderRadius: 3,
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          setConfirmOpen(true);
-        }}
-        title="Delete node"
-      >
-        <svg width="12" height="12" viewBox="0 0 9 10" fill="none" stroke="var(--error-red)" strokeWidth="1.2" strokeLinecap="round">
-          <path d="M1 2.5h7M3 2.5V1.5h3v1M2 2.5l.5 6h4l.5-6" />
-        </svg>
-      </button>
-
       {/* Delete confirmation dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-w-xs" onClick={(e) => e.stopPropagation()}>
@@ -449,7 +418,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         visible={hovered || !!selected}
         nodeId={id}
         onRun={() => onRunFrom?.(id)}
-        onCode={() => onTabClick?.(id, "code")}
+        onDelete={() => setConfirmOpen(true)}
       />
 
       {/* Port dots */}
