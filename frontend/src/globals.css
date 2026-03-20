@@ -119,6 +119,16 @@
   --codepane-icon-color: #7C7A8E;
   --codepane-footer-lang: #6D6A80;
   --codepane-unsaved-amber: #F59E0B;
+  --codepane-title-color: #E2E0F0;
+  --codepane-btn-border: #3D3650;
+  --codepane-btn-color: #7C7A8E;
+  --codepane-btn-hover-bg: #2D2640;
+  --codepane-btn-hover-border: #4D4660;
+  --codepane-btn-hover-color: #E2E0F0;
+  --codepane-save-bg: #1E1A35;
+  --codepane-save-color: #9B8FC4;
+  --codepane-save-hover-bg: #252040;
+  --codepane-save-hover-color: #C4B9E8;
 }
 
 @keyframes pulse {
