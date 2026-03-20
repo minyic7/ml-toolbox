@@ -399,6 +399,7 @@ export default function PipelineScreen() {
       }
       // Recreate edges between pasted nodes
       if (pastedEdges && pastedEdges.length > 0) {
+        let conditionsDropped = 0;
         for (const e of pastedEdges) {
           const source = newIds[e.sourceIdx];
           const target = newIds[e.targetIdx];
@@ -409,7 +410,13 @@ export default function PipelineScreen() {
               target,
               targetPort: e.targetPort,
             });
+            if (e.condition) conditionsDropped++;
           }
+        }
+        if (conditionsDropped > 0) {
+          toast.warning(
+            `${conditionsDropped} edge condition(s) were not preserved — re-add them manually`,
+          );
         }
       }
     },
