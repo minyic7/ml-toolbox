@@ -438,7 +438,7 @@ function CanvasInner({
 
       const mod = e.ctrlKey || e.metaKey;
 
-      if (mod && e.key === "f") {
+      if (mod && e.shiftKey && e.key === "f") {
         e.preventDefault();
         reactFlow.fitView({ duration: 300 });
         return;
