@@ -216,15 +216,15 @@ describe("NodeCard", () => {
   });
 
   describe("action bar", () => {
-    it("renders Run and Code action buttons", () => {
+    it("renders Run and Delete icon buttons", () => {
       renderCard();
-      expect(screen.getByText("Run")).toBeInTheDocument();
-      expect(screen.getByText("Code")).toBeInTheDocument();
+      expect(screen.getByTitle("Run from this node")).toBeInTheDocument();
+      expect(screen.getByTitle("Delete node")).toBeInTheDocument();
     });
 
-    it("does not render Del in action bar", () => {
+    it("does not render Code button in action bar", () => {
       renderCard();
-      expect(screen.queryByText("Del")).not.toBeInTheDocument();
+      expect(screen.queryByText("Code")).not.toBeInTheDocument();
     });
   });
 
@@ -246,7 +246,7 @@ describe("NodeCard", () => {
     it("renders card without port rows when inputs and outputs are empty", () => {
       renderCard({ inputs: [], outputs: [] });
       // Action bar still present
-      expect(screen.getByText("Run")).toBeInTheDocument();
+      expect(screen.getByTitle("Run from this node")).toBeInTheDocument();
       // No port handles rendered
       expect(screen.queryByTestId(/^handle-/)).not.toBeInTheDocument();
     });
