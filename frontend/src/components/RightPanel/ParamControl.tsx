@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Info } from "lucide-react";
 import type { ParamDefinition } from "../../lib/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +10,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ParamControlProps {
   param: ParamDefinition;
   value: unknown;
   onChange: (name: string, value: unknown) => void;
   disabled?: boolean;
+}
+
+function ParamLabel({ param }: { param: ParamDefinition }) {
+  return (
+    <div className="flex items-center gap-1">
+      <Label className="text-xs font-medium text-[var(--text-secondary)]">
+        {param.name}
+      </Label>
+      {param.description && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info size={12} className="text-[var(--text-muted)] cursor-help shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[200px] text-xs">
+            {param.description}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  );
 }
 
 export function ParamControl({ param, value, onChange, disabled }: ParamControlProps) {
@@ -62,9 +88,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
     case "select":
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)]">
-            {param.name}
-          </Label>
+          <ParamLabel param={param} />
           <Select
             value={String(value ?? param.default ?? "")}
             onValueChange={(v) => onChange(param.name, v)}
@@ -92,9 +116,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium text-[var(--text-secondary)]">
-              {param.name}
-            </Label>
+            <ParamLabel param={param} />
             <span
               className="text-xs tabular-nums"
               style={{ color: "var(--text-muted)" }}
@@ -133,13 +155,12 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       const isNumeric = typeof (param.default ?? value) === "number";
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)]">
-            {param.name}
-          </Label>
+          <ParamLabel param={param} />
           <Input
             type="text"
             value={textValue}
             disabled={disabled}
+            placeholder={param.placeholder ?? ""}
             onChange={(e) => {
               setTextValue(e.target.value);
               setTextError(false);
@@ -172,9 +193,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
       const checked = !!(value ?? param.default);
       return (
         <div className="flex items-center justify-between" style={disabledStyle}>
-          <Label className="text-xs font-medium text-[var(--text-secondary)]">
-            {param.name}
-          </Label>
+          <ParamLabel param={param} />
           <button
             type="button"
             role="switch"

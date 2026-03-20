@@ -19,7 +19,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     inputs={"model": PortType.MODEL, "test": PortType.TABLE},
     outputs={"metrics": PortType.METRICS},
     params={
-        "target_column": Text(default=""),
+        "target_column": Text(default="", description="Column containing true labels", placeholder="target"),
     },
     label="Classification Metrics",
     category="Evaluate",
@@ -77,7 +77,7 @@ def classification(inputs: dict, params: dict) -> dict:
     inputs={"model": PortType.MODEL, "test": PortType.TABLE},
     outputs={"metrics": PortType.METRICS},
     params={
-        "target_column": Text(default=""),
+        "target_column": Text(default="", description="Column containing true values", placeholder="target"),
     },
     label="Regression Metrics",
     category="Evaluate",
