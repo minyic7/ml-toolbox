@@ -13,8 +13,8 @@ describe("AutoSaveIndicator", () => {
     it("renders as a pill badge with correct background", () => {
       const { container } = render(<AutoSaveIndicator status="saving" />);
       const pill = container.firstChild as HTMLElement;
-      expect(pill.style.background).toBe("rgb(241, 239, 232)");
-      expect(pill.style.color).toBe("rgb(136, 135, 128)");
+      expect(pill.style.background).toBe("var(--saving-bg)");
+      expect(pill.style.color).toBe("var(--saving-text)");
     });
 
     it("does not show Retry button", () => {
@@ -32,8 +32,8 @@ describe("AutoSaveIndicator", () => {
     it("renders as a pill badge with correct background", () => {
       const { container } = render(<AutoSaveIndicator status="saved" />);
       const pill = container.firstChild as HTMLElement;
-      expect(pill.style.background).toBe("rgb(234, 243, 222)");
-      expect(pill.style.color).toBe("rgb(22, 101, 52)");
+      expect(pill.style.background).toBe("var(--save-bg)");
+      expect(pill.style.color).toBe("var(--save-text)");
     });
 
     it("does not show Retry button", () => {
@@ -53,7 +53,7 @@ describe("AutoSaveIndicator", () => {
     it("renders as a pill badge with error background", () => {
       const { container } = render(<AutoSaveIndicator status="error" />);
       const pill = container.firstChild as HTMLElement;
-      expect(pill.style.background).toBe("rgb(255, 247, 247)");
+      expect(pill.style.background).toBe("var(--error-bg-light)");
       expect(pill.style.color).toBe("var(--error-red)");
     });
 

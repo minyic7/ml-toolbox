@@ -49,7 +49,7 @@ export default function PipelineNameInput({
           fontFamily: "'Manrope', sans-serif",
           fontWeight: 600,
           fontSize: 13,
-          color: "rgba(124, 58, 237, 0.85)",
+          color: "var(--pipeline-name)",
         }}
         onClick={() => setIsEditing(true)}
         onMouseEnter={() => setIsHovered(true)}
@@ -63,7 +63,7 @@ export default function PipelineNameInput({
             width: 12,
             height: 12,
             opacity: isHovered ? 0.7 : 0,
-            color: "rgba(124, 58, 237, 0.85)",
+            color: "var(--pipeline-name)",
           }}
         />
       </button>
@@ -89,7 +89,7 @@ export default function PipelineNameInput({
         fontFamily: "'Manrope', sans-serif",
         fontWeight: 600,
         fontSize: 13,
-        color: "rgba(124, 58, 237, 0.85)",
+        color: "var(--pipeline-name)",
         borderColor: "var(--accent-primary)",
       }}
     />

@@ -19,8 +19,8 @@ export default function CancelButton({ pipelineId }: CancelButtonProps) {
         padding: "0 10px",
         height: 28,
         borderRadius: 7,
-        background: "#FFF7F7",
-        border: "1px solid #FECDD3",
+        background: "var(--error-bg-light)",
+        border: "1px solid var(--error-border-light)",
         color: "var(--error-red)",
         fontFamily: "'Inter', sans-serif",
         fontWeight: 700,
@@ -30,10 +30,10 @@ export default function CancelButton({ pipelineId }: CancelButtonProps) {
         transition: "background 0.15s",
       }}
       onMouseEnter={(e) => {
-        if (!cancelMutation.isPending) e.currentTarget.style.background = "#FFE4E6";
+        if (!cancelMutation.isPending) e.currentTarget.style.background = "var(--error-hover-bg)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = "#FFF7F7";
+        e.currentTarget.style.background = "var(--error-bg-light)";
       }}
     >
       <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">

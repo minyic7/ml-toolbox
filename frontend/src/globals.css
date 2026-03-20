@@ -70,6 +70,18 @@
   --port-value: #7F77DD;
   --port-tensor: #D85A30;
 
+  /* ── Pipeline name ────────────────────────────── */
+  --pipeline-name: rgba(124, 58, 237, 0.85);
+
+  /* ── Pill badge / indicator colors ────────────── */
+  --save-bg: #EAF3DE;
+  --save-text: #166534;
+  --saving-bg: #F1EFE8;
+  --saving-text: #888780;
+  --error-bg-light: #FFF7F7;
+  --error-border-light: #FECDD3;
+  --error-hover-bg: #FFE4E6;
+
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;
   --category-transform: #7F77DD;

@@ -12,8 +12,8 @@ export default function AutoSaveIndicator({ status, onRetry, retryDisabled }: Au
       <span
         className="inline-flex items-center rounded-full px-2 py-0.5 select-none"
         style={{
-          background: "#F1EFE8",
-          color: "#888780",
+          background: "var(--saving-bg)",
+          color: "var(--saving-text)",
           fontFamily: "'Inter', sans-serif",
           fontWeight: 700,
           fontSize: 10,
@@ -30,8 +30,8 @@ export default function AutoSaveIndicator({ status, onRetry, retryDisabled }: Au
       <span
         className="inline-flex items-center rounded-full px-2 py-0.5 select-none"
         style={{
-          background: "#EAF3DE",
-          color: "#166534",
+          background: "var(--save-bg)",
+          color: "var(--save-text)",
           fontFamily: "'Inter', sans-serif",
           fontWeight: 700,
           fontSize: 10,
@@ -48,7 +48,7 @@ export default function AutoSaveIndicator({ status, onRetry, retryDisabled }: Au
     <span
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 select-none"
       style={{
-        background: "#FFF7F7",
+        background: "var(--error-bg-light)",
         color: "var(--error-red)",
         fontFamily: "'Inter', sans-serif",
         fontWeight: 700,
