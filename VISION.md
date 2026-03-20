@@ -24,7 +24,7 @@ Frontend:  React 19, TypeScript 5, Vite 6, Tailwind v4, shadcn/ui,
 Backend:   Python 3.13, FastAPI, uv, Polars, pandas, pyarrow, pydantic v2, docker-py
 
 Deploy:    Docker Compose on Mac Mini (linux/arm64), Caddy reverse proxy,
-           GHA CI (pyright + pytest + eslint + tsc + Playwright) + CD (Tailscale SSH)
+           GHA CI (pyright + tsc + build) + CD (Tailscale SSH)
            Port 8910, GHCR images, GitHub repo: https://github.com/minyic7/ml-toolbox
 ```
 
@@ -115,12 +115,12 @@ def my_node(inputs: dict, params: dict) -> dict:
 │  TOOLBAR  46px  (horizontal node icon-chips by category)         │
 ├──────────────────────────────┬───────────────────────────────────┤
 │                              │                                   │
-│   CANVAS (flex-fill)         │  CODE PANE (resizable, right)     │
-│   React Flow — pan/zoom      │  PARAMS/CODE/OUTPUT tabs          │
+│   CANVAS (flex-fill)         │  RIGHT PANEL (resizable)          │
+│   React Flow — pan/zoom      │  CodeEditor or OutputPanel        │
 │                              │                                   │
 ├──────────────────────────────┴───────────────────────────────────┤
-│  BOTTOM DRAWER (floating, transparent, ~220px)                   │
-│  Params tab / simplified Output tab                              │
+│  BOTTOM DRAWER (floating, transparent, flex height)               │
+│  Always shows Params + Code/Output icon buttons for right panel  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -146,14 +146,12 @@ def my_node(inputs: dict, params: dict) -> dict:
 - **Backend:** 204 tests (executor, API, protocol, all nodes, sandbox runner)
 - **Frontend:** 123 unit tests + 18 Playwright E2E tests
 - **Integration:** Tests A-G with real Docker sandbox
-- **CI:** pyright + pytest + eslint + tsc + vitest + Playwright
+- **CI:** pyright + tsc + pnpm build (lightweight, < 1 min)
 - **CD:** docker build arm64 → Tailscale SSH → docker compose up
 
 ---
 
 ## What's Next
 
-- Layout redesign: floating bottom drawer, resizable code panel (#102)
-- File upload for path params (#103)
 - More nodes as needed for real ML workflows
 - `sql_input` deferred (needs sandbox networking redesign)
