@@ -110,14 +110,18 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
   const handleRename = useCallback(
     (name: string) => {
       lastRenameRef.current = name;
-      renameMutation.mutate(name);
+      renameMutation.mutate(name, {
+        onError: () => toast.error("Failed to rename pipeline"),
+      });
     },
     [renameMutation],
   );
 
   const handleRetry = useCallback(() => {
     if (lastRenameRef.current !== null) {
-      renameMutation.mutate(lastRenameRef.current);
+      renameMutation.mutate(lastRenameRef.current, {
+        onError: () => toast.error("Failed to rename pipeline"),
+      });
     }
   }, [renameMutation]);
 
