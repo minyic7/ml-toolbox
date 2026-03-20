@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import docker
+import requests.exceptions
 from docker.errors import ContainerError, ImageNotFound
 
 from ml_toolbox.config import DATA_DIR
@@ -409,17 +410,20 @@ class PipelineExecutor:
         try:
             result = container.wait(timeout=300)
             exit_code = result.get("StatusCode", -1)
-        except Exception as exc:
+        except requests.exceptions.Timeout as exc:
             try:
                 container.stop(timeout=5)
             except Exception:
                 pass
-            exc_str = str(exc).lower()
-            if "timeout" in exc_str or "timed out" in exc_str or "read timed out" in exc_str:
-                raise RuntimeError(
-                    "Node execution timed out after 5 minutes. "
-                    "Check your code for infinite loops or reduce the input data size."
-                ) from exc
+            raise RuntimeError(
+                "Node execution timed out after 5 minutes. "
+                "Check your code for infinite loops or reduce the input data size."
+            ) from exc
+        except Exception:
+            try:
+                container.stop(timeout=5)
+            except Exception:
+                pass
             raise
         finally:
             # Capture logs before removing
