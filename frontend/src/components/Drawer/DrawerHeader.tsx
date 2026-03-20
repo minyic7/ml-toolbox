@@ -153,7 +153,7 @@ export default function DrawerHeader({
           color: "var(--text-muted)",
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "#F8FAFC";
+          (e.currentTarget as HTMLElement).style.background = "var(--ghost-hover-bg)";
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLElement).style.background = "transparent";
