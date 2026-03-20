@@ -1,12 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   usePipelines,
   useCreatePipeline,
   useDeletePipeline,
   useDuplicatePipeline,
 } from "../hooks/usePipeline";
+import { createPipeline } from "../lib/api";
 import type { PipelineListItem } from "../lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,10 +137,10 @@ function PipelineCard({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [draft, setDraft] = useState(pipeline.name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!isRenaming) setDraft(pipeline.name);
@@ -166,6 +168,22 @@ function PipelineCard({
       setDraft(pipeline.name);
     }
   }, [draft, pipeline.name, onRename]);
+
+  const handleDelete = useCallback(() => {
+    const name = pipeline.name;
+    onDelete();
+    toast(`Deleted '${name}'`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          createPipeline({ name }).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["pipelines"] });
+          });
+        },
+      },
+      duration: 4000,
+    });
+  }, [pipeline.name, onDelete, queryClient]);
 
   return (
     <div
@@ -199,7 +217,7 @@ function PipelineCard({
         ) : (
           <span style={styles.cardName}>{pipeline.name}</span>
         )}
-        <DropdownMenu onOpenChange={() => setConfirmDelete(false)}>
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -225,24 +243,12 @@ function PipelineCard({
               Duplicate
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {confirmDelete ? (
-              <DropdownMenuItem
-                className="text-[var(--error-red)] focus:text-[var(--error-red)]"
-                onClick={onDelete}
-              >
-                Confirm Delete
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                className="text-[var(--error-red)] focus:text-[var(--error-red)]"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setConfirmDelete(true);
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem
+              className="text-[var(--error-red)] focus:text-[var(--error-red)]"
+              onClick={handleDelete}
+            >
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
