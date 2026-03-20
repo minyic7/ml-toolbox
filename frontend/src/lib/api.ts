@@ -68,7 +68,9 @@ export async function getPipeline(pipelineId: string) {
   // Normalize params: backend may return dict format for legacy data.
   // Convert to ParamDefinition[] so the rest of the frontend can assume arrays.
   for (const node of pipeline.nodes) {
-    if (!Array.isArray(node.params)) {
+    if (!node.params) {
+      node.params = [];
+    } else if (!Array.isArray(node.params)) {
       const dict = node.params as Record<string, unknown>;
       node.params = Object.entries(dict).map(([name, value]) => ({
         type: "text" as const,
