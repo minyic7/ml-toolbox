@@ -23,25 +23,25 @@ const STATUS_BORDERS: Record<
   NodeStatus,
   { width: string; style: string; color: string }
 > = {
-  idle: { width: "1px", style: "solid", color: "#D3D1C7" },
-  dirty: { width: "1px", style: "dashed", color: "#D3D1C7" },
+  idle: { width: "1px", style: "solid", color: "#E2E8F0" },
+  dirty: { width: "1px", style: "dashed", color: "#E2E8F0" },
   pending: { width: "1px", style: "solid", color: "#B5D4F4" },
-  running: { width: "1.5px", style: "solid", color: "#378ADD" },
-  done: { width: "1.5px", style: "solid", color: "#639922" },
-  error: { width: "1.5px", style: "solid", color: "#E24B4A" },
-  skipped: { width: "1.5px", style: "solid", color: "#BA7517" },
-  cached: { width: "1.5px", style: "solid", color: "#BA7517" },
+  running: { width: "1.5px", style: "solid", color: "#4A4558" },
+  done: { width: "1.5px", style: "solid", color: "#10B981" },
+  error: { width: "1.5px", style: "solid", color: "#9E3F4E" },
+  skipped: { width: "1.5px", style: "solid", color: "#F59E0B" },
+  cached: { width: "1.5px", style: "solid", color: "#F59E0B" },
 };
 
 const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
-  idle: "#D3D1C7",
-  dirty: "#D3D1C7",
+  idle: "#E2E8F0",
+  dirty: "#E2E8F0",
   pending: "#B5D4F4",
-  running: "#378ADD",
-  done: "#639922",
-  error: "#E24B4A",
-  skipped: "#BA7517",
-  cached: "#639922",
+  running: "#4A4558",
+  done: "#10B981",
+  error: "#9E3F4E",
+  skipped: "#F59E0B",
+  cached: "#10B981",
 };
 
 // ── Tab bar types ──────────────────────────────────────────────────
@@ -168,7 +168,11 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       >
         <span
           style={{
-            fontWeight: 600,
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 700,
+            textTransform: "uppercase" as const,
+            fontSize: 11,
+            letterSpacing: "0.04em",
             color: "var(--text-primary)",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -206,7 +210,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
               borderRadius: "50%",
               background: STATUS_DOT_COLORS[status],
               flexShrink: 0,
-              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px #639922` : undefined,
+              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px #10B981` : undefined,
             }}
           />
         </span>
@@ -296,8 +300,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             padding: "4px 12px",
             fontSize: 11,
             color: "var(--error-red)",
-            background: "rgba(226,75,74,0.08)",
-            borderTop: "1px solid rgba(226,75,74,0.15)",
+            background: "rgba(158,63,78,0.08)",
+            borderTop: "1px solid rgba(158,63,78,0.15)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -331,8 +335,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             padding: "4px 12px",
             fontSize: 11,
             color: "var(--success-green)",
-            background: "rgba(99,153,34,0.08)",
-            borderTop: "1px solid rgba(99,153,34,0.15)",
+            background: "rgba(16,185,129,0.08)",
+            borderTop: "1px solid rgba(16,185,129,0.15)",
           }}
         >
           ↩ using cached output

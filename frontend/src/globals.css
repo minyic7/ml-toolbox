@@ -35,26 +35,27 @@
 }
 
 :root {
-  /* ── Existing design system tokens ────────────────────── */
-  --canvas-bg: #F8F7F4;
+  /* ── Design system tokens (obsidian-orchid theme) ───── */
+  --primary-dark: #3d3852;
+  --canvas-bg: #F9F9FB;
   --node-bg: #FFFFFF;
-  --border-default: #D3D1C7;
-  --border-selected: #378ADD;
-  --text-primary: #2C2C2A;
-  --text-secondary: #888780;
-  --text-muted: #B4B2A9;
-  --accent-blue: #378ADD;
-  --success-green: #639922;
-  --error-red: #E24B4A;
-  --warning-amber: #BA7517;
+  --border-default: #E2E8F0;
+  --border-selected: #4A4558;
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --accent-blue: #4A4558;
+  --success-green: #10B981;
+  --error-red: #9E3F4E;
+  --warning-amber: #F59E0B;
 
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;
   --category-transform: #7F77DD;
-  --category-train: #378ADD;
+  --category-train: #4A4558;
   --category-evaluate: #EF9F27;
   --category-export: #D85A30;
-  --category-demo: #888780;
+  --category-demo: #94A3B8;
 
   /* ── shadcn/ui CSS variable mapping ──────────────────── */
   --background: var(--node-bg);
@@ -116,7 +117,7 @@
 body {
   margin: 0;
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
     Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

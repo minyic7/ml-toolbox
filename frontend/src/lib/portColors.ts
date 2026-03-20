@@ -3,9 +3,9 @@ import type { PortType } from "./types";
 /** Dot color for each port type (from VISION.md) */
 export const PORT_COLORS: Record<PortType, string> = {
   TABLE: "#9CA3AF",
-  MODEL: "#639922",
+  MODEL: "#10B981",
   METRICS: "#EF9F27",
-  ARRAY: "#378ADD",
+  ARRAY: "#4A4558",
   VALUE: "#7F77DD",
   TENSOR: "#D85A30",
 };
@@ -14,10 +14,10 @@ export const PORT_COLORS: Record<PortType, string> = {
 export const CATEGORY_COLORS: Record<string, string> = {
   ingest: "#1D9E75",
   transform: "#7F77DD",
-  train: "#378ADD",
+  train: "#4A4558",
   evaluate: "#EF9F27",
   export: "#D85A30",
-  demo: "#888780",
+  demo: "#94A3B8",
 };
 
 /** Accent bar color for each node category (3px top bar on NodeCard) */
