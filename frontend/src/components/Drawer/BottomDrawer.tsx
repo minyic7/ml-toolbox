@@ -18,8 +18,9 @@ interface BottomDrawerProps {
   requestedRunId?: string | null;
   onRequestedRunHandled?: () => void;
   onRunFrom: (nodeId: string) => void;
-  codePaneOpen?: boolean;
+  rightPanelOpen?: boolean;
   onCodeTabClick?: () => void;
+  onOutputTabClick?: () => void;
 }
 
 const DRAWER_HEIGHT = 220;
@@ -37,42 +38,49 @@ export default function BottomDrawer({
   requestedRunId,
   onRequestedRunHandled,
   onRunFrom,
-  codePaneOpen,
+  rightPanelOpen,
   onCodeTabClick,
+  onOutputTabClick,
 }: BottomDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>("params");
 
   // Handle external tab requests
   useEffect(() => {
-    if (requestedTab === "params" || requestedTab === "output") {
+    if (requestedTab === "params") {
       setActiveTab(requestedTab);
       onRequestedTabHandled?.();
     } else if (requestedTab === "code") {
       setActiveTab("code");
       onCodeTabClick?.();
       onRequestedTabHandled?.();
+    } else if (requestedTab === "output") {
+      setActiveTab("output");
+      onOutputTabClick?.();
+      onRequestedTabHandled?.();
     }
-  }, [requestedTab, onRequestedTabHandled, onCodeTabClick]);
+  }, [requestedTab, onRequestedTabHandled, onCodeTabClick, onOutputTabClick]);
 
   const handleTabChange = (tab: DrawerTab) => {
     setActiveTab(tab);
     if (tab === "code") {
       onCodeTabClick?.();
+    } else if (tab === "output") {
+      onOutputTabClick?.();
     }
     // Switching tabs never closes panels — only explicit close buttons do
   };
 
-  // When code pane closes externally, switch back to params
+  // When right panel closes externally, switch back to params if on code or output
   useEffect(() => {
-    if (!codePaneOpen && activeTab === "code") {
+    if (!rightPanelOpen && (activeTab === "code" || activeTab === "output")) {
       setActiveTab("params");
     }
-  }, [codePaneOpen, activeTab]);
+  }, [rightPanelOpen, activeTab]);
 
   const isOpen = node !== null;
-  // When code pane is open, drawer shrinks to header-only
+  // When right panel is open, drawer shrinks to header-only
   const drawerHeight = isOpen
-    ? codePaneOpen
+    ? rightPanelOpen
       ? DRAWER_HEADER_HEIGHT
       : DRAWER_HEIGHT
     : 0;
@@ -106,7 +114,7 @@ export default function BottomDrawer({
             onTabChange={handleTabChange}
             onClose={onClose}
           />
-          {!codePaneOpen && (
+          {!rightPanelOpen && (
             <div
               style={{
                 height: DRAWER_HEIGHT - DRAWER_HEADER_HEIGHT,
