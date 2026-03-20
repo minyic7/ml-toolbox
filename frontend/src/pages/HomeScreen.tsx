@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   usePipelines,
   useCreatePipeline,
@@ -8,6 +9,7 @@ import {
 } from "../hooks/usePipeline";
 import type { PipelineListItem } from "../lib/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,14 +17,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, MoreHorizontal, AlertCircle, RefreshCw, Pencil } from "lucide-react";
 
 export default function HomeScreen() {
   const navigate = useNavigate();
   const { data: pipelines, isLoading, isError, refetch } = usePipelines();
+  const queryClient = useQueryClient();
   const createPipeline = useCreatePipeline();
   const deletePipeline = useDeletePipeline();
   const duplicatePipeline = useDuplicatePipeline();
+  const renamePipeline = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const res = await fetch(`/api/pipelines/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error("Rename failed");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pipelines"] }),
+  });
 
   const handleCreate = useCallback(() => {
     createPipeline.mutate("Untitled Pipeline", {
@@ -82,6 +97,7 @@ export default function HomeScreen() {
                 key={p.id}
                 pipeline={p}
                 onOpen={() => navigate(`/pipeline/${p.id}`)}
+                onRename={(name) => renamePipeline.mutate({ id: p.id, name })}
                 onDuplicate={() =>
                   duplicatePipeline.mutate(p.id, {
                     onSuccess: (data) => navigate(`/pipeline/${data.id}`),
@@ -109,23 +125,76 @@ export default function HomeScreen() {
 function PipelineCard({
   pipeline,
   onOpen,
+  onRename,
   onDuplicate,
   onDelete,
 }: {
   pipeline: PipelineListItem;
   onOpen: () => void;
+  onRename: (name: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [draft, setDraft] = useState(pipeline.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isRenaming) setDraft(pipeline.name);
+  }, [pipeline.name, isRenaming]);
+
+  useEffect(() => {
+    if (isRenaming) inputRef.current?.select();
+  }, [isRenaming]);
+
+  const commitRename = useCallback(() => {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      inputRef.current?.classList.add("shake");
+      setTimeout(() => inputRef.current?.classList.remove("shake"), 300);
+      return;
+    }
+    setIsRenaming(false);
+    if (trimmed !== pipeline.name) {
+      onRename(trimmed);
+    } else {
+      setDraft(pipeline.name);
+    }
+  }, [draft, pipeline.name, onRename]);
 
   return (
     <div
       style={styles.card}
-      onClick={onOpen}
+      onClick={isRenaming ? undefined : onOpen}
     >
       <div style={styles.cardHeader}>
-        <span style={styles.cardName}>{pipeline.name}</span>
+        {isRenaming ? (
+          <Input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") {
+                setDraft(pipeline.name);
+                setIsRenaming(false);
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-48 h-7 px-1.5 py-0.5"
+            style={{
+              fontSize: 16,
+              fontWeight: 500,
+              color: "var(--text-primary)",
+              borderColor: "var(--accent-primary, #4A4558)",
+            }}
+          />
+        ) : (
+          <span style={styles.cardName}>{pipeline.name}</span>
+        )}
         <DropdownMenu onOpenChange={() => setConfirmDelete(false)}>
           <DropdownMenuTrigger asChild>
             <Button
@@ -142,6 +211,12 @@ function PipelineCard({
             align="end"
             onClick={(e) => e.stopPropagation()}
           >
+            <DropdownMenuItem
+              onClick={() => setIsRenaming(true)}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Rename
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onDuplicate}>
               Duplicate
             </DropdownMenuItem>
