@@ -15,7 +15,6 @@ interface RunButtonProps {
 export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
   const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
-  const currentNodeId = useExecutionStore((s) => s.currentNodeId);
   const setRunning = useExecutionStore((s) => s.setRunning);
   const setCurrentNodeId = useExecutionStore((s) => s.setCurrentNodeId);
 
@@ -54,9 +53,6 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
   const disabled = isRunning || nodeIds.length === 0;
   const showSpinner = isRunning;
 
-  // Resolve current node name for running state display (handled by parent Topbar)
-  void currentNodeId;
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -73,7 +69,7 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
             borderRadius: 7,
             border: "none",
             background: "var(--accent-primary)",
-            color: "#FFFFFF",
+            color: "var(--node-bg)",
             fontFamily: "'Inter', sans-serif",
             fontWeight: 700,
             fontSize: 11,
@@ -85,13 +81,13 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
             if (!disabled) e.currentTarget.style.background = "var(--primary-dark)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--accent-primary)";
+            if (!disabled) e.currentTarget.style.background = "var(--accent-primary)";
           }}
           onMouseDown={(e) => {
             if (!disabled) e.currentTarget.style.transform = "scale(0.97)";
           }}
           onMouseUp={(e) => {
-            e.currentTarget.style.transform = "scale(1)";
+            if (!disabled) e.currentTarget.style.transform = "scale(1)";
           }}
         >
           {showSpinner ? (

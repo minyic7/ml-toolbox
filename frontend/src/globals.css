@@ -81,6 +81,7 @@
   --error-bg-light: #FFF7F7;
   --error-border-light: #FECDD3;
   --error-hover-bg: #FFE4E6;
+  --ghost-hover-bg: #F8FAFC;
 
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;

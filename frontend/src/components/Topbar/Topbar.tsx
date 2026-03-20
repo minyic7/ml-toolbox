@@ -186,7 +186,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
             }}
             onClick={() => setNavOpen(true)}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#F8FAFC";
+              e.currentTarget.style.background = "var(--ghost-hover-bg)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
@@ -292,7 +292,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
               }}
               onClick={() => setSettingsOpen(true)}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#F8FAFC";
+                e.currentTarget.style.background = "var(--ghost-hover-bg)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
@@ -322,7 +322,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
               }}
               onClick={() => setHistoryOpen(true)}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#F8FAFC";
+                e.currentTarget.style.background = "var(--ghost-hover-bg)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
