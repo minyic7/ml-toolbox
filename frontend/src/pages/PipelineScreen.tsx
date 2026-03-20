@@ -10,6 +10,7 @@ import Sidebar from "../components/Sidebar/Sidebar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
 export default function PipelineScreen() {
@@ -549,6 +550,7 @@ export default function PipelineScreen() {
               height: "100%",
             }}
           >
+          <ErrorBoundary variant="compact">
           <Canvas
             pipelineId={pipelineId}
             pipelineNodes={pipeline.nodes}
@@ -568,8 +570,10 @@ export default function PipelineScreen() {
             onPasteNodes={handlePasteNodes}
             viewportCenterRef={viewportCenterRef}
           />
+          </ErrorBoundary>
           </div>
         </main>
+        <ErrorBoundary variant="compact">
         <RightPanel
           pipelineId={pipelineId}
           node={selectedNode}
@@ -589,6 +593,7 @@ export default function PipelineScreen() {
           requestedRunId={requestedRunId}
           onRequestedRunHandled={() => setRequestedRunId(null)}
         />
+        </ErrorBoundary>
       </div>
     </div>
   );
