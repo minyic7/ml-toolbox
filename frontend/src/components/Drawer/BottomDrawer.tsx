@@ -18,7 +18,6 @@ interface BottomDrawerProps {
   requestedRunId?: string | null;
   onRequestedRunHandled?: () => void;
   onRunFrom: (nodeId: string) => void;
-  rightPanelOpen?: boolean;
   onCodeTabClick?: () => void;
   onOutputTabClick?: () => void;
 }
@@ -38,7 +37,6 @@ export default function BottomDrawer({
   requestedRunId,
   onRequestedRunHandled,
   onRunFrom,
-  rightPanelOpen,
   onCodeTabClick,
   onOutputTabClick,
 }: BottomDrawerProps) {
@@ -70,20 +68,8 @@ export default function BottomDrawer({
     // Switching tabs never closes panels — only explicit close buttons do
   };
 
-  // When right panel closes externally, switch back to params if on code or output
-  useEffect(() => {
-    if (!rightPanelOpen && (activeTab === "code" || activeTab === "output")) {
-      setActiveTab("params");
-    }
-  }, [rightPanelOpen, activeTab]);
-
   const isOpen = node !== null;
-  // When right panel is open, drawer shrinks to header-only
-  const drawerHeight = isOpen
-    ? rightPanelOpen
-      ? DRAWER_HEADER_HEIGHT
-      : DRAWER_HEIGHT
-    : 0;
+  const drawerHeight = isOpen ? DRAWER_HEIGHT : 0;
 
   return (
     <div
@@ -114,32 +100,30 @@ export default function BottomDrawer({
             onTabChange={handleTabChange}
             onClose={onClose}
           />
-          {!rightPanelOpen && (
-            <div
-              style={{
-                height: DRAWER_HEIGHT - DRAWER_HEADER_HEIGHT,
-                overflowY: "auto",
-              }}
-            >
-              {activeTab === "params" && (
-                <ParamsTab
-                  params={definition.params}
-                  values={buildParamValues(node)}
-                  onChange={(name, value) => onParamChange(node.id, name, value)}
-                  disabled={paramSaving}
-                />
-              )}
-              {activeTab === "output" && (
-                <DrawerOutputTab
-                  pipelineId={pipelineId}
-                  nodeId={node.id}
-                  requestedRunId={requestedRunId}
-                  onRequestedRunHandled={onRequestedRunHandled}
-                  onRunFrom={() => onRunFrom(node.id)}
-                />
-              )}
-            </div>
-          )}
+          <div
+            style={{
+              height: DRAWER_HEIGHT - DRAWER_HEADER_HEIGHT,
+              overflowY: "auto",
+            }}
+          >
+            {activeTab === "params" && (
+              <ParamsTab
+                params={definition.params}
+                values={buildParamValues(node)}
+                onChange={(name, value) => onParamChange(node.id, name, value)}
+                disabled={paramSaving}
+              />
+            )}
+            {activeTab === "output" && (
+              <DrawerOutputTab
+                pipelineId={pipelineId}
+                nodeId={node.id}
+                requestedRunId={requestedRunId}
+                onRequestedRunHandled={onRequestedRunHandled}
+                onRunFrom={() => onRunFrom(node.id)}
+              />
+            )}
+          </div>
         </>
       )}
     </div>
