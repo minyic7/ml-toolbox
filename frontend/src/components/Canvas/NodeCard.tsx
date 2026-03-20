@@ -309,6 +309,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       {/* Error strip */}
       {isError && (
         <div
+          className="nodrag nopan"
           style={{
             padding: "4px 10px",
             fontSize: 10,
