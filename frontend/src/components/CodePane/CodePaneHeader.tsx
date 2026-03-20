@@ -10,14 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-export type CodePaneTab = "params" | "code" | "output";
-
-const TABS: { key: CodePaneTab; label: string; icon: string }[] = [
-  { key: "params", label: "Params", icon: "▤" },
-  { key: "code", label: "Code", icon: "</>" },
-  { key: "output", label: "Output", icon: "▦" },
-];
-
 interface CodePaneHeaderProps {
   nodeName: string;
   onCopy: () => void;
@@ -25,8 +17,6 @@ interface CodePaneHeaderProps {
   onSave: () => void;
   onClose: () => void;
   hasDefault: boolean;
-  activeTab: CodePaneTab;
-  onTabChange: (tab: CodePaneTab) => void;
 }
 
 export default function CodePaneHeader({
@@ -36,8 +26,6 @@ export default function CodePaneHeader({
   onSave,
   onClose,
   hasDefault,
-  activeTab,
-  onTabChange,
 }: CodePaneHeaderProps) {
   const [copied, setCopied] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
@@ -138,58 +126,6 @@ export default function CodePaneHeader({
         <IconBtn onClick={onClose} title="Close (Esc)">
           <X size={13} />
         </IconBtn>
-      </div>
-
-      {/* Tab bar */}
-      <div
-        className="flex items-center gap-1 px-3 shrink-0"
-        style={{
-          height: 32,
-          background: "var(--codepane-header-bg)",
-          borderBottom: "1px solid var(--codepane-border)",
-        }}
-      >
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontWeight: 700,
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: isActive ? "#E2E0F0" : "#4D4660",
-                background: "none",
-                border: "none",
-                borderBottomStyle: "solid",
-                borderBottomWidth: 2,
-                borderBottomColor: isActive ? "#4A4558" : "transparent",
-                padding: "4px 8px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                transition: "color 150ms",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.color = "#7C7A8E";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.color = "#4D4660";
-                }
-              }}
-            >
-              <span style={{ fontSize: 11 }}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          );
-        })}
       </div>
 
       {/* Reset confirmation dialog */}
