@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ml_toolbox.config import DATA_DIR
-from ml_toolbox.routers import nodes, pipelines, ws
+from ml_toolbox.routers import nodes, pipelines, runs, ws
 
 
 @asynccontextmanager
@@ -26,4 +26,5 @@ app.add_middleware(
 
 app.include_router(nodes.router)
 app.include_router(pipelines.router)
+app.include_router(runs.router)
 app.include_router(ws.router)

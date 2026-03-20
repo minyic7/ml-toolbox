@@ -65,6 +65,19 @@ def sklearn_train(inputs: dict, params: dict) -> dict:
     import numpy as np
     import pandas as pd
 
+    _ESTIMATOR_MAP = {
+        "LinearRegression": ("sklearn.linear_model", "LinearRegression"),
+        "LogisticRegression": ("sklearn.linear_model", "LogisticRegression"),
+        "RandomForestClassifier": ("sklearn.ensemble", "RandomForestClassifier"),
+        "RandomForestRegressor": ("sklearn.ensemble", "RandomForestRegressor"),
+        "GradientBoostingClassifier": ("sklearn.ensemble", "GradientBoostingClassifier"),
+        "GradientBoostingRegressor": ("sklearn.ensemble", "GradientBoostingRegressor"),
+        "SVC": ("sklearn.svm", "SVC"),
+        "SVR": ("sklearn.svm", "SVR"),
+        "KNeighborsClassifier": ("sklearn.neighbors", "KNeighborsClassifier"),
+        "DecisionTreeClassifier": ("sklearn.tree", "DecisionTreeClassifier"),
+    }
+
     df = pd.read_parquet(inputs["train"])
 
     estimator_name = params.get("estimator", "RandomForestClassifier")
@@ -155,6 +168,8 @@ def xgb_train(inputs: dict, params: dict) -> dict:
 
     import pandas as pd
     from sklearn.model_selection import train_test_split
+
+    _REGRESSION_OBJECTIVES = {"reg:squarederror"}
 
     df = pd.read_parquet(inputs["train"])
 
