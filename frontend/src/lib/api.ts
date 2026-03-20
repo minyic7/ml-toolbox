@@ -41,6 +41,24 @@ function json(body: unknown): RequestInit {
   };
 }
 
+// ── Normalization ────────────────────────────────────────────────────
+
+/** Convert node params from dict format (returned by backend PATCH) to ParamDefinition[]. */
+export function normalizeNodeParams(nodes: NodeInstance[]): void {
+  for (const node of nodes) {
+    if (!node.params) {
+      node.params = [];
+    } else if (!Array.isArray(node.params)) {
+      const dict = node.params as Record<string, unknown>;
+      node.params = Object.entries(dict).map(([name, value]) => ({
+        type: "text" as const,
+        name,
+        default: value,
+      }));
+    }
+  }
+}
+
 // ── Health ──────────────────────────────────────────────────────────
 
 export function getHealth() {
@@ -65,20 +83,7 @@ export function listPipelines() {
 
 export async function getPipeline(pipelineId: string) {
   const pipeline = await request<Pipeline>(`/api/pipelines/${pipelineId}`);
-  // Normalize params: backend may return dict format for legacy data.
-  // Convert to ParamDefinition[] so the rest of the frontend can assume arrays.
-  for (const node of pipeline.nodes) {
-    if (!node.params) {
-      node.params = [];
-    } else if (!Array.isArray(node.params)) {
-      const dict = node.params as Record<string, unknown>;
-      node.params = Object.entries(dict).map(([name, value]) => ({
-        type: "text" as const,
-        name,
-        default: value,
-      }));
-    }
-  }
+  normalizeNodeParams(pipeline.nodes);
   return pipeline;
 }
 
