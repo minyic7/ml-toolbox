@@ -11,9 +11,15 @@ vi.mock("@xyflow/react", () => ({
   Position: { Left: "left", Right: "right" },
 }));
 
-// Mock zustand store used by PortDot
+// Mock zustand store used by PortDot and NodeActionBar
 vi.mock("../../store/executionStore", () => ({
-  useExecutionStore: () => null,
+  useExecutionStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      isRunning: false,
+      nodeStatuses: {},
+      pendingNodeIds: [],
+      currentNodeId: null,
+    }),
 }));
 
 // Import after mocks

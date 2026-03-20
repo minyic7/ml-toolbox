@@ -1,12 +1,19 @@
 import { memo } from "react";
+import { useExecutionStore } from "../../store/executionStore";
 
 interface NodeActionBarProps {
   visible: boolean;
+  nodeId: string;
   onRun?: () => void;
   onCode?: () => void;
 }
 
-function NodeActionBar({ visible, onRun, onCode }: NodeActionBarProps) {
+function NodeActionBar({ visible, nodeId, onRun, onCode }: NodeActionBarProps) {
+  const isRunning = useExecutionStore((s) => s.isRunning);
+  const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+  const thisNodeRunning =
+    nodeStatuses[nodeId] === "running" || nodeStatuses[nodeId] === "pending";
+  const runDisabled = isRunning;
   return (
     <div
       className="nodrag nopan"
@@ -25,12 +32,37 @@ function NodeActionBar({ visible, onRun, onCode }: NodeActionBarProps) {
         className="node-action-btn node-action-run"
         onClick={(e) => {
           e.stopPropagation();
-          onRun?.();
+          if (!runDisabled) onRun?.();
+        }}
+        style={{
+          opacity: runDisabled ? 0.4 : undefined,
+          cursor: runDisabled ? "not-allowed" : undefined,
         }}
       >
-        <svg width="8" height="9" viewBox="0 0 8 9" fill="currentColor">
-          <path d="M1 1.5v6l6-3-6-3z" />
-        </svg>
+        {thisNodeRunning ? (
+          <svg
+            className="topbar-spinner"
+            width="8"
+            height="8"
+            viewBox="0 0 12 12"
+            fill="none"
+          >
+            <circle
+              cx="6"
+              cy="6"
+              r="5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="20 10"
+              opacity="0.8"
+            />
+          </svg>
+        ) : (
+          <svg width="8" height="9" viewBox="0 0 8 9" fill="currentColor">
+            <path d="M1 1.5v6l6-3-6-3z" />
+          </svg>
+        )}
         Run
       </button>
       <button
