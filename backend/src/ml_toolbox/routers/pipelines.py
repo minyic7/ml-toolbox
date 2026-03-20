@@ -647,6 +647,24 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
             "format": "joblib",
             "file_size": meta["size"],
         }
+    elif ext == ".npy":
+        try:
+            import numpy as np
+
+            arr = np.load(output_file, mmap_mode="r")
+            meta["preview"] = {
+                "shape": list(arr.shape),
+                "dtype": str(arr.dtype),
+                "values": arr.flatten()[:20].tolist(),
+                "total_elements": int(arr.size),
+            }
+        except Exception:
+            pass
+    elif ext == ".pt":
+        meta["preview"] = {
+            "format": "pytorch",
+            "file_size": meta["size"],
+        }
 
     return meta
 
