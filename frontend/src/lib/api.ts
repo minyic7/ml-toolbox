@@ -44,7 +44,7 @@ function json(body: unknown): RequestInit {
 // ── Normalization ────────────────────────────────────────────────────
 
 /** Convert node params from dict format (returned by backend PATCH) to ParamDefinition[]. */
-export function normalizeNodeParams(nodes: Array<{ params: any }>): void {
+export function normalizeNodeParams(nodes: Array<{ params: unknown }>): void {
   for (const node of nodes) {
     if (!node.params) {
       node.params = [];
