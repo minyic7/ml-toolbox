@@ -155,6 +155,15 @@ function mockApi(page: import("@playwright/test").Page) {
     }
   });
 
+  // Global runs (for home screen Runs view)
+  page.route("**/api/runs", (route) => {
+    if (route.request().method() === "GET") {
+      route.fulfill({ json: [] });
+    } else {
+      route.continue();
+    }
+  });
+
   // Runs (empty)
   page.route("**/api/pipelines/*/runs", (route) => {
     route.fulfill({ json: [] });
@@ -181,6 +190,8 @@ test.describe("Canvas smoke tests", () => {
 
   test("home screen loads with pipeline list", async ({ page }) => {
     await page.goto("/");
+    // Default view is now Runs — click Pipelines toggle to see pipeline list
+    await page.getByRole("button", { name: "Pipelines", exact: true }).click();
     await expect(page.locator("text=Test Pipeline")).toBeVisible();
   });
 
@@ -390,8 +401,11 @@ test.describe("Canvas smoke tests", () => {
   test("home screen survives backend 500 without crashing", async ({
     page,
   }) => {
-    // Override pipeline list to return 500
+    // Override pipeline list and global runs to return 500
     await page.route("**/api/pipelines", (route) => {
+      route.fulfill({ status: 500, body: "Internal Server Error" });
+    });
+    await page.route("**/api/runs", (route) => {
       route.fulfill({ status: 500, body: "Internal Server Error" });
     });
     await page.route("**/api/nodes", (route) => {
