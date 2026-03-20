@@ -19,25 +19,7 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
           <thead>
             <tr>
               {columns.map((col) => (
-                <th
-                  key={col}
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 1,
-                    background: "var(--output-thead-bg)",
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: 9,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    color: "var(--text-muted)",
-                    padding: "4px 10px",
-                    textAlign: "left",
-                    whiteSpace: "nowrap",
-                    borderBottom: "1px solid var(--border-default)",
-                  }}
-                >
+                <th key={col} className="output-thead-th">
                   {col}
                 </th>
               ))}
@@ -45,27 +27,11 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr
-                key={i}
-                style={{ borderBottom: "1px solid var(--output-thead-bg)" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--output-row-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                }}
-              >
+              <tr key={i} className="output-row">
                 {row.map((cell, j) => (
                   <td
                     key={j}
-                    style={{
-                      padding: "3px 10px",
-                      whiteSpace: "nowrap",
-                      fontFamily: j === 0 ? "'JetBrains Mono', monospace" : "'Inter', sans-serif",
-                      fontSize: 10,
-                      fontWeight: 400,
-                      color: j === 0 ? "var(--output-first-col)" : "var(--text-primary)",
-                    }}
+                    className={`output-td${j === 0 ? " output-td-first" : ""}`}
                   >
                     {cell === null ? (
                       <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>null</span>

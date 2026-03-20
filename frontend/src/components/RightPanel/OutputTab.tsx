@@ -151,12 +151,7 @@ function OutputContent({
         className="flex flex-col items-center justify-center gap-1"
         style={{ padding: "32px 16px" }}
       >
-        <span style={{
-          fontFamily: "'Inter', sans-serif",
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--text-muted)",
-        }}>
+        <span className="output-empty" style={{ padding: 0 }}>
           No output yet
         </span>
         <span style={{
@@ -312,14 +307,7 @@ function renderPreview(output: OutputPreview) {
 
   if (!preview) {
     return (
-      <div style={{
-        fontFamily: "'Inter', sans-serif",
-        fontSize: 11,
-        fontWeight: 600,
-        color: "var(--text-muted)",
-        textAlign: "center",
-        padding: "24px 0",
-      }}>
+      <div className="output-empty">
         No preview available
       </div>
     );
