@@ -71,6 +71,7 @@ interface CanvasProps {
   onRenameNode?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
   onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>, edges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>) => Promise<string[]>;
+  viewportCenterRef?: React.MutableRefObject<(() => { x: number; y: number }) | null>;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -138,9 +139,23 @@ function CanvasInner({
   onRenameNode,
   onDuplicateNode,
   onPasteNodes,
+  viewportCenterRef,
 }: CanvasProps) {
   const reactFlow = useReactFlow();
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
+
+  // Expose viewport center to parent (for sidebar click-to-add)
+  useEffect(() => {
+    if (viewportCenterRef) {
+      viewportCenterRef.current = () => {
+        const container = document.querySelector(".react-flow") as HTMLElement | null;
+        const w = container?.clientWidth ?? 800;
+        const h = container?.clientHeight ?? 600;
+        return reactFlow.screenToFlowPosition({ x: w / 2, y: h / 2 });
+      };
+    }
+    return () => { if (viewportCenterRef) viewportCenterRef.current = null; };
+  }, [viewportCenterRef, reactFlow]);
 
   // ── Clipboard for copy/paste ────────────────────────────────
   interface ClipboardNode { id: string; type: string; offsetX: number; offsetY: number; params?: unknown; code?: string }
@@ -598,6 +613,7 @@ function CanvasInner({
           x={canvasMenu.x}
           y={canvasMenu.y}
           onFitView={() => reactFlow.fitView({ duration: 300 })}
+          onSelectAll={() => setNodes((nds) => nds.map((n) => ({ ...n, selected: true })))}
           onPaste={onPasteNodes ? () => {
             if (clipboardRef.current.nodes.length === 0) return;
             const pos = reactFlow.screenToFlowPosition({ x: canvasMenu.x, y: canvasMenu.y });
