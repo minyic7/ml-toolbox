@@ -10,7 +10,7 @@ export const PORT_COLORS: Record<PortType, string> = {
   TENSOR: "#D85A30",
 };
 
-/** Sidebar / category badge colors */
+/** Toolbar / category badge colors */
 export const CATEGORY_COLORS: Record<string, string> = {
   ingest: "#1D9E75",
   transform: "#7F77DD",

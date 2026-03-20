@@ -6,7 +6,7 @@ import type { AddNodeRequest, NodeDefinition } from "../lib/types";
 import { useExecutionSocket } from "../hooks/useExecutionSocket";
 import { useExecutionStore } from "../store/executionStore";
 import Topbar from "../components/Topbar/Topbar";
-import Sidebar from "../components/Sidebar/Sidebar";
+import Toolbar from "../components/Toolbar/Toolbar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import { RightPanel } from "../components/RightPanel/RightPanel";
@@ -255,7 +255,7 @@ export default function PipelineScreen() {
     [runFromMutation],
   );
 
-  const handleAddNodeFromSidebar = useCallback(
+  const handleAddNodeFromToolbar = useCallback(
     (nodeType: string) => {
       const center = viewportCenterRef.current?.() ?? { x: 250, y: 150 };
       const n = clickAddCountRef.current++;
@@ -499,11 +499,11 @@ export default function PipelineScreen() {
           setRequestedRunId(runId);
         } : undefined}
       />
+      <ErrorBoundary key={pipelineId} variant="compact">
+        <Toolbar onAddNode={handleAddNodeFromToolbar} />
+      </ErrorBoundary>
       <DisconnectionBanner />
       <div className="flex flex-1 min-h-0">
-        <ErrorBoundary key={pipelineId} variant="compact">
-          <Sidebar onAddNode={handleAddNodeFromSidebar} />
-        </ErrorBoundary>
         <main
           className="flex-1 min-w-0 overflow-hidden relative"
           style={{ backgroundColor: "var(--canvas-bg)" }}
