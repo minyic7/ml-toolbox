@@ -371,6 +371,58 @@ export default function PipelineScreen() {
     [pipeline, addNodeMutation],
   );
 
+  const handlePasteNodes = useCallback(
+    async (
+      pastedNodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>,
+      pastedEdges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>,
+    ): Promise<string[]> => {
+      // Create all nodes in parallel and collect new IDs (order preserved)
+      const results = await Promise.allSettled(
+        pastedNodes.map((n) =>
+          addNodeMutation.mutateAsync({
+            type: n.type,
+            position: n.position,
+            params: n.params as Record<string, unknown> | undefined,
+            code: n.code,
+          }),
+        ),
+      );
+      const newIds = results.map((r) =>
+        r.status === "fulfilled" ? r.value.id : "",
+      );
+      // Report partial paste
+      const succeeded = newIds.filter(Boolean).length;
+      const failed = pastedNodes.length - succeeded;
+      if (failed > 0) {
+        toast.error(`Pasted ${succeeded} of ${pastedNodes.length} nodes (${failed} failed)`);
+      }
+      // Recreate edges between pasted nodes
+      if (pastedEdges && pastedEdges.length > 0) {
+        let conditionsDropped = 0;
+        for (const e of pastedEdges) {
+          const source = newIds[e.sourceIdx];
+          const target = newIds[e.targetIdx];
+          if (source && target) {
+            addEdgeMutation.mutate({
+              source,
+              sourcePort: e.sourcePort,
+              target,
+              targetPort: e.targetPort,
+            });
+            if (e.condition) conditionsDropped++;
+          }
+        }
+        if (conditionsDropped > 0) {
+          toast.warning(
+            `${conditionsDropped} edge condition(s) were not preserved — re-add them manually`,
+          );
+        }
+      }
+      return newIds.filter(Boolean);
+    },
+    [addNodeMutation, addEdgeMutation],
+  );
+
   // ── Loading state ─────────────────────────────────────────────
   if (!id) return null;
 
@@ -512,6 +564,7 @@ export default function PipelineScreen() {
             onTabClick={handleTabClick}
             onRenameNode={handleRenameFromContextMenu}
             onDuplicateNode={handleDuplicateNode}
+            onPasteNodes={handlePasteNodes}
           />
           </div>
         </main>

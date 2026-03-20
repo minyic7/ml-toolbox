@@ -4,6 +4,8 @@ interface CanvasContextMenuProps {
   x: number;
   y: number;
   onFitView: () => void;
+  onPaste?: () => void;
+  hasCopied?: boolean;
   onClose: () => void;
 }
 
@@ -11,6 +13,8 @@ export default function CanvasContextMenu({
   x,
   y,
   onFitView,
+  onPaste,
+  hasCopied,
   onClose,
 }: CanvasContextMenuProps) {
   return (
@@ -32,6 +36,19 @@ export default function CanvasContextMenu({
         >
           Fit view
         </Button>
+        {onPaste && (
+          <Button
+            variant="ghost"
+            className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+            disabled={!hasCopied}
+            onClick={() => {
+              onPaste();
+              onClose();
+            }}
+          >
+            Paste
+          </Button>
+        )}
       </div>
     </div>
   );
