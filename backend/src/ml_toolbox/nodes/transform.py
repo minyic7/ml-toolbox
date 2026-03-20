@@ -54,7 +54,7 @@ def clean(inputs: dict, params: dict) -> dict:
     if drop_duplicates:
         df = df.drop_duplicates()
 
-    out = _get_output_path("clean_df")
+    out = _get_output_path("df")
     df.to_parquet(out, index=False)
     return {"df": str(out)}
 
@@ -95,7 +95,7 @@ def feature_eng(inputs: dict, params: dict) -> dict:
     for col in bin_cols:
         df[f"{col}_bin"] = pd.qcut(df[col], q=4, labels=["Q1", "Q2", "Q3", "Q4"])
 
-    out = _get_output_path("feature_eng_df")
+    out = _get_output_path("df")
     df.to_parquet(out, index=False)
     return {"df": str(out)}
 
