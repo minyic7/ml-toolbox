@@ -107,8 +107,8 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               padding: "0.5rem 1.25rem",
               fontSize: "1rem",
               borderRadius: "6px",
-              border: "1px solid #1a73e8",
-              background: "#1a73e8",
+              border: "1px solid var(--accent-primary)",
+              background: "var(--accent-primary)",
               color: "#fff",
               cursor: "pointer",
             }}
@@ -138,7 +138,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             style={{
               marginTop: "0.5rem",
               padding: "1rem",
-              background: "#f5f5f5",
+              background: "var(--canvas-bg)",
               borderRadius: "6px",
               overflow: "auto",
               fontSize: "0.85rem",

@@ -194,7 +194,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontSize: 24,
-    fontWeight: 600,
+    fontWeight: 800,
+    fontFamily: "'Manrope', sans-serif",
     color: "var(--text-primary)",
     margin: 0,
   },

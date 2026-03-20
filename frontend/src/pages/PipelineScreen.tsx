@@ -480,7 +480,7 @@ export default function PipelineScreen() {
           <Link
             to="/"
             className="text-sm underline"
-            style={{ color: "var(--accent-blue)" }}
+            style={{ color: "var(--accent-primary)" }}
           >
             Back to Home
           </Link>

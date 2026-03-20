@@ -23,25 +23,25 @@ const STATUS_BORDERS: Record<
   NodeStatus,
   { width: string; style: string; color: string }
 > = {
-  idle: { width: "1px", style: "solid", color: "#D3D1C7" },
-  dirty: { width: "1px", style: "dashed", color: "#D3D1C7" },
+  idle: { width: "1px", style: "solid", color: "var(--border-default)" },
+  dirty: { width: "1px", style: "dashed", color: "var(--border-default)" },
   pending: { width: "1px", style: "solid", color: "#B5D4F4" },
-  running: { width: "1.5px", style: "solid", color: "#378ADD" },
-  done: { width: "1.5px", style: "solid", color: "#639922" },
-  error: { width: "1.5px", style: "solid", color: "#E24B4A" },
-  skipped: { width: "1.5px", style: "solid", color: "#BA7517" },
-  cached: { width: "1.5px", style: "solid", color: "#BA7517" },
+  running: { width: "1.5px", style: "solid", color: "var(--accent-primary)" },
+  done: { width: "1.5px", style: "solid", color: "var(--success-green)" },
+  error: { width: "1.5px", style: "solid", color: "var(--error-red)" },
+  skipped: { width: "1.5px", style: "solid", color: "var(--warning-amber)" },
+  cached: { width: "1.5px", style: "solid", color: "var(--warning-amber)" },
 };
 
 const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
-  idle: "#D3D1C7",
-  dirty: "#D3D1C7",
+  idle: "var(--border-default)",
+  dirty: "var(--border-default)",
   pending: "#B5D4F4",
-  running: "#378ADD",
-  done: "#639922",
-  error: "#E24B4A",
-  skipped: "#BA7517",
-  cached: "#639922",
+  running: "var(--accent-primary)",
+  done: "var(--success-green)",
+  error: "var(--error-red)",
+  skipped: "var(--warning-amber)",
+  cached: "var(--success-green)",
 };
 
 // ── Tab bar types ──────────────────────────────────────────────────
@@ -149,7 +149,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             style={{
               width: "100%",
               height: "100%",
-              background: `linear-gradient(90deg, transparent 0%, var(--accent-blue) 50%, transparent 100%)`,
+              background: `linear-gradient(90deg, transparent 0%, var(--accent-primary) 50%, transparent 100%)`,
               animation: "shimmer 1.5s ease-in-out infinite",
             }}
           />
@@ -168,7 +168,11 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       >
         <span
           style={{
-            fontWeight: 600,
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 700,
+            textTransform: "uppercase" as const,
+            fontSize: 11,
+            letterSpacing: "0.04em",
             color: "var(--text-primary)",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -206,7 +210,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
               borderRadius: "50%",
               background: STATUS_DOT_COLORS[status],
               flexShrink: 0,
-              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px #639922` : undefined,
+              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px var(--success-green)` : undefined,
             }}
           />
         </span>
@@ -296,8 +300,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             padding: "4px 12px",
             fontSize: 11,
             color: "var(--error-red)",
-            background: "rgba(226,75,74,0.08)",
-            borderTop: "1px solid rgba(226,75,74,0.15)",
+            background: "var(--error-red-bg)",
+            borderTop: "1px solid var(--error-red-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -331,8 +335,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             padding: "4px 12px",
             fontSize: 11,
             color: "var(--success-green)",
-            background: "rgba(99,153,34,0.08)",
-            borderTop: "1px solid rgba(99,153,34,0.15)",
+            background: "var(--success-green-bg)",
+            borderTop: "1px solid var(--success-green-border)",
           }}
         >
           ↩ using cached output
