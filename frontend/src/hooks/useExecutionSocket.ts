@@ -6,6 +6,7 @@ import { useExecutionStore } from "../store/executionStore";
 import { getPipelineStatus } from "../lib/api";
 
 const MAX_BACKOFF = 30_000;
+const MAX_RETRIES = 10;
 
 function getWsUrl(pipelineId: string): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -19,6 +20,7 @@ export function useExecutionSocket(pipelineId: string | undefined) {
   const qc = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(1000);
+  const retryCountRef = useRef(0);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export function useExecutionSocket(pipelineId: string | undefined) {
 
       ws.onopen = () => {
         backoffRef.current = 1000; // reset on successful connect
+        retryCountRef.current = 0;
         useExecutionStore.getState().setWsStatus("connected");
 
         // On reconnect, check if a run finished while we were disconnected
@@ -116,6 +119,11 @@ export function useExecutionSocket(pipelineId: string | undefined) {
         wsRef.current = null;
         if (!mountedRef.current) {
           useExecutionStore.getState().setWsStatus("disconnected");
+          return;
+        }
+        retryCountRef.current += 1;
+        if (retryCountRef.current > MAX_RETRIES) {
+          useExecutionStore.getState().setWsStatus("failed");
           return;
         }
         useExecutionStore.getState().setWsStatus("reconnecting");

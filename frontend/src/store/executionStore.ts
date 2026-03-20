@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { NodeStatus, PortType } from "../lib/types";
 
-export type WsStatus = "connected" | "disconnected" | "reconnecting";
+export type WsStatus = "connected" | "disconnected" | "reconnecting" | "failed";
 
 const TERMINAL_STATUSES: ReadonlySet<NodeStatus> = new Set([
   "done",
