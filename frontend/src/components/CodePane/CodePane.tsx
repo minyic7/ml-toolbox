@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import CodePaneHeader from "./CodePaneHeader";
@@ -147,6 +147,46 @@ export default function CodePane({
     monaco.editor.defineTheme(CODEPANE_THEME_NAME, codepaneTheme);
   }, []);
 
+  // ── Resizable width ──────────────────────────────────────────
+  const [width, setWidth] = useState(340);
+  const [dragging, setDragging] = useState(false);
+  const [handleHovered, setHandleHovered] = useState(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(340);
+
+  const minWidth = 300;
+  const maxWidth = useMemo(() => Math.floor(window.innerWidth * 0.5), []);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      const delta = dragStartX.current - e.clientX;
+      const newWidth = Math.min(maxWidth, Math.max(minWidth, dragStartWidth.current + delta));
+      setWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      setDragging(false);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [dragging, maxWidth]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = width;
+    setDragging(true);
+  }, [width]);
+
   const displayName = node.name || definition.label || node.type;
 
   return (
@@ -154,12 +194,41 @@ export default function CodePane({
       ref={paneRef}
       className="flex flex-col h-full"
       style={{
-        width: "var(--codepane-width)",
-        minWidth: "var(--codepane-width)",
+        width,
+        minWidth: width,
         background: "var(--codepane-bg)",
         borderLeft: "1px solid var(--codepane-border)",
+        position: "relative",
       }}
     >
+      {/* Drag handle for resizing */}
+      <div
+        onMouseDown={handleDragStart}
+        onMouseEnter={() => setHandleHovered(true)}
+        onMouseLeave={() => setHandleHovered(false)}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 4,
+          cursor: "col-resize",
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 2,
+            height: 32,
+            borderRadius: 1,
+            background: dragging || handleHovered ? "var(--text-muted)" : "var(--border-default)",
+            transition: "background 150ms",
+          }}
+        />
+      </div>
       <CodePaneHeader
         nodeName={displayName}
         onCopy={handleCopy}

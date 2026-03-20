@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
-import { OutputTab } from "./OutputTab";
+import { DrawerOutputTab } from "./DrawerOutputTab";
 
 type DrawerTab = "params" | "code" | "output";
 
@@ -20,10 +20,9 @@ interface BottomDrawerProps {
   onRunFrom: (nodeId: string) => void;
   codePaneOpen?: boolean;
   onCodeTabClick?: () => void;
-  onCodePaneClose?: () => void;
 }
 
-const DRAWER_HEIGHT = 172;
+const DRAWER_HEIGHT = 220;
 const DRAWER_HEADER_HEIGHT = 38;
 
 export default function BottomDrawer({
@@ -40,7 +39,6 @@ export default function BottomDrawer({
   onRunFrom,
   codePaneOpen,
   onCodeTabClick,
-  onCodePaneClose,
 }: BottomDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>("params");
 
@@ -60,10 +58,8 @@ export default function BottomDrawer({
     setActiveTab(tab);
     if (tab === "code") {
       onCodeTabClick?.();
-    } else if (codePaneOpen) {
-      // Clicking Params or Output closes the code pane
-      onCodePaneClose?.();
     }
+    // Switching tabs never closes panels — only explicit close buttons do
   };
 
   // When code pane closes externally, switch back to params
@@ -84,13 +80,21 @@ export default function BottomDrawer({
   return (
     <div
       style={{
+        position: "absolute",
+        bottom: 8,
+        left: 12,
+        right: 12,
+        zIndex: 20,
         height: isOpen ? drawerHeight : 0,
-        minHeight: isOpen ? drawerHeight : 0,
         overflow: "hidden",
-        transition: "height 220ms ease, min-height 220ms ease",
-        borderTop: isOpen ? "1px solid var(--border-default)" : "none",
-        background: "var(--node-bg)",
-        flexShrink: 0,
+        transition: "height 220ms ease",
+        borderRadius: 12,
+        boxShadow: isOpen ? "0 4px 24px rgba(0,0,0,0.08)" : "none",
+        background: "rgba(255,255,255,0.95)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        border: isOpen ? "1px solid var(--border-default)" : "none",
+        pointerEvents: isOpen ? "auto" : "none",
       }}
     >
       {node && definition && (
@@ -118,7 +122,7 @@ export default function BottomDrawer({
                 />
               )}
               {activeTab === "output" && (
-                <OutputTab
+                <DrawerOutputTab
                   pipelineId={pipelineId}
                   nodeId={node.id}
                   requestedRunId={requestedRunId}

@@ -284,8 +284,10 @@ export default function PipelineScreen() {
   );
 
   const handleNodeSelect = useCallback((nodeId: string | null) => {
-    setSelectedNodeId(nodeId);
     if (nodeId) {
+      // Clicking the already-selected node is a no-op (no toggle)
+      if (nodeId === selectedNodeId) return;
+      setSelectedNodeId(nodeId);
       setDrawerOpen(true);
       // Close code pane when selecting a different node
       setCodePaneOpen(false);
@@ -295,12 +297,9 @@ export default function PipelineScreen() {
       } else {
         setRequestedTab("params");
       }
-    } else {
-      setDrawerOpen(false);
-      setCodePaneOpen(false);
-      setRequestedTab(null);
     }
-  }, [nodeStatuses]);
+    // Clicking blank canvas — keep drawer open with last selected node
+  }, [nodeStatuses, selectedNodeId]);
 
   const handleTabClick = useCallback((nodeId: string, tab: string) => {
     setSelectedNodeId(nodeId);
@@ -510,9 +509,8 @@ export default function PipelineScreen() {
         <Toolbar onAddNode={handleAddNodeFromToolbar} />
       </ErrorBoundary>
       <DisconnectionBanner />
-      <div className="flex flex-col flex-1 min-h-0">
-        {/* Horizontal flex: canvas (+ optional code pane) */}
-        <div className="flex flex-1 min-h-0">
+      {/* Horizontal flex: canvas (+ optional code pane) */}
+      <div className="flex flex-1 min-h-0">
           <main
             className="flex-1 min-h-0 overflow-hidden relative"
             style={{
@@ -590,6 +588,23 @@ export default function PipelineScreen() {
             />
             </ErrorBoundary>
             </div>
+            <ErrorBoundary key={pipelineId} variant="compact">
+            <BottomDrawer
+              pipelineId={pipelineId}
+              node={drawerOpen ? selectedNode : null}
+              definition={selectedDefinition}
+              onParamChange={handleParamChange}
+              paramSaving={patchNodeMutation.isPending}
+              onClose={handleClosePanel}
+              requestedTab={requestedTab}
+              onRequestedTabHandled={() => setRequestedTab(null)}
+              onRunFrom={handleRunFrom}
+              requestedRunId={requestedRunId}
+              onRequestedRunHandled={() => setRequestedRunId(null)}
+              codePaneOpen={codePaneOpen}
+              onCodeTabClick={handleCodeTabClick}
+            />
+            </ErrorBoundary>
           </main>
 
           {/* Code pane — slides in from right */}
@@ -605,26 +620,6 @@ export default function PipelineScreen() {
               onRunFrom={handleRunFrom}
             />
           )}
-        </div>
-
-        <ErrorBoundary key={pipelineId} variant="compact">
-        <BottomDrawer
-          pipelineId={pipelineId}
-          node={drawerOpen ? selectedNode : null}
-          definition={selectedDefinition}
-          onParamChange={handleParamChange}
-          paramSaving={patchNodeMutation.isPending}
-          onClose={handleClosePanel}
-          requestedTab={requestedTab}
-          onRequestedTabHandled={() => setRequestedTab(null)}
-          onRunFrom={handleRunFrom}
-          requestedRunId={requestedRunId}
-          onRequestedRunHandled={() => setRequestedRunId(null)}
-          codePaneOpen={codePaneOpen}
-          onCodeTabClick={handleCodeTabClick}
-          onCodePaneClose={handleCodePaneClose}
-        />
-        </ErrorBoundary>
       </div>
     </div>
   );
