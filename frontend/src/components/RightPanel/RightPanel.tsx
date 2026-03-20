@@ -196,6 +196,7 @@ export function RightPanel({
             {TABS.map((tab) => (
               <button
                 key={tab.key}
+                data-testid={`right-panel-${tab.key}-tab`}
                 onClick={() => setActiveTab(tab.key)}
                 className="flex-1 py-2 text-xs font-medium transition-colors"
                 style={{
