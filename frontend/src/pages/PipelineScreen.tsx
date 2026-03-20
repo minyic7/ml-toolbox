@@ -320,6 +320,9 @@ export default function PipelineScreen() {
       patchNodeMutation.mutate(
         { nodeId, body: { params: currentValues } },
         {
+          onSuccess: () => {
+            useExecutionStore.getState().markDirty(nodeId);
+          },
           onError: () => {
             toast.error("Failed to save parameter");
             invalidate();
@@ -348,7 +351,12 @@ export default function PipelineScreen() {
     (nodeId: string, code: string) => {
       patchNodeMutation.mutate(
         { nodeId, body: { code } },
-        { onError: () => toast.error("Failed to save code") },
+        {
+          onSuccess: () => {
+            useExecutionStore.getState().markDirty(nodeId);
+          },
+          onError: () => toast.error("Failed to save code"),
+        },
       );
     },
     [patchNodeMutation],
