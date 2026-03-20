@@ -525,13 +525,13 @@ function CanvasInner({
 
   // ── Connection line color ──────────────────────────────────────
   const connectionLineStyle = useMemo(() => {
-    if (!connectStartParams) return { stroke: "var(--border-default)" };
+    if (!connectStartParams) return { stroke: "var(--border-default)", strokeDasharray: "6 3" };
     const { nodeId, handleId } = connectStartParams;
-    if (!nodeId || !handleId) return { stroke: "var(--border-default)" };
+    if (!nodeId || !handleId) return { stroke: "var(--border-default)", strokeDasharray: "6 3" };
     const node = pipelineNodes.find((n) => n.id === nodeId);
     const port = node?.outputs.find((p) => p.name === handleId);
-    if (!port) return { stroke: "var(--border-default)" };
-    return { stroke: PORT_COLORS[port.type as PortType] ?? "var(--border-default)" };
+    if (!port) return { stroke: "var(--border-default)", strokeDasharray: "6 3" };
+    return { stroke: PORT_COLORS[port.type as PortType] ?? "var(--border-default)", strokeDasharray: "6 3" };
   }, [connectStartParams, pipelineNodes]);
 
   // ── Render ─────────────────────────────────────────────────────
