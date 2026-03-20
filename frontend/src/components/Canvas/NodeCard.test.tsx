@@ -193,4 +193,47 @@ describe("NodeCard", () => {
       expect(screen.getByText("Output")).toBeInTheDocument();
     });
   });
+
+  describe("missing/broken data edge cases", () => {
+    it("renders without crashing when label is empty", () => {
+      const { container } = renderCard({ label: "" });
+      // Card should still render with the node type subline visible
+      const card = container.querySelector(".node-card");
+      expect(card).not.toBeNull();
+      expect(screen.getByText(/transform/)).toBeInTheDocument();
+    });
+
+    it("renders card without port rows when inputs and outputs are empty", () => {
+      renderCard({ inputs: [], outputs: [] });
+      // Card renders, tab bar still present
+      expect(screen.getByText("Params")).toBeInTheDocument();
+      // No port handles rendered
+      expect(screen.queryByTestId(/^handle-/)).not.toBeInTheDocument();
+    });
+
+    it("falls back to --border-default accent color when category is missing/empty", () => {
+      const { container } = renderCard({ category: "" });
+      const accentBar = container.querySelector(
+        '.node-card > div[style*="position: absolute"]',
+      );
+      expect(accentBar).not.toBeNull();
+      expect((accentBar as HTMLElement).style.background).toBe(
+        "var(--border-default)",
+      );
+    });
+
+    it("renders card structure intact with all edge-case fields combined", () => {
+      const { container } = renderCard({
+        label: "",
+        inputs: [],
+        outputs: [],
+        category: "",
+        status: "idle",
+      });
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card).not.toBeNull();
+      expect(card.style.width).toBe("232px");
+      expect(screen.getByText("Idle")).toBeInTheDocument();
+    });
+  });
 });

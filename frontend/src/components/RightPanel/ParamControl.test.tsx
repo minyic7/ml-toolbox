@@ -173,4 +173,67 @@ describe("ParamControl", () => {
       expect(wrapper.style.opacity).toBe("0.6");
     });
   });
+
+  describe("invalid value edge cases", () => {
+    it("renders slider gracefully when value exceeds max", () => {
+      render(
+        <ParamControl
+          param={sliderParam({ min: 0, max: 100, step: 1 })}
+          value={999}
+          onChange={vi.fn()}
+        />,
+      );
+      const slider = screen.getByRole("slider");
+      expect(slider).toBeInTheDocument();
+      // The numeric display shows the raw value; HTML range input clamps visually
+      expect(screen.getByText("999")).toBeInTheDocument();
+    });
+
+    it("renders slider gracefully when value is below min", () => {
+      render(
+        <ParamControl
+          param={sliderParam({ min: 10, max: 100, step: 1 })}
+          value={-5}
+          onChange={vi.fn()}
+        />,
+      );
+      const slider = screen.getByRole("slider");
+      expect(slider).toBeInTheDocument();
+      expect(screen.getByText("-5")).toBeInTheDocument();
+    });
+
+    it("renders text input with a very long string without crashing", () => {
+      const longValue = "x".repeat(10_000);
+      render(
+        <ParamControl param={textParam()} value={longValue} onChange={vi.fn()} />,
+      );
+      const input = screen.getByRole("textbox") as HTMLInputElement;
+      expect(input).toBeInTheDocument();
+      expect(input.value).toBe(longValue);
+    });
+
+    it("renders select without crashing when value is not in options", () => {
+      render(
+        <ParamControl
+          param={selectParam({ options: ["relu", "sigmoid", "tanh"] })}
+          value="nonexistent_option"
+          onChange={vi.fn()}
+        />,
+      );
+      // Component renders with the combobox trigger present
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+      expect(screen.getByText("Activation")).toBeInTheDocument();
+    });
+
+    it("renders select without crashing when options list is empty", () => {
+      render(
+        <ParamControl
+          param={selectParam({ options: [] })}
+          value="relu"
+          onChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+    });
+  });
 });
