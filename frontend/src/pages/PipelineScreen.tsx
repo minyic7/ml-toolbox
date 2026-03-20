@@ -11,6 +11,7 @@ import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import BottomDrawer from "../components/Drawer/BottomDrawer";
 import CodePane from "../components/CodePane/CodePane";
+import OutputPanel from "../components/OutputPanel/OutputPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
@@ -91,14 +92,15 @@ export default function PipelineScreen() {
   // Clear selection when switching pipelines
   useEffect(() => {
     setSelectedNodeId(null);
-    setCodePaneOpen(false);
+    setRightPanelOpen(false);
   }, [pipelineId]);
 
-  // Drawer state
+  // Drawer + right panel state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [codePaneOpen, setCodePaneOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelMode, setRightPanelMode] = useState<"code" | "output">("code");
 
-  // Escape key: close code pane first, then drawer, then clear selection
+  // Escape key: close right panel first, then drawer, then clear selection
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -107,8 +109,8 @@ export default function PipelineScreen() {
         // Don't handle Escape if focus is inside Monaco editor — it handles its own
         const el = e.target as HTMLElement;
         if (el.closest(".monaco-editor")) return;
-        if (codePaneOpen) {
-          setCodePaneOpen(false);
+        if (rightPanelOpen) {
+          setRightPanelOpen(false);
         } else if (drawerOpen) {
           setDrawerOpen(false);
           setSelectedNodeId(null);
@@ -119,7 +121,7 @@ export default function PipelineScreen() {
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [drawerOpen, codePaneOpen]);
+  }, [drawerOpen, rightPanelOpen]);
 
   // Derive selected node and definition
   const selectedNode = useMemo(
@@ -289,8 +291,8 @@ export default function PipelineScreen() {
       if (nodeId === selectedNodeId) return;
       setSelectedNodeId(nodeId);
       setDrawerOpen(true);
-      // Close code pane when selecting a different node
-      setCodePaneOpen(false);
+      // Close right panel when selecting a different node
+      setRightPanelOpen(false);
       const status = nodeStatuses[nodeId];
       if (status === "done" || status === "error" || status === "cached") {
         setRequestedTab("output");
@@ -333,17 +335,23 @@ export default function PipelineScreen() {
   );
 
   const handleClosePanel = useCallback(() => {
-    setCodePaneOpen(false);
+    setRightPanelOpen(false);
     setDrawerOpen(false);
     setSelectedNodeId(null);
   }, []);
 
   const handleCodeTabClick = useCallback(() => {
-    setCodePaneOpen(true);
+    setRightPanelMode("code");
+    setRightPanelOpen(true);
   }, []);
 
-  const handleCodePaneClose = useCallback(() => {
-    setCodePaneOpen(false);
+  const handleOutputTabClick = useCallback(() => {
+    setRightPanelMode("output");
+    setRightPanelOpen(true);
+  }, []);
+
+  const handleRightPanelClose = useCallback(() => {
+    setRightPanelOpen(false);
   }, []);
 
   const handleCodeSave = useCallback(
@@ -509,7 +517,7 @@ export default function PipelineScreen() {
         <Toolbar onAddNode={handleAddNodeFromToolbar} />
       </ErrorBoundary>
       <DisconnectionBanner />
-      {/* Horizontal flex: canvas (+ optional code pane) */}
+      {/* Horizontal flex: canvas (+ optional right panel) */}
       <div className="flex flex-1 min-h-0">
           <main
             className="flex-1 min-h-0 overflow-hidden relative"
@@ -601,23 +609,31 @@ export default function PipelineScreen() {
               onRunFrom={handleRunFrom}
               requestedRunId={requestedRunId}
               onRequestedRunHandled={() => setRequestedRunId(null)}
-              codePaneOpen={codePaneOpen}
+              rightPanelOpen={rightPanelOpen}
               onCodeTabClick={handleCodeTabClick}
+              onOutputTabClick={handleOutputTabClick}
             />
             </ErrorBoundary>
           </main>
 
-          {/* Code pane — slides in from right */}
-          {codePaneOpen && selectedNode && selectedDefinition && (
+          {/* Right panel — CodeEditor or OutputPanel */}
+          {rightPanelOpen && selectedNode && selectedDefinition && rightPanelMode === "code" && (
             <CodePane
               node={selectedNode}
               definition={selectedDefinition}
               onSave={handleCodeSave}
-              onClose={handleCodePaneClose}
+              onClose={handleRightPanelClose}
+            />
+          )}
+          {rightPanelOpen && selectedNode && selectedDefinition && rightPanelMode === "output" && (
+            <OutputPanel
+              node={selectedNode}
+              definition={selectedDefinition}
               pipelineId={pipelineId}
-              onParamChange={handleParamChange}
-              paramSaving={patchNodeMutation.isPending}
+              onClose={handleRightPanelClose}
               onRunFrom={handleRunFrom}
+              requestedRunId={requestedRunId}
+              onRequestedRunHandled={() => setRequestedRunId(null)}
             />
           )}
       </div>
