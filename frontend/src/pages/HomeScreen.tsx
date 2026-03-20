@@ -223,7 +223,21 @@ export default function HomeScreen() {
       {view === "pipelines" && (
         <div style={styles.pipelinesContainer}>
           {pipelinesLoading ? (
-            <p style={{ color: "var(--text-secondary)" }}>Loading...</p>
+            <div style={styles.pipelinesGrid}>
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse"
+                  style={{
+                    height: 80,
+                    borderRadius: 8,
+                    border: "1px solid var(--border-default)",
+                    background: "var(--node-bg)",
+                    opacity: 0.5,
+                  }}
+                />
+              ))}
+            </div>
           ) : pipelinesError ? (
             <div style={styles.emptyState}>
               <AlertCircle
