@@ -67,6 +67,7 @@ class AddEdgeRequest(BaseModel):
     source_port: str
     target: str
     target_port: str
+    condition: str | None = None
 
 
 class UpdateEdgeRequest(BaseModel):
@@ -342,7 +343,7 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
         "source_port": body.source_port,
         "target": body.target,
         "target_port": body.target_port,
-        "condition": None,
+        "condition": body.condition,
     }
 
     data["edges"].append(edge)
