@@ -5,8 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ReactFlow,
   Background,
@@ -495,8 +495,8 @@ function CanvasInner({
           })),
           clipboardRef.current.edges,
         ).then((newIds) => {
-          const idSet = new Set(newIds.filter(Boolean));
-          if (idSet.size > 0) {
+          if (newIds.length > 0) {
+            const idSet = new Set(newIds);
             setNodes((nds) => nds.map((n) => ({ ...n, selected: idSet.has(n.id) })));
           }
         });
@@ -610,8 +610,8 @@ function CanvasInner({
               })),
               clipboardRef.current.edges,
             ).then((newIds) => {
-              const idSet = new Set(newIds.filter(Boolean));
-              if (idSet.size > 0) {
+              if (newIds.length > 0) {
+                const idSet = new Set(newIds);
                 setNodes((nds) => nds.map((n) => ({ ...n, selected: idSet.has(n.id) })));
               }
             });

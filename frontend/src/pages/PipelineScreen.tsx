@@ -418,7 +418,7 @@ export default function PipelineScreen() {
           );
         }
       }
-      return newIds;
+      return newIds.filter(Boolean);
     },
     [addNodeMutation, addEdgeMutation],
   );
