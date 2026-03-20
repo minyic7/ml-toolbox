@@ -15,7 +15,7 @@ export interface NodeCardData extends Record<string, unknown> {
   status: NodeStatus;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
-  params: ParamDefinition[];
+  params: ParamDefinition[] | Record<string, unknown>;
   code: string;
   onTabClick?: (nodeId: string, tab: string) => void;
   onRunFrom?: (nodeId: string) => void;

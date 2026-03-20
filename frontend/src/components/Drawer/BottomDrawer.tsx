@@ -135,9 +135,10 @@ export default function BottomDrawer({
 }
 
 function buildParamValues(node: NodeInstance): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-  for (const p of node.params) {
-    values[p.name] = p.default;
+  if (Array.isArray(node.params)) {
+    const values: Record<string, unknown> = {};
+    for (const p of node.params) values[p.name] = p.default;
+    return values;
   }
-  return values;
+  return { ...(node.params as Record<string, unknown>) };
 }
