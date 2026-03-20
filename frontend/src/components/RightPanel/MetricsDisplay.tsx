@@ -7,33 +7,20 @@ export function MetricsDisplay({ data }: MetricsDisplayProps) {
 
   if (entries.length === 0) {
     return (
-      <div
-        className="text-sm"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <div className="output-empty">
         No metrics
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: 0, marginTop: 4 }}>
       {entries.map(([key, value]) => (
-        <div
-          key={key}
-          className="flex items-center justify-between rounded-md border px-3 py-2"
-          style={{ borderColor: "var(--border-default)" }}
-        >
-          <span
-            className="text-xs font-medium"
-            style={{ color: "var(--text-secondary)" }}
-          >
+        <div key={key} className="output-metrics-row">
+          <span className="output-metrics-key">
             {key}
           </span>
-          <span
-            className="text-sm font-mono tabular-nums"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <span className="output-metrics-value">
             {typeof value === "number"
               ? Number.isInteger(value)
                 ? value.toLocaleString()
