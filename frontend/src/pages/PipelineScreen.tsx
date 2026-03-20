@@ -9,7 +9,7 @@ import Topbar from "../components/Topbar/Topbar";
 import Toolbar from "../components/Toolbar/Toolbar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
-import { RightPanel } from "../components/RightPanel/RightPanel";
+import BottomDrawer from "../components/Drawer/BottomDrawer";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
@@ -48,7 +48,6 @@ export default function PipelineScreen() {
 
   // ── UI state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [codeSaveOk, setCodeSaveOk] = useState(false);
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
   const [requestedRunId, setRequestedRunId] = useState<string | null>(null);
 
@@ -93,18 +92,26 @@ export default function PipelineScreen() {
     setSelectedNodeId(null);
   }, [pipelineId]);
 
-  // Escape key clears selection
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Escape key closes drawer / clears selection
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-        setSelectedNodeId(null);
+        if (drawerOpen) {
+          setDrawerOpen(false);
+          setSelectedNodeId(null);
+        } else {
+          setSelectedNodeId(null);
+        }
       }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [drawerOpen]);
 
   // Derive selected node and definition
   const selectedNode = useMemo(
@@ -270,8 +277,8 @@ export default function PipelineScreen() {
 
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
-    // Default to Output tab for nodes with done/error status
     if (nodeId) {
+      setDrawerOpen(true);
       const status = nodeStatuses[nodeId];
       if (status === "done" || status === "error" || status === "cached") {
         setRequestedTab("output");
@@ -279,17 +286,16 @@ export default function PipelineScreen() {
         setRequestedTab(null);
       }
     } else {
+      setDrawerOpen(false);
       setRequestedTab(null);
     }
   }, [nodeStatuses]);
 
   const handleTabClick = useCallback((nodeId: string, tab: string) => {
     setSelectedNodeId(nodeId);
+    setDrawerOpen(true);
     setRequestedTab(tab);
   }, []);
-
-  // Track pending code edits so we can save on blur
-  const pendingCodeRef = useRef<Record<string, string>>({});
 
   const handleParamChange = useCallback(
     (nodeId: string, name: string, value: unknown) => {
@@ -313,56 +319,19 @@ export default function PipelineScreen() {
     [pipeline, patchNodeMutation, invalidate],
   );
 
-  const handleCodeChange = useCallback(
-    (nodeId: string, code: string) => {
-      pendingCodeRef.current[nodeId] = code;
-    },
-    [],
-  );
-
-  const handleCodeSave = useCallback(
-    (nodeId: string, code: string) => {
-      delete pendingCodeRef.current[nodeId];
-      setCodeSaveOk(false);
-      patchNodeMutation.mutate(
-        { nodeId, body: { code } },
-        {
-          onSuccess: () => setCodeSaveOk(true),
-          onError: () => toast.error("Failed to save code"),
-        },
-      );
-    },
-    [patchNodeMutation],
-  );
-
   const handleClosePanel = useCallback(() => {
+    setDrawerOpen(false);
     setSelectedNodeId(null);
   }, []);
 
   // ── Rename ─────────────────────────────────────────────────────
-  const [renameRequested, setRenameRequested] = useState(false);
-
-  const handleRename = useCallback(
-    (nodeId: string, name: string) => {
-      patchNodeMutation.mutate({ nodeId, body: { name } }, {
-        onError: () => toast.error("Failed to rename node"),
-      });
-    },
-    [patchNodeMutation],
-  );
-
   const handleRenameFromContextMenu = useCallback(
     (nodeId: string) => {
-      // Select the node to open the right panel, then trigger rename
       setSelectedNodeId(nodeId);
-      setRenameRequested(true);
+      setDrawerOpen(true);
     },
     [],
   );
-
-  const handleRenameHandled = useCallback(() => {
-    setRenameRequested(false);
-  }, []);
 
   const handleDuplicateNode = useCallback(
     (nodeId: string) => {
@@ -503,9 +472,9 @@ export default function PipelineScreen() {
         <Toolbar onAddNode={handleAddNodeFromToolbar} />
       </ErrorBoundary>
       <DisconnectionBanner />
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0">
         <main
-          className="flex-1 min-w-0 overflow-hidden relative"
+          className="flex-1 min-h-0 overflow-hidden relative"
           style={{ backgroundColor: "var(--canvas-bg)" }}
         >
           {showSkeleton && (
@@ -582,22 +551,16 @@ export default function PipelineScreen() {
           </div>
         </main>
         <ErrorBoundary key={pipelineId} variant="compact">
-        <RightPanel
+        <BottomDrawer
           pipelineId={pipelineId}
-          node={selectedNode}
+          node={drawerOpen ? selectedNode : null}
           definition={selectedDefinition}
           onParamChange={handleParamChange}
           paramSaving={patchNodeMutation.isPending}
-          onCodeChange={handleCodeChange}
-          onCodeSave={handleCodeSave}
-          codeSaveOk={codeSaveOk}
           onClose={handleClosePanel}
           requestedTab={requestedTab}
           onRequestedTabHandled={() => setRequestedTab(null)}
-          onRename={handleRename}
           onRunFrom={handleRunFrom}
-          renameRequested={renameRequested}
-          onRenameHandled={handleRenameHandled}
           requestedRunId={requestedRunId}
           onRequestedRunHandled={() => setRequestedRunId(null)}
         />
