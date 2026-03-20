@@ -145,23 +145,13 @@ export function RightPanel({
                   onBlur={saveEdit}
                   onKeyDown={handleKeyDown}
                   maxLength={50}
-                  className="bg-transparent border border-[var(--border-selected)] rounded px-1 py-0.5 outline-none w-full"
-                  style={{
-                    fontFamily: "'Manrope', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    textTransform: "uppercase",
-                    color: "var(--text-primary)",
-                  }}
+                  className="text-sm font-semibold bg-transparent border border-[var(--border-selected)] rounded px-1 py-0.5 outline-none w-full"
+                  style={{ color: "var(--text-primary)" }}
                 />
               ) : (
                 <span
-                  className="cursor-pointer truncate block"
+                  className="text-sm font-semibold cursor-pointer truncate block"
                   style={{
-                    fontFamily: "'Manrope', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    textTransform: "uppercase",
                     color: "var(--text-primary)",
                     maxWidth: "22ch",
                   }}
@@ -210,7 +200,6 @@ export function RightPanel({
                 onClick={() => setActiveTab(tab.key)}
                 className="flex-1 py-2 text-xs font-medium transition-colors"
                 style={{
-                  fontFamily: "'Inter', sans-serif",
                   color:
                     activeTab === tab.key
                       ? "var(--accent-primary)"
