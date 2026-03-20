@@ -382,6 +382,7 @@ body {
   position: sticky;
   left: 0;
   z-index: 2;
+  background: var(--output-thead-bg);
 }
 
 .output-row {
