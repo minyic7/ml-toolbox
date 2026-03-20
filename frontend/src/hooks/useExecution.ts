@@ -35,6 +35,10 @@ export function useRunFromNode(pipelineId: string, downstreamNodeIds: string[]) 
       setRunning(true);
       setRunId(data.run_id);
     },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : "";
+      toast.error(msg.includes("409") ? "Already running" : "Failed to start run");
+    },
   });
 }
 
