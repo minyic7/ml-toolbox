@@ -174,7 +174,8 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="shrink-0 flex items-center justify-center"
+            className="topbar-ghost-btn shrink-0 flex items-center justify-center"
+            aria-label="Open pipeline list"
             style={{
               width: 28,
               height: 28,
@@ -248,7 +249,8 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex items-center justify-center shrink-0"
+              className="topbar-ghost-btn flex items-center justify-center shrink-0"
+              aria-label="Settings"
               style={{
                 width: 28,
                 height: 28,
@@ -278,7 +280,8 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex items-center justify-center shrink-0"
+              className="topbar-ghost-btn flex items-center justify-center shrink-0"
+              aria-label="Run history"
               style={{
                 width: 28,
                 height: 28,
