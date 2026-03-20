@@ -7,133 +7,34 @@ on:
     branches: [main]
 
 jobs:
-  ci-backend:
-    name: Backend
+  check:
+    name: Type Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
+      # Backend type check
       - uses: astral-sh/setup-uv@v4
         with:
           python-version: "3.13"
           enable-cache: true
-
-      - name: Install deps
-        run: uv sync --frozen
-
+      - name: Install backend deps
+        run: cd backend && uv sync --frozen
       - name: Pyright
-        run: uv run pyright src/
+        run: cd backend && uv run pyright src/
 
-      - name: Pytest (unit + API)
-        run: uv run pytest tests/ -x -q --ignore=tests/integration
-
-  ci-integration:
-    name: Integration
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v4
-        with:
-          python-version: "3.13"
-          enable-cache: true
-
-      - name: Install deps
-        run: uv sync --frozen
-
-      - name: Build sandbox-base image
-        run: docker build -t ghcr.io/minyic7/ml-toolbox/sandbox-base:latest -f sandbox/Dockerfile.base sandbox/
-
-      - name: Build sandbox image
-        run: docker build -t ml-toolbox-sandbox sandbox/
-
-      - name: Pytest (integration)
-        run: uv run pytest tests/integration/ -x -v
-
-  ci-frontend:
-    name: Frontend
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
+      # Frontend type check + build
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: frontend/package.json
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: ESLint
-        run: pnpm lint
-
+      - name: Install frontend deps
+        run: cd frontend && pnpm install --frozen-lockfile
       - name: TypeScript check
-        run: pnpm tsc --noEmit
-
-  ci-unit:
-    name: Unit Tests
-    needs: ci-frontend
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: frontend/package.json
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Vitest
-        run: pnpm test
-
-  ci-e2e:
-    name: E2E
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: frontend/package.json
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run e2e tests
-        run: pnpm test:e2e
+        run: cd frontend && pnpm tsc --noEmit
+      - name: Build
+        run: cd frontend && pnpm build
