@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../lib/api";
-import type { AddNodeRequest, NodeDefinition } from "../lib/types";
+import type { AddNodeRequest, NodeDefinition, Pipeline } from "../lib/types";
 import { useExecutionSocket } from "../hooks/useExecutionSocket";
 import { useExecutionStore } from "../store/executionStore";
 import Topbar from "../components/Topbar/Topbar";
@@ -14,6 +14,21 @@ import CodePane from "../components/CodePane/CodePane";
 import OutputPanel from "../components/OutputPanel/OutputPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
+
+function getDownstreamNodeIds(nodeId: string, pipeline: Pipeline): string[] {
+  const result = new Set<string>([nodeId]);
+  const queue = [nodeId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const edge of pipeline.edges) {
+      if (edge.source === current && !result.has(edge.target)) {
+        result.add(edge.target);
+        queue.push(edge.target);
+      }
+    }
+  }
+  return Array.from(result);
+}
 
 export default function PipelineScreen() {
   const { id } = useParams<{ id: string }>();
@@ -213,6 +228,22 @@ export default function PipelineScreen() {
 
   const runFromMutation = useMutation({
     mutationFn: (nodeId: string) => api.runFromNode(pipelineId, nodeId),
+    onMutate: (nodeId: string) => {
+      useExecutionStore.getState().setNodeStatus(nodeId, "pending");
+    },
+    onSuccess: (data, nodeId) => {
+      const store = useExecutionStore.getState();
+      const downstream = pipeline
+        ? getDownstreamNodeIds(nodeId, pipeline)
+        : [nodeId];
+      store.setAllPending(downstream);
+      store.setRunning(true);
+      store.setRunId(data.run_id);
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : "";
+      toast.error(msg.includes("409") ? "Already running" : "Failed to run");
+    },
   });
 
   // ── Handlers ──────────────────────────────────────────────────
@@ -268,7 +299,7 @@ export default function PipelineScreen() {
   );
 
   const handleRunFrom = useCallback(
-    (nodeId: string) => runFromMutation.mutate(nodeId, { onError: () => toast.error("Failed to run") }),
+    (nodeId: string) => runFromMutation.mutate(nodeId),
     [runFromMutation],
   );
 
