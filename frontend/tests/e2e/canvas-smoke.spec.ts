@@ -265,6 +265,69 @@ test.describe("Canvas smoke tests", () => {
     await expect(runButton).toBeDisabled();
   });
 
+  test("pipeline with pre-existing nodes and edges renders correctly", async ({
+    page,
+  }) => {
+    // Override single-pipeline mock to return nodes + edge already present
+    await page.route(/\/api\/pipelines\/[^/]+$/, (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({
+          json: {
+            ...PIPELINE_FIXTURE,
+            nodes: [
+              {
+                id: "n1",
+                type: "generate_data",
+                position: { x: 100, y: 100 },
+                params: NODES_FIXTURE[0].params,
+                code: NODES_FIXTURE[0].code,
+                name: "Generate Data",
+                inputs: NODES_FIXTURE[0].inputs,
+                outputs: NODES_FIXTURE[0].outputs,
+              },
+              {
+                id: "n2",
+                type: "clean_data",
+                position: { x: 400, y: 100 },
+                params: NODES_FIXTURE[1].params,
+                code: NODES_FIXTURE[1].code,
+                name: "Clean Data",
+                inputs: NODES_FIXTURE[1].inputs,
+                outputs: NODES_FIXTURE[1].outputs,
+              },
+            ],
+            edges: [
+              {
+                id: "e1",
+                source: "n1",
+                source_port: "df",
+                target: "n2",
+                target_port: "df",
+                condition: null,
+              },
+            ],
+          },
+        });
+      } else {
+        route.fulfill({ json: {} });
+      }
+    });
+
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
+
+    // Both nodes should render
+    const nodes = page.locator(".react-flow__node");
+    await expect(nodes).toHaveCount(2, { timeout: 5000 });
+
+    // The edge should render between them
+    const edges = page.locator(".react-flow__edge");
+    await expect(edges).toHaveCount(1, { timeout: 5000 });
+
+    // Node labels should be visible
+    await expect(page.locator("text=Generate Data").first()).toBeVisible();
+    await expect(page.locator("text=Clean Data").first()).toBeVisible();
+  });
+
   test("home screen survives backend 500 without crashing", async ({
     page,
   }) => {
