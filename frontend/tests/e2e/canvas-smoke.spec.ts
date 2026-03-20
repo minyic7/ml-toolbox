@@ -178,9 +178,12 @@ test.describe("Canvas smoke tests", () => {
 
   test("sidebar shows node library with categories", async ({ page }) => {
     await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
-    await expect(page.locator("text=Generate Data")).toBeVisible({
+    // Category heading should render
+    await expect(page.locator("text=demo").first()).toBeVisible({
       timeout: 5000,
     });
+    // Node items should render within the category
+    await expect(page.locator("text=Generate Data")).toBeVisible();
     await expect(page.locator("text=Clean Data")).toBeVisible();
   });
 
