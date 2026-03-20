@@ -362,7 +362,7 @@ function renderPreview(output: OutputPreview) {
             </div>
             {preview.values && (
               <div className="text-xs font-mono mt-2" style={{ color: "var(--text-primary)" }}>
-                [{preview.values.join(", ")}{(preview.total_elements ?? 0) > 20 ? ", ..." : ""}]
+                [{preview.values.join(", ")}{(preview.total_elements ?? 0) > (preview.values?.length ?? 0) ? ", ..." : ""}]
               </div>
             )}
             <div className="output-table-footer mt-1">
