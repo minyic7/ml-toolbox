@@ -358,7 +358,11 @@ class TestUpdateNode:
             json={"params": {"rows": 500}},
         )
         assert resp.status_code == 200
-        assert resp.json()["params"] == {"rows": 500}
+        # Backend merges values into the ParamDefinition array
+        params = resp.json()["params"]
+        assert isinstance(params, list)
+        rows_param = next(p for p in params if p["name"] == "rows")
+        assert rows_param["default"] == 500
 
         # Update code
         resp = client.patch(
@@ -379,7 +383,8 @@ class TestUpdateNode:
         # Verify persisted
         pipeline = client.get(f"/api/pipelines/{pid}").json()
         node = pipeline["nodes"][0]
-        assert node["params"] == {"rows": 500}
+        assert isinstance(node["params"], list)
+        assert next(p for p in node["params"] if p["name"] == "rows")["default"] == 500
         assert node["code"] == "print('hello')"
         assert node["position"] == {"x": 99.0, "y": 88.0}
 

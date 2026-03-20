@@ -41,6 +41,24 @@ function json(body: unknown): RequestInit {
   };
 }
 
+// ── Normalization ────────────────────────────────────────────────────
+
+/** Convert node params from dict format (returned by backend PATCH) to ParamDefinition[]. */
+export function normalizeNodeParams(nodes: Array<{ params: unknown }>): void {
+  for (const node of nodes) {
+    if (!node.params) {
+      node.params = [];
+    } else if (!Array.isArray(node.params)) {
+      const dict = node.params as Record<string, unknown>;
+      node.params = Object.entries(dict).map(([name, value]) => ({
+        type: "text" as const,
+        name,
+        default: value,
+      }));
+    }
+  }
+}
+
 // ── Health ──────────────────────────────────────────────────────────
 
 export function getHealth() {
@@ -63,8 +81,10 @@ export function listPipelines() {
   return request<PipelineListItem[]>("/api/pipelines");
 }
 
-export function getPipeline(pipelineId: string) {
-  return request<Pipeline>(`/api/pipelines/${pipelineId}`);
+export async function getPipeline(pipelineId: string) {
+  const pipeline = await request<Pipeline>(`/api/pipelines/${pipelineId}`);
+  normalizeNodeParams(pipeline.nodes);
+  return pipeline;
 }
 
 export function createPipeline(body: CreatePipelineRequest) {

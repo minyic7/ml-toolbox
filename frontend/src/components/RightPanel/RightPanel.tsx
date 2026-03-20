@@ -252,8 +252,6 @@ export function RightPanel({
 
 function buildParamValues(node: NodeInstance): Record<string, unknown> {
   const values: Record<string, unknown> = {};
-  for (const p of node.params) {
-    values[p.name] = p.default;
-  }
+  for (const p of node.params) values[p.name] = p.default;
   return values;
 }

@@ -271,7 +271,33 @@ async def update_node(pipeline_id: str, node_id: str, body: UpdateNodeRequest) -
         raise HTTPException(status_code=404, detail="Node not found")
 
     if body.params is not None:
-        node["params"] = body.params
+        # Merge user values into the existing ParamDefinition[] array
+        # so the array structure is preserved for the frontend.
+        existing_params = node.get("params", [])
+        if isinstance(existing_params, list) and existing_params:
+            for param_def in existing_params:
+                if isinstance(param_def, dict) and param_def.get("name") in body.params:
+                    param_def["default"] = body.params[param_def["name"]]
+            node["params"] = existing_params
+        else:
+            # Legacy dict or empty — recover array from NODE_REGISTRY template
+            template = NODE_REGISTRY.get(node.get("type", ""), {})
+            template_params = list(template.get("params", []))
+            if template_params:
+                import copy
+
+                template_params = copy.deepcopy(template_params)
+                merged: dict[str, Any] = {}
+                if isinstance(existing_params, dict):
+                    merged.update(existing_params)
+                merged.update(body.params)  # new values take precedence
+                for param_def in template_params:
+                    if param_def["name"] in merged:
+                        param_def["default"] = merged[param_def["name"]]
+                node["params"] = template_params
+            else:
+                # No template available — store dict as last resort
+                node["params"] = body.params
     if body.code is not None:
         node["code"] = body.code
     if body.position is not None:
