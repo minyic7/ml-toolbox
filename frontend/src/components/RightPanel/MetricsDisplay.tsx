@@ -7,33 +7,47 @@ export function MetricsDisplay({ data }: MetricsDisplayProps) {
 
   if (entries.length === 0) {
     return (
-      <div
-        className="text-sm"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <div style={{
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 11,
+        fontWeight: 600,
+        color: "var(--text-muted)",
+        textAlign: "center",
+        padding: "24px 0",
+      }}>
         No metrics
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: 0, marginTop: 4 }}>
       {entries.map(([key, value]) => (
         <div
           key={key}
-          className="flex items-center justify-between rounded-md border px-3 py-2"
-          style={{ borderColor: "var(--border-default)" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "6px 0",
+            borderBottom: "1px solid var(--output-thead-bg)",
+          }}
         >
-          <span
-            className="text-xs font-medium"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 10,
+            fontWeight: 400,
+            color: "var(--text-muted)",
+          }}>
             {key}
           </span>
-          <span
-            className="text-sm font-mono tabular-nums"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            textAlign: "right",
+          }}>
             {typeof value === "number"
               ? Number.isInteger(value)
                 ? value.toLocaleString()

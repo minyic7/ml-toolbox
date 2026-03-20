@@ -5,11 +5,18 @@ interface ErrorTracebackProps {
 export function ErrorTraceback({ error }: ErrorTracebackProps) {
   return (
     <div
-      className="rounded-md border p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap"
       style={{
-        borderColor: "var(--error-red)",
-        backgroundColor: "color-mix(in srgb, var(--error-red) 8%, transparent)",
+        borderRadius: 6,
+        padding: 12,
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 10,
+        lineHeight: 1.6,
+        whiteSpace: "pre-wrap",
+        overflowY: "auto",
+        maxHeight: 200,
+        background: "var(--error-bg-light)",
         color: "var(--error-red)",
+        marginTop: 4,
       }}
     >
       {error}

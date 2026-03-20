@@ -110,6 +110,15 @@
   --input: var(--border-default);
   --ring: var(--accent-primary);
 
+  /* ── OutputTab tokens ─────────────────────────────── */
+  --output-thead-bg: #F8FAFC;
+  --output-row-hover: #F8FAFC;
+  --output-summary-border: #F1F5F9;
+  --output-healthy-bg: #F0FDF4;
+  --output-healthy-text: #166634;
+  --output-healthy-dot: #10B981;
+  --output-first-col: #64748B;
+
   /* ── CodePane tokens ───────────────────────────────── */
   --codepane-width: 340px;
   --codepane-bg: #1A1625;
