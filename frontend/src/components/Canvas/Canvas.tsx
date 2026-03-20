@@ -586,7 +586,7 @@ function CanvasInner({
         <Controls
           showInteractive={false}
           style={{
-            background: "#fff",
+            background: "var(--node-bg)",
             boxShadow: "0 1px 4px rgba(0,0,0,.08)",
             border: "1px solid var(--border-default)",
             borderRadius: 8,
