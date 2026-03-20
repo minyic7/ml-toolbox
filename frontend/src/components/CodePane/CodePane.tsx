@@ -1,8 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { OnMount } from "@monaco-editor/react";
+import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import CodePaneHeader from "./CodePaneHeader";
 import CodePaneFooter from "./CodePaneFooter";
+import { CODEPANE_THEME_NAME, codepaneTheme } from "./codepaneTheme";
 
 const Editor = lazy(() =>
   import("@monaco-editor/react").then((m) => ({ default: m.default })),
@@ -130,6 +131,10 @@ export default function CodePane({
     return () => el.removeEventListener("keydown", handler);
   }, [handleSave]);
 
+  const handleBeforeMount: BeforeMount = useCallback((monaco) => {
+    monaco.editor.defineTheme(CODEPANE_THEME_NAME, codepaneTheme);
+  }, []);
+
   const displayName = node.name || definition.label || node.type;
 
   return (
@@ -171,9 +176,10 @@ export default function CodePane({
           <Editor
             height="100%"
             language="python"
-            theme="vs-dark"
+            theme={CODEPANE_THEME_NAME}
             value={localCode}
             onChange={handleEditorChange}
+            beforeMount={handleBeforeMount}
             onMount={handleEditorMount}
             options={{
               minimap: { enabled: false },
