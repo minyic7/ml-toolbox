@@ -42,7 +42,7 @@ def classification(inputs: dict, params: dict) -> dict:
 
     target_column = params.get("target_column", "")
     if not target_column:
-        raise ValueError("target_column parameter is required")
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
 
     model = joblib.load(inputs["model"])
     df = pd.read_parquet(inputs["test"])
@@ -97,7 +97,7 @@ def regression(inputs: dict, params: dict) -> dict:
 
     target_column = params.get("target_column", "")
     if not target_column:
-        raise ValueError("target_column parameter is required")
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
 
     model = joblib.load(inputs["model"])
     df = pd.read_parquet(inputs["test"])

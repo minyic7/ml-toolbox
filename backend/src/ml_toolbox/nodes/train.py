@@ -92,7 +92,7 @@ def sklearn_train(inputs: dict, params: dict) -> dict:
         )
 
     if not target_column:
-        raise ValueError("target_column parameter is required")
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
 
     # Parse hyperparameters
     hyperparams = json.loads(hyperparams_str)
@@ -155,7 +155,7 @@ def sklearn_train(inputs: dict, params: dict) -> dict:
             default="binary:logistic",
             description="XGBoost learning objective",
         ),
-        "target_column": Text(default="target", description="Column name to predict", placeholder="target"),
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
         "n_estimators": Slider(min=10, max=1000, step=10, default=100, description="Number of boosting rounds"),
         "max_depth": Slider(min=1, max=20, step=1, default=6, description="Maximum tree depth per round"),
         "learning_rate": Slider(min=0.001, max=1, step=0.01, default=0.1, description="Step size shrinkage to prevent overfitting"),
@@ -175,7 +175,9 @@ def xgb_train(inputs: dict, params: dict) -> dict:
 
     df = pd.read_parquet(inputs["train"])
 
-    target_col = params.get("target_column", "target")
+    target_col = params.get("target_column", "")
+    if not target_col:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     objective = params.get("objective", "binary:logistic")
     n_estimators = int(params.get("n_estimators", 100))
     max_depth = int(params.get("max_depth", 6))
