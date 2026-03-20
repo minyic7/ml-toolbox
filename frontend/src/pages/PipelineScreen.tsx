@@ -293,7 +293,7 @@ export default function PipelineScreen() {
       if (status === "done" || status === "error" || status === "cached") {
         setRequestedTab("output");
       } else {
-        setRequestedTab(null);
+        setRequestedTab("params");
       }
     } else {
       setDrawerOpen(false);
