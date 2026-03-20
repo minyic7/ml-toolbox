@@ -49,8 +49,7 @@ def export_table(inputs: dict, params: dict) -> dict:
     else:
         df.write_parquet(out)
 
-    # Pass through the original TABLE for downstream chaining
-    return {"file": inputs["df"]}
+    return {"file": str(out)}
 
 
 @node(
@@ -80,5 +79,4 @@ def export_model(inputs: dict, params: dict) -> dict:
     out = _get_output_path(filename, ext=".joblib")
     joblib.dump(model, out)
 
-    # Pass through the original MODEL for downstream chaining
-    return {"model": inputs["model"]}
+    return {"model": str(out)}
