@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
 
 interface PipelineNameInputProps {
   name: string;
@@ -13,6 +13,7 @@ export default function PipelineNameInput({
 }: PipelineNameInputProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(name);
+  const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,15 +42,31 @@ export default function PipelineNameInput({
 
   if (!isEditing) {
     return (
-      <Button
-        variant="ghost"
-        className="font-semibold text-sm truncate max-w-60 px-1.5 py-0.5 h-auto cursor-text"
-        style={{ color: "var(--text-primary)" }}
+      <button
+        type="button"
+        className="flex items-center gap-1.5 truncate max-w-60 cursor-text bg-transparent border-none p-0"
+        style={{
+          fontFamily: "'Manrope', sans-serif",
+          fontWeight: 600,
+          fontSize: 13,
+          color: "rgba(124, 58, 237, 0.85)",
+        }}
         onClick={() => setIsEditing(true)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         title="Click to rename"
       >
-        {name}
-      </Button>
+        <span className="truncate">{name}</span>
+        <Pencil
+          className="shrink-0 transition-opacity duration-150"
+          style={{
+            width: 12,
+            height: 12,
+            opacity: isHovered ? 0.7 : 0,
+            color: "rgba(124, 58, 237, 0.85)",
+          }}
+        />
+      </button>
     );
   }
 
@@ -67,9 +84,12 @@ export default function PipelineNameInput({
           setIsEditing(false);
         }
       }}
-      className="font-semibold text-sm max-w-60 h-7 px-1.5 py-0.5"
+      className="max-w-60 h-7 px-1.5 py-0.5"
       style={{
-        color: "var(--text-primary)",
+        fontFamily: "'Manrope', sans-serif",
+        fontWeight: 600,
+        fontSize: 13,
+        color: "rgba(124, 58, 237, 0.85)",
         borderColor: "var(--accent-primary)",
       }}
     />

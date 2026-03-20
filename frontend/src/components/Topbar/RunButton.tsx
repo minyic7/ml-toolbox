@@ -1,8 +1,11 @@
 import { useEffect, useRef } from "react";
 import { useExecutionStore } from "../../store/executionStore";
-import { useRunPipeline, useCancelPipeline } from "../../hooks/useExecution";
-import { Button } from "@/components/ui/button";
-import { Play, Square } from "lucide-react";
+import { useRunPipeline } from "../../hooks/useExecution";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface RunButtonProps {
   pipelineId: string;
@@ -12,13 +15,13 @@ interface RunButtonProps {
 export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
   const pendingNodeIds = useExecutionStore((s) => s.pendingNodeIds);
+  const currentNodeId = useExecutionStore((s) => s.currentNodeId);
   const setRunning = useExecutionStore((s) => s.setRunning);
   const setCurrentNodeId = useExecutionStore((s) => s.setCurrentNodeId);
 
   const runMutation = useRunPipeline(pipelineId, nodeIds);
-  const cancelMutation = useCancelPipeline(pipelineId);
 
-  // Track initial pending count for progress calculation
+  // Track initial pending count for completion detection
   const initialCountRef = useRef(0);
 
   useEffect(() => {
@@ -30,13 +33,11 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
     }
   }, [isRunning, pendingNodeIds.length]);
 
-  // Detect pipeline completion: store removes nodes from pendingNodeIds
-  // when they reach terminal status, so length === 0 means all done.
+  // Detect pipeline completion
   useEffect(() => {
     if (!isRunning || initialCountRef.current === 0) return;
     if (pendingNodeIds.length > 0) return;
 
-    // All pending nodes have completed
     setRunning(false);
     setCurrentNodeId(null);
 
@@ -50,48 +51,79 @@ export default function RunButton({ pipelineId, nodeIds }: RunButtonProps) {
     }
   }, [isRunning, pendingNodeIds.length, setRunning, setCurrentNodeId]);
 
-  // Compute progress from how many nodes have been resolved
-  const progress =
-    isRunning && initialCountRef.current > 0
-      ? (initialCountRef.current - pendingNodeIds.length) / initialCountRef.current
-      : 0;
+  const disabled = isRunning || nodeIds.length === 0;
+  const showSpinner = isRunning;
+
+  // Resolve current node name for running state display (handled by parent Topbar)
+  void currentNodeId;
 
   return (
-    <div className="flex items-center gap-2">
-      {isRunning && (
-        <span
-          className="text-xs tabular-nums"
-          style={{ color: "var(--text-secondary)" }}
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={() => runMutation.mutate()}
+          disabled={disabled}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "0 12px",
+            height: 28,
+            borderRadius: 7,
+            border: "none",
+            background: "var(--accent-primary)",
+            color: "#FFFFFF",
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 700,
+            fontSize: 11,
+            cursor: disabled ? "not-allowed" : "pointer",
+            opacity: disabled && !isRunning ? 0.5 : 1,
+            transition: "background 0.15s, transform 0.1s",
+          }}
+          onMouseEnter={(e) => {
+            if (!disabled) e.currentTarget.style.background = "var(--primary-dark)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--accent-primary)";
+          }}
+          onMouseDown={(e) => {
+            if (!disabled) e.currentTarget.style.transform = "scale(0.97)";
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
         >
-          {Math.round(progress * 100)}%
-        </span>
+          {showSpinner ? (
+            <svg
+              className="topbar-spinner"
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+            >
+              <circle
+                cx="6"
+                cy="6"
+                r="5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeDasharray="20 10"
+                opacity="0.8"
+              />
+            </svg>
+          ) : (
+            <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+              <path d="M1 1.5v9l8-4.5z" />
+            </svg>
+          )}
+          {isRunning ? "Running…" : "Run All"}
+        </button>
+      </TooltipTrigger>
+      {nodeIds.length === 0 && !isRunning && (
+        <TooltipContent>Add nodes to the pipeline first</TooltipContent>
       )}
-
-      <Button
-        size="sm"
-        onClick={() =>
-          isRunning ? cancelMutation.mutate() : runMutation.mutate()
-        }
-        disabled={(!isRunning && nodeIds.length === 0) || cancelMutation.isPending}
-        className="text-white"
-        style={{
-          backgroundColor: isRunning
-            ? "var(--error-red)"
-            : "var(--success-green)",
-        }}
-      >
-        {isRunning ? (
-          <>
-            <Square className="h-3.5 w-3.5" />
-            Cancel
-          </>
-        ) : (
-          <>
-            <Play className="h-3.5 w-3.5" />
-            Run
-          </>
-        )}
-      </Button>
-    </div>
+    </Tooltip>
   );
 }

@@ -7,53 +7,75 @@ interface AutoSaveIndicatorProps {
 }
 
 export default function AutoSaveIndicator({ status, onRetry, retryDisabled }: AutoSaveIndicatorProps) {
+  if (status === "saving") {
+    return (
+      <span
+        className="inline-flex items-center rounded-full px-2 py-0.5 select-none"
+        style={{
+          background: "#F1EFE8",
+          color: "#888780",
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 700,
+          fontSize: 10,
+          lineHeight: "16px",
+        }}
+      >
+        Saving…
+      </span>
+    );
+  }
+
+  if (status === "saved") {
+    return (
+      <span
+        className="inline-flex items-center rounded-full px-2 py-0.5 select-none"
+        style={{
+          background: "#EAF3DE",
+          color: "#166534",
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 700,
+          fontSize: 10,
+          lineHeight: "16px",
+        }}
+      >
+        Saved ✓
+      </span>
+    );
+  }
+
+  // error state
   return (
     <span
-      className="flex items-center gap-1.5 text-xs select-none"
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 select-none"
       style={{
-        color:
-          status === "error"
-            ? "var(--error-red)"
-            : "var(--text-muted)",
+        background: "#FFF7F7",
+        color: "var(--error-red)",
+        fontFamily: "'Inter', sans-serif",
+        fontWeight: 700,
+        fontSize: 10,
+        lineHeight: "16px",
       }}
     >
-      {status === "saving" && (
-        <>
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full animate-pulse"
-            style={{ backgroundColor: "var(--warning-amber)" }}
-          />
-          Saving…
-        </>
-      )}
-      {status === "saved" && (
-        <>
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--success-green)" }}
-          />
-          Saved
-        </>
-      )}
-      {status === "error" && (
-        <>
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--error-red)" }}
-          />
-          Save failed
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              disabled={retryDisabled}
-              className="underline cursor-pointer ml-1"
-              style={{ color: "var(--error-red)", background: "none", border: "none", padding: 0, font: "inherit", fontSize: "inherit", opacity: retryDisabled ? 0.5 : 1 }}
-            >
-              Retry
-            </button>
-          )}
-        </>
+      Save failed
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={retryDisabled}
+          className="underline cursor-pointer"
+          style={{
+            color: "var(--error-red)",
+            background: "none",
+            border: "none",
+            padding: 0,
+            font: "inherit",
+            fontSize: "inherit",
+            fontWeight: "inherit",
+            opacity: retryDisabled ? 0.5 : 1,
+          }}
+        >
+          Retry
+        </button>
       )}
     </span>
   );
