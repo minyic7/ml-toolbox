@@ -20,7 +20,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   demo: "#888780",
 };
 
-/** Accent bar color for each node category (3px top bar on NodeCard) */
+/** Accent border color for each node category (4px left border on NodeCard) */
 export const CATEGORY_ACCENT_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   transform: "var(--category-transform)",

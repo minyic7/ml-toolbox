@@ -57,6 +57,10 @@
   --warning-amber-bg: rgba(245, 158, 11, 0.15);
   --success-green-bg-15: rgba(16, 185, 129, 0.15);
 
+  /* ── NodeCard-specific status colors ─────────────────── */
+  --status-pending: #A5B4FC;
+  --status-idle: #CBD5E1;
+
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;
   --category-transform: #7F77DD;
@@ -149,10 +153,15 @@ body {
   animation: shake 0.3s ease-in-out;
 }
 
-/* ── NodeCard tab hover ──────────────────────── */
-.node-card-tab:hover {
-  color: var(--text-primary) !important;
-  border-bottom-color: var(--accent-primary) !important;
+/* ── NodeActionBar hover styles ─────────────── */
+.node-action-btn:hover {
+  color: var(--text-secondary) !important;
+}
+.node-action-run:hover {
+  color: var(--border-selected) !important;
+}
+.node-action-del:hover {
+  color: var(--error-red) !important;
 }
 
 @keyframes fadeIn {

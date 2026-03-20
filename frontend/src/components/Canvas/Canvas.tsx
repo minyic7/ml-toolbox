@@ -195,11 +195,36 @@ function CanvasInner({
     [pipelineId, pipelineEdges, onDeleteEdge, queryClient],
   );
 
+  // ── Node delete with undo (needed before node conversion) ───────
+  const handleDeleteNodeWithUndo = useCallback(
+    (nodeId: string) => {
+      const node = pipelineNodes.find((n) => n.id === nodeId);
+      onDeleteNode(nodeId);
+      if (!node) return;
+
+      const snapshot = {
+        type: node.type,
+        position: { ...node.position },
+        params: Object.fromEntries(node.params.map((p) => [p.name, p.default])),
+      };
+
+      setUndoToast({
+        message: "Node deleted (edges removed)",
+        onUndo: () => {
+          addNode(pipelineId, snapshot).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          });
+        },
+      });
+    },
+    [pipelineId, pipelineNodes, onDeleteNode, queryClient],
+  );
+
   // ── Derive React Flow nodes/edges from props ───────────────────
   const rfNodesFromProps = useMemo(
     () =>
-      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, onTabClick)),
-    [pipelineNodes, nodeStatuses, nodeDefinitions, onTabClick],
+      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo)),
+    [pipelineNodes, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo],
   );
 
   const rfEdgesFromProps = useMemo(
@@ -335,30 +360,6 @@ function CanvasInner({
       onEdgesChange(changes);
     },
     [onEdgesChange],
-  );
-
-  const handleDeleteNodeWithUndo = useCallback(
-    (nodeId: string) => {
-      const node = pipelineNodes.find((n) => n.id === nodeId);
-      onDeleteNode(nodeId);
-      if (!node) return;
-
-      const snapshot = {
-        type: node.type,
-        position: { ...node.position },
-        params: Object.fromEntries(node.params.map((p) => [p.name, p.default])),
-      };
-
-      setUndoToast({
-        message: "Node deleted (edges removed)",
-        onUndo: () => {
-          addNode(pipelineId, snapshot).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
-          });
-        },
-      });
-    },
-    [pipelineId, pipelineNodes, onDeleteNode, queryClient],
   );
 
   const handleDelete = useCallback(

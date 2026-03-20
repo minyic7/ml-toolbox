@@ -18,6 +18,8 @@ export interface NodeCardData extends Record<string, unknown> {
   params: ParamDefinition[];
   code: string;
   onTabClick?: (nodeId: string, tab: string) => void;
+  onRunFrom?: (nodeId: string) => void;
+  onDeleteNode?: (nodeId: string) => void;
 }
 
 /**
@@ -29,6 +31,8 @@ export function toRFNode(
   statuses: Record<string, NodeStatus>,
   nodeDefinitions: Record<string, NodeDefinition>,
   onTabClick?: (nodeId: string, tab: string) => void,
+  onRunFrom?: (nodeId: string) => void,
+  onDeleteNode?: (nodeId: string) => void,
 ): Node<NodeCardData> {
   const def = nodeDefinitions[node.type];
   // Derive category from definition, or from the node type path (e.g. "transform/clean" → "transform")
@@ -47,6 +51,8 @@ export function toRFNode(
       params: node.params,
       code: node.code,
       onTabClick,
+      onRunFrom,
+      onDeleteNode,
     },
   };
 }
