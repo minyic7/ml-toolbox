@@ -91,6 +91,39 @@
   --category-export: #D85A30;
   --category-demo: #888780;
 
+  /* ── Bottom Drawer ─────────────────────────────────── */
+  --drawer-height: 172px;
+  --drawer-header-font: 'Manrope', sans-serif;
+  --drawer-label-font: 'Inter', sans-serif;
+
+  /* ── Code Pane (dark theme) ──────────────────────────── */
+  --codepane-width: 340px;
+  --codepane-bg: #1A1625;
+  --codepane-header-bg: #211C2E;
+  --codepane-footer-bg: #211C2E;
+  --codepane-border: #2D2640;
+  --codepane-title-color: #E2E0F0;
+  --codepane-icon-border: #3D3650;
+  --codepane-icon-color: #7C7A8E;
+  --codepane-icon-hover-bg: #2D2640;
+  --codepane-icon-hover-border: #4D4660;
+  --codepane-icon-hover-color: #E2E0F0;
+  --codepane-save-bg: #1E1A35;
+  --codepane-save-border: #4A4558;
+  --codepane-save-color: #9B8FC4;
+  --codepane-save-hover-bg: #252040;
+  --codepane-save-hover-color: #C4B9E8;
+  --codepane-tab-active-color: #9B8FC4;
+  --codepane-tab-active-border: #4A4558;
+  --codepane-syntax-keywords: #C084FC;
+  --codepane-syntax-functions: #FBBF24;
+  --codepane-syntax-strings: #86EFAC;
+  --codepane-syntax-comments: #4D4660;
+  --codepane-syntax-variables: #93C5FD;
+  --codepane-syntax-linenums: #3D3650;
+  --codepane-footer-lang: #6D6A80;
+  --codepane-unsaved-amber: #F59E0B;
+
   /* ── shadcn/ui CSS variable mapping ──────────────────── */
   --background: var(--node-bg);
   --foreground: var(--text-primary);
@@ -374,4 +407,32 @@ body {
   color: var(--text-muted);
   text-align: center;
   padding: 24px 0;
+}
+
+/* ── Bottom Drawer slide-up ────────────────────── */
+@keyframes drawerSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes drawerSlideDown {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+/* ── Code Pane slide-in ────────────────────────── */
+@keyframes codePaneSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* ── Code Pane icon button hover ──────────────── */
+.codepane-icon-btn:hover {
+  background-color: var(--codepane-icon-hover-bg) !important;
+  border-color: var(--codepane-icon-hover-border) !important;
+  color: var(--codepane-icon-hover-color) !important;
+}
+
+.codepane-icon-btn:active {
+  transform: scale(0.93);
 }
