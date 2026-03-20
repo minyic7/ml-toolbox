@@ -1,10 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import type { OutputPreview } from "../../lib/types";
-import { PORT_COLORS } from "../../lib/portColors";
 import { useOutput, useRuns } from "../../hooks/useOutputs";
 import { getOutputDownloadUrl } from "../../lib/api";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -46,50 +43,94 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
   );
 
   return (
-    <div className="flex flex-col gap-3 p-4">
-      {/* Run selector */}
+    <div className="flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* Run selector bar — always visible when runs exist */}
       {runs && runs.length > 0 && (
-        <Select
-          value={selectedRunId ?? "latest"}
-          onValueChange={(v) =>
-            setSelectedRunId(v === "latest" ? undefined : v)
-          }
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            padding: "6px 12px",
+            borderBottom: "1px solid var(--output-summary-border)",
+          }}
         >
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Latest Run" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="latest">Latest Run</SelectItem>
-            {runs.map((run) => (
-              <SelectItem key={run.id} value={run.id}>
-                {run.id.slice(0, 8)} — {formatTimestamp(run.started_at)} (
-                {run.status})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select
+            value={selectedRunId ?? "latest"}
+            onValueChange={(v) =>
+              setSelectedRunId(v === "latest" ? undefined : v)
+            }
+          >
+            <SelectTrigger
+              className="h-6"
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                border: "1px solid var(--border-default)",
+                borderRadius: 6,
+                padding: "0 8px",
+                minWidth: 100,
+                background: "transparent",
+              }}
+            >
+              <SelectValue placeholder="Latest Run" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest">Latest Run</SelectItem>
+              {runs.map((run) => (
+                <SelectItem key={run.id} value={run.id}>
+                  {run.id.slice(0, 8)} — {formatTimestamp(run.started_at)} ({run.status})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       {/* Output content */}
       {outputError ? (
         <div
-          className="flex flex-col h-32 items-center justify-center gap-2 text-sm"
-          style={{ color: "var(--text-muted)" }}
+          className="flex flex-col items-center justify-center gap-2"
+          style={{ color: "var(--text-muted)", padding: "32px 16px" }}
         >
-          <AlertCircle className="h-5 w-5" style={{ color: "var(--error-red)" }} />
-          <span>Failed to load output</span>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => refetchOutput()}>
-            <RefreshCw className="h-3 w-3" />
+          <AlertCircle style={{ width: 20, height: 20, color: "var(--error-red)" }} />
+          <span style={{ fontSize: 11, fontWeight: 600 }}>Failed to load output</span>
+          <button
+            onClick={() => refetchOutput()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 9,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              border: "1px solid var(--border-default)",
+              borderRadius: 6,
+              background: "transparent",
+              color: "var(--text-muted)",
+              padding: "4px 10px",
+              cursor: "pointer",
+            }}
+          >
+            <RefreshCw style={{ width: 10, height: 10 }} />
             Retry
-          </Button>
+          </button>
         </div>
       ) : outputLoading ? (
-        <div className="flex flex-col gap-3 p-4">
-          <div className="animate-pulse h-4 w-24 rounded" style={{ background: "var(--border-default)" }} />
-          <div className="animate-pulse h-32 rounded" style={{ background: "var(--border-default)", opacity: 0.5 }} />
+        <div className="flex flex-col gap-3" style={{ padding: 16 }}>
+          <div className="animate-pulse" style={{ height: 16, width: 96, borderRadius: 4, background: "var(--border-default)" }} />
+          <div className="animate-pulse" style={{ height: 128, borderRadius: 4, background: "var(--border-default)", opacity: 0.5 }} />
         </div>
       ) : (
-        <OutputContent output={output} downloadUrl={downloadUrl} onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined} />
+        <OutputContent
+          output={output}
+          downloadUrl={downloadUrl}
+          onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined}
+        />
       )}
     </div>
   );
@@ -107,49 +148,156 @@ function OutputContent({
   if (!output) {
     return (
       <div
-        className="flex flex-col h-32 items-center justify-center gap-2 text-sm"
-        style={{ color: "var(--text-muted)" }}
+        className="flex flex-col items-center justify-center gap-1"
+        style={{ padding: "32px 16px" }}
       >
-        No output yet. Run the pipeline to see results.
+        <span className="output-empty" style={{ padding: 0 }}>
+          No output yet
+        </span>
+        <span style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 10,
+          fontWeight: 400,
+          color: "var(--text-muted)",
+          opacity: 0.7,
+        }}>
+          Run the pipeline to see results
+        </span>
         {onRunFrom && (
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onRunFrom}>
+          <button
+            onClick={onRunFrom}
+            style={{
+              marginTop: 8,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 9,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              fontFamily: "'Inter', sans-serif",
+              border: "1px solid var(--border-default)",
+              borderRadius: 6,
+              background: "transparent",
+              color: "var(--text-muted)",
+              padding: "4px 10px",
+              cursor: "pointer",
+            }}
+          >
             ▶ Run from here
-          </Button>
+          </button>
         )}
       </div>
     );
   }
 
-  if (output.error) {
-    return <ErrorTraceback error={output.error} />;
+  if (output.type === "ERROR" || output.error) {
+    return (
+      <div style={{ padding: "8px 12px" }}>
+        <ErrorTraceback error={output.error ?? "Unknown error"} />
+      </div>
+    );
   }
 
-  const typeBadgeColor =
-    PORT_COLORS[output.type as keyof typeof PORT_COLORS] ?? "var(--text-muted)";
+  // Build summary text
+  const summaryParts: string[] = [output.type];
+  if (output.preview?.total_rows != null) {
+    summaryParts.push(`${output.preview.total_rows.toLocaleString()} rows`);
+  }
+  if (output.preview?.columns) {
+    summaryParts.push(`${output.preview.columns.length} cols`);
+  }
+  const summaryText = summaryParts.join(" · ");
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge
-            className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white border-0"
-            style={{ backgroundColor: typeBadgeColor }}
-          >
-            {output.type}
-          </Badge>
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {formatSize(output.size)}
+      {/* Summary bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 12px",
+          borderBottom: "1px solid var(--output-summary-border)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "var(--text-muted)",
+          }}>
+            {summaryText}
           </span>
+          {/* Healthy pill — shown for TABLE/METRICS/VALUE when no error */}
+          {(output.type === "TABLE" || output.type === "METRICS" || output.type === "VALUE") && !output.error && (
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "1px 8px",
+              borderRadius: 9999,
+              background: "var(--output-healthy-bg)",
+              color: "var(--output-healthy-text)",
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 9,
+              fontWeight: 700,
+            }}>
+              <span style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "var(--output-healthy-dot)",
+                display: "inline-block",
+              }} />
+              Healthy
+            </span>
+          )}
         </div>
-        <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-          <a href={downloadUrl} download>
-            <Download className="h-3 w-3" />
-            Download
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Export CSV / Download ghost button */}
+          <a
+            href={downloadUrl}
+            download
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 9,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              fontFamily: "'Inter', sans-serif",
+              border: "1px solid var(--border-default)",
+              borderRadius: 6,
+              background: "transparent",
+              color: "var(--text-muted)",
+              padding: "3px 10px",
+              cursor: "pointer",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--output-row-hover)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <Download style={{ width: 10, height: 10 }} />
+            {output.type === "TABLE" ? "Export CSV" : "Download"}
           </a>
-        </Button>
+        </div>
       </div>
 
-      {renderPreview(output)}
+      {/* Preview content */}
+      <div style={{ padding: "0 12px 8px" }}>
+        {renderPreview(output)}
+      </div>
     </>
   );
 }
@@ -159,7 +307,7 @@ function renderPreview(output: OutputPreview) {
 
   if (!preview) {
     return (
-      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+      <div className="output-empty">
         No preview available
       </div>
     );
@@ -179,24 +327,13 @@ function renderPreview(output: OutputPreview) {
       return null;
 
     case "METRICS":
-    case "VALUE":
       return <MetricsDisplay data={preview as unknown as Record<string, unknown>} />;
 
+    case "VALUE":
+      return <ValueDisplay data={preview as unknown as Record<string, unknown>} />;
+
     case "MODEL":
-      return (
-        <div className="flex flex-col gap-2">
-          <div
-            className="rounded-md border border-border p-3 text-xs"
-          >
-            <pre
-              className="whitespace-pre-wrap"
-              style={{ color: "var(--text-primary)" }}
-            >
-              {JSON.stringify(preview, null, 2)}
-            </pre>
-          </div>
-        </div>
-      );
+      return <ModelDisplay preview={preview} size={output.size} />;
 
     case "ERROR":
       return <ErrorTraceback error={JSON.stringify(preview, null, 2)} />;
@@ -204,17 +341,104 @@ function renderPreview(output: OutputPreview) {
     default:
       return (
         <div
-          className="rounded-md border border-border p-3 text-xs"
+          style={{
+            borderRadius: 6,
+            border: "1px solid var(--border-default)",
+            padding: 12,
+            marginTop: 8,
+          }}
         >
           <pre
-            className="whitespace-pre-wrap"
-            style={{ color: "var(--text-primary)" }}
+            style={{
+              whiteSpace: "pre-wrap",
+              color: "var(--text-primary)",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              margin: 0,
+            }}
           >
             {JSON.stringify(preview, null, 2)}
           </pre>
         </div>
       );
   }
+}
+
+/** VALUE type: large centered mono value with type label */
+function ValueDisplay({ data }: { data: Record<string, unknown> }) {
+  const entries = Object.entries(data);
+  // For VALUE type, show the first value prominently
+  const [key, value] = entries[0] ?? ["value", "—"];
+
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "20px 0",
+      gap: 4,
+    }}>
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 24,
+        fontWeight: 600,
+        color: "var(--text-primary)",
+      }}>
+        {typeof value === "number"
+          ? Number.isInteger(value)
+            ? value.toLocaleString()
+            : value.toFixed(4)
+          : String(value)}
+      </span>
+      <span style={{
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 10,
+        fontWeight: 400,
+        color: "var(--text-muted)",
+      }}>
+        {key}
+      </span>
+    </div>
+  );
+}
+
+/** MODEL type: class name + file size + download button */
+function ModelDisplay({ preview, size }: { preview: Record<string, unknown>; size: number }) {
+  const className = (preview.class_name as string) ?? (preview.model_class as string) ?? "Model";
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "12px 0",
+      borderRadius: 6,
+      border: "1px solid var(--border-default)",
+      marginTop: 8,
+      paddingLeft: 12,
+      paddingRight: 12,
+    }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11,
+          fontWeight: 600,
+          color: "var(--text-primary)",
+        }}>
+          {className}
+        </span>
+        <span style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 10,
+          fontWeight: 400,
+          color: "var(--text-muted)",
+        }}>
+          {formatSize(size)}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function formatSize(bytes: number): string {

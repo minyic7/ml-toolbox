@@ -6,23 +6,20 @@ interface TablePreviewProps {
 
 export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
       <div
-        className="text-xs"
-        style={{ color: "var(--text-muted)" }}
+        style={{
+          overflow: "auto",
+          maxHeight: 260,
+          borderRadius: 6,
+          border: "1px solid var(--border-default)",
+        }}
       >
-        {totalRows.toLocaleString()} rows
-      </div>
-      <div className="overflow-x-auto rounded-md border" style={{ borderColor: "var(--border-default)" }}>
-        <table className="w-full text-xs">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ backgroundColor: "var(--canvas-bg)" }}>
+            <tr>
               {columns.map((col) => (
-                <th
-                  key={col}
-                  className="px-2 py-1.5 text-left font-medium whitespace-nowrap"
-                  style={{ color: "var(--text-secondary)", borderColor: "var(--border-default)" }}
-                >
+                <th key={col} className="output-thead-th">
                   {col}
                 </th>
               ))}
@@ -30,19 +27,14 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr
-                key={i}
-                className="border-t"
-                style={{ borderColor: "var(--border-default)" }}
-              >
+              <tr key={i} className="output-row">
                 {row.map((cell, j) => (
                   <td
                     key={j}
-                    className="px-2 py-1 whitespace-nowrap"
-                    style={{ color: "var(--text-primary)" }}
+                    className={`output-td${j === 0 ? " output-td-first" : ""}`}
                   >
                     {cell === null ? (
-                      <span style={{ color: "var(--text-muted)" }}>null</span>
+                      <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>null</span>
                     ) : (
                       String(cell)
                     )}
@@ -54,10 +46,13 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
         </table>
       </div>
       {rows.length < totalRows && (
-        <div
-          className="text-xs"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <div style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 9,
+          fontWeight: 400,
+          color: "var(--text-muted)",
+          padding: "2px 0",
+        }}>
           Showing {rows.length} of {totalRows.toLocaleString()} rows
         </div>
       )}
