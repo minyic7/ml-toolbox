@@ -4,7 +4,7 @@ import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
 import { OutputTab } from "./OutputTab";
 
-type DrawerTab = "params" | "output";
+type DrawerTab = "params" | "code" | "output";
 
 interface BottomDrawerProps {
   pipelineId: string;
@@ -18,9 +18,13 @@ interface BottomDrawerProps {
   requestedRunId?: string | null;
   onRequestedRunHandled?: () => void;
   onRunFrom: (nodeId: string) => void;
+  codePaneOpen?: boolean;
+  onCodeTabClick?: () => void;
+  onCodePaneClose?: () => void;
 }
 
 const DRAWER_HEIGHT = 172;
+const DRAWER_HEADER_HEIGHT = 38;
 
 export default function BottomDrawer({
   pipelineId,
@@ -34,6 +38,9 @@ export default function BottomDrawer({
   requestedRunId,
   onRequestedRunHandled,
   onRunFrom,
+  codePaneOpen,
+  onCodeTabClick,
+  onCodePaneClose,
 }: BottomDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>("params");
 
@@ -43,18 +50,42 @@ export default function BottomDrawer({
       setActiveTab(requestedTab);
       onRequestedTabHandled?.();
     } else if (requestedTab === "code") {
-      // Code tab not in drawer — ignore, just acknowledge
+      setActiveTab("code");
+      onCodeTabClick?.();
       onRequestedTabHandled?.();
     }
-  }, [requestedTab, onRequestedTabHandled]);
+  }, [requestedTab, onRequestedTabHandled, onCodeTabClick]);
+
+  const handleTabChange = (tab: DrawerTab) => {
+    setActiveTab(tab);
+    if (tab === "code") {
+      onCodeTabClick?.();
+    } else if (codePaneOpen) {
+      // Clicking Params or Output closes the code pane
+      onCodePaneClose?.();
+    }
+  };
+
+  // When code pane closes externally, switch back to params
+  useEffect(() => {
+    if (!codePaneOpen && activeTab === "code") {
+      setActiveTab("params");
+    }
+  }, [codePaneOpen, activeTab]);
 
   const isOpen = node !== null;
+  // When code pane is open, drawer shrinks to header-only
+  const drawerHeight = isOpen
+    ? codePaneOpen
+      ? DRAWER_HEADER_HEIGHT
+      : DRAWER_HEIGHT
+    : 0;
 
   return (
     <div
       style={{
-        height: isOpen ? DRAWER_HEIGHT : 0,
-        minHeight: isOpen ? DRAWER_HEIGHT : 0,
+        height: isOpen ? drawerHeight : 0,
+        minHeight: isOpen ? drawerHeight : 0,
         overflow: "hidden",
         transition: "height 220ms ease, min-height 220ms ease",
         borderTop: isOpen ? "1px solid var(--border-default)" : "none",
@@ -68,33 +99,35 @@ export default function BottomDrawer({
             node={node}
             definition={definition}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             onClose={onClose}
           />
-          <div
-            style={{
-              height: DRAWER_HEIGHT - 38,
-              overflowY: "auto",
-            }}
-          >
-            {activeTab === "params" && (
-              <ParamsTab
-                params={definition.params}
-                values={buildParamValues(node)}
-                onChange={(name, value) => onParamChange(node.id, name, value)}
-                disabled={paramSaving}
-              />
-            )}
-            {activeTab === "output" && (
-              <OutputTab
-                pipelineId={pipelineId}
-                nodeId={node.id}
-                requestedRunId={requestedRunId}
-                onRequestedRunHandled={onRequestedRunHandled}
-                onRunFrom={() => onRunFrom(node.id)}
-              />
-            )}
-          </div>
+          {!codePaneOpen && (
+            <div
+              style={{
+                height: DRAWER_HEIGHT - DRAWER_HEADER_HEIGHT,
+                overflowY: "auto",
+              }}
+            >
+              {activeTab === "params" && (
+                <ParamsTab
+                  params={definition.params}
+                  values={buildParamValues(node)}
+                  onChange={(name, value) => onParamChange(node.id, name, value)}
+                  disabled={paramSaving}
+                />
+              )}
+              {activeTab === "output" && (
+                <OutputTab
+                  pipelineId={pipelineId}
+                  nodeId={node.id}
+                  requestedRunId={requestedRunId}
+                  onRequestedRunHandled={onRequestedRunHandled}
+                  onRunFrom={() => onRunFrom(node.id)}
+                />
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

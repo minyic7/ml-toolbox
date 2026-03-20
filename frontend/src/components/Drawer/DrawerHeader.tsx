@@ -2,7 +2,7 @@ import type { NodeInstance, NodeDefinition, NodeStatus } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
 import { X } from "lucide-react";
 
-type DrawerTab = "params" | "output";
+type DrawerTab = "params" | "code" | "output";
 
 const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
   idle: "var(--status-idle)",
@@ -17,6 +17,7 @@ const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
 
 const TABS: { key: DrawerTab; label: string; icon: string }[] = [
   { key: "params", label: "Params", icon: "▤" },
+  { key: "code", label: "Code", icon: "</>" },
   { key: "output", label: "Output", icon: "▦" },
 ];
 

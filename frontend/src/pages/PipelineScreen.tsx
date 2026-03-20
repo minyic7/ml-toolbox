@@ -10,6 +10,7 @@ import Toolbar from "../components/Toolbar/Toolbar";
 import Canvas from "../components/Canvas/Canvas";
 import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import BottomDrawer from "../components/Drawer/BottomDrawer";
+import CodePane from "../components/CodePane/CodePane";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
@@ -90,18 +91,25 @@ export default function PipelineScreen() {
   // Clear selection when switching pipelines
   useEffect(() => {
     setSelectedNodeId(null);
+    setCodePaneOpen(false);
   }, [pipelineId]);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [codePaneOpen, setCodePaneOpen] = useState(false);
 
-  // Escape key closes drawer / clears selection
+  // Escape key: close code pane first, then drawer, then clear selection
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-        if (drawerOpen) {
+        // Don't handle Escape if focus is inside Monaco editor — it handles its own
+        const el = e.target as HTMLElement;
+        if (el.closest(".monaco-editor")) return;
+        if (codePaneOpen) {
+          setCodePaneOpen(false);
+        } else if (drawerOpen) {
           setDrawerOpen(false);
           setSelectedNodeId(null);
         } else {
@@ -111,7 +119,7 @@ export default function PipelineScreen() {
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [drawerOpen]);
+  }, [drawerOpen, codePaneOpen]);
 
   // Derive selected node and definition
   const selectedNode = useMemo(
@@ -279,6 +287,8 @@ export default function PipelineScreen() {
     setSelectedNodeId(nodeId);
     if (nodeId) {
       setDrawerOpen(true);
+      // Close code pane when selecting a different node
+      setCodePaneOpen(false);
       const status = nodeStatuses[nodeId];
       if (status === "done" || status === "error" || status === "cached") {
         setRequestedTab("output");
@@ -287,6 +297,7 @@ export default function PipelineScreen() {
       }
     } else {
       setDrawerOpen(false);
+      setCodePaneOpen(false);
       setRequestedTab(null);
     }
   }, [nodeStatuses]);
@@ -320,9 +331,28 @@ export default function PipelineScreen() {
   );
 
   const handleClosePanel = useCallback(() => {
+    setCodePaneOpen(false);
     setDrawerOpen(false);
     setSelectedNodeId(null);
   }, []);
+
+  const handleCodeTabClick = useCallback(() => {
+    setCodePaneOpen(true);
+  }, []);
+
+  const handleCodePaneClose = useCallback(() => {
+    setCodePaneOpen(false);
+  }, []);
+
+  const handleCodeSave = useCallback(
+    (nodeId: string, code: string) => {
+      patchNodeMutation.mutate(
+        { nodeId, body: { code } },
+        { onError: () => toast.error("Failed to save code") },
+      );
+    },
+    [patchNodeMutation],
+  );
 
   // ── Rename ─────────────────────────────────────────────────────
   const handleRenameFromContextMenu = useCallback(
@@ -473,83 +503,98 @@ export default function PipelineScreen() {
       </ErrorBoundary>
       <DisconnectionBanner />
       <div className="flex flex-col flex-1 min-h-0">
-        <main
-          className="flex-1 min-h-0 overflow-hidden relative"
-          style={{ backgroundColor: "var(--canvas-bg)" }}
-        >
-          {showSkeleton && (
-            <div
-              className="absolute inset-0"
-              style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
-            >
-              {/* Skeleton node cards scattered like a real canvas */}
-              {[
-                { x: "15%", y: "20%", w: 210, h: 100 },
-                { x: "45%", y: "15%", w: 210, h: 120 },
-                { x: "30%", y: "55%", w: 210, h: 90 },
-              ].map((s, i) => (
-                <div
-                  key={i}
-                  className="animate-pulse absolute"
-                  style={{
-                    left: s.x,
-                    top: s.y,
-                    width: s.w,
-                    height: s.h,
-                    borderRadius: 8,
-                    border: "1px solid var(--border-default)",
-                    background: "var(--node-bg)",
-                    opacity: 0.5,
-                  }}
-                >
-                  <div
-                    style={{
-                      height: 3,
-                      margin: "0 8px",
-                      borderRadius: "0 0 2px 2px",
-                      background: "var(--border-default)",
-                      opacity: 0.5,
-                    }}
-                  />
-                </div>
-              ))}
-              {/* Skeleton edge lines */}
-              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.2 }}>
-                <line x1="calc(15% + 232px)" y1="calc(20% + 50px)" x2="45%" y2="calc(15% + 60px)" stroke="var(--border-default)" strokeWidth="2" />
-                <line x1="calc(45% + 116px)" y1="calc(15% + 120px)" x2="calc(30% + 116px)" y2="55%" stroke="var(--border-default)" strokeWidth="2" />
-              </svg>
-            </div>
-          )}
-          <div
+        {/* Horizontal flex: canvas (+ optional code pane) */}
+        <div className="flex flex-1 min-h-0">
+          <main
+            className="flex-1 min-h-0 overflow-hidden relative"
             style={{
-              opacity: showSkeleton ? 0 : 1,
-              transition: "opacity 150ms ease-out",
-              height: "100%",
+              backgroundColor: "var(--canvas-bg)",
+              transition: "width 250ms ease",
             }}
           >
-          <ErrorBoundary key={pipelineId} variant="compact">
-          <Canvas
-            pipelineId={pipelineId}
-            pipelineNodes={pipeline.nodes}
-            pipelineEdges={pipeline.edges}
-            nodeDefinitions={nodeDefinitions}
-            onNodePositionChange={handleNodePositionChange}
-            onConnect={handleConnect}
-            onDeleteNode={handleDeleteNode}
-            onDeleteEdge={handleDeleteEdge}
-            onPatchEdge={handlePatchEdge}
-            onDropNode={handleDropNode}
-            onRunFrom={handleRunFrom}
-            onNodeSelect={handleNodeSelect}
-            onTabClick={handleTabClick}
-            onRenameNode={handleRenameFromContextMenu}
-            onDuplicateNode={handleDuplicateNode}
-            onPasteNodes={handlePasteNodes}
-            viewportCenterRef={viewportCenterRef}
-          />
-          </ErrorBoundary>
-          </div>
-        </main>
+            {showSkeleton && (
+              <div
+                className="absolute inset-0"
+                style={{ backgroundColor: "var(--canvas-bg)", zIndex: 10 }}
+              >
+                {[
+                  { x: "15%", y: "20%", w: 210, h: 100 },
+                  { x: "45%", y: "15%", w: 210, h: 120 },
+                  { x: "30%", y: "55%", w: 210, h: 90 },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    className="animate-pulse absolute"
+                    style={{
+                      left: s.x,
+                      top: s.y,
+                      width: s.w,
+                      height: s.h,
+                      borderRadius: 8,
+                      border: "1px solid var(--border-default)",
+                      background: "var(--node-bg)",
+                      opacity: 0.5,
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: 3,
+                        margin: "0 8px",
+                        borderRadius: "0 0 2px 2px",
+                        background: "var(--border-default)",
+                        opacity: 0.5,
+                      }}
+                    />
+                  </div>
+                ))}
+                <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.2 }}>
+                  <line x1="calc(15% + 232px)" y1="calc(20% + 50px)" x2="45%" y2="calc(15% + 60px)" stroke="var(--border-default)" strokeWidth="2" />
+                  <line x1="calc(45% + 116px)" y1="calc(15% + 120px)" x2="calc(30% + 116px)" y2="55%" stroke="var(--border-default)" strokeWidth="2" />
+                </svg>
+              </div>
+            )}
+            <div
+              style={{
+                opacity: showSkeleton ? 0 : 1,
+                transition: "opacity 150ms ease-out",
+                height: "100%",
+              }}
+            >
+            <ErrorBoundary key={pipelineId} variant="compact">
+            <Canvas
+              pipelineId={pipelineId}
+              pipelineNodes={pipeline.nodes}
+              pipelineEdges={pipeline.edges}
+              nodeDefinitions={nodeDefinitions}
+              onNodePositionChange={handleNodePositionChange}
+              onConnect={handleConnect}
+              onDeleteNode={handleDeleteNode}
+              onDeleteEdge={handleDeleteEdge}
+              onPatchEdge={handlePatchEdge}
+              onDropNode={handleDropNode}
+              onRunFrom={handleRunFrom}
+              onNodeSelect={handleNodeSelect}
+              onTabClick={handleTabClick}
+              onRenameNode={handleRenameFromContextMenu}
+              onDuplicateNode={handleDuplicateNode}
+              onPasteNodes={handlePasteNodes}
+              viewportCenterRef={viewportCenterRef}
+            />
+            </ErrorBoundary>
+            </div>
+          </main>
+
+          {/* Code pane — slides in from right */}
+          {codePaneOpen && selectedNode && selectedDefinition && (
+            <CodePane
+              node={selectedNode}
+              definition={selectedDefinition}
+              onSave={handleCodeSave}
+              onClose={handleCodePaneClose}
+            />
+          )}
+        </div>
+
         <ErrorBoundary key={pipelineId} variant="compact">
         <BottomDrawer
           pipelineId={pipelineId}
@@ -563,6 +608,9 @@ export default function PipelineScreen() {
           onRunFrom={handleRunFrom}
           requestedRunId={requestedRunId}
           onRequestedRunHandled={() => setRequestedRunId(null)}
+          codePaneOpen={codePaneOpen}
+          onCodeTabClick={handleCodeTabClick}
+          onCodePaneClose={handleCodePaneClose}
         />
         </ErrorBoundary>
       </div>
