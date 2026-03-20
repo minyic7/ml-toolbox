@@ -8,8 +8,12 @@ import {
   useDeletePipeline,
   useDuplicatePipeline,
 } from "../hooks/usePipeline";
-import { createPipeline } from "../lib/api";
-import type { PipelineListItem } from "../lib/types";
+import {
+  createPipeline,
+  getPipeline,
+  updatePipeline,
+} from "../lib/api";
+import type { Pipeline, PipelineListItem } from "../lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -169,21 +173,35 @@ function PipelineCard({
     }
   }, [draft, pipeline.name, onRename]);
 
-  const handleDelete = useCallback(() => {
-    const name = pipeline.name;
+  const handleDelete = useCallback(async () => {
+    let snapshot: Pipeline | undefined;
+    try {
+      snapshot = await getPipeline(pipeline.id);
+    } catch {
+      // If we can't fetch the full data, fall back to name-only restore
+    }
     onDelete();
-    toast(`Deleted '${name}'`, {
+    toast(`Deleted '${pipeline.name}'`, {
       action: {
         label: "Undo",
         onClick: () => {
-          createPipeline({ name }).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["pipelines"] });
-          });
+          createPipeline({ name: snapshot?.name ?? pipeline.name })
+            .then((created) => {
+              if (snapshot) {
+                return updatePipeline(created.id, {
+                  ...snapshot,
+                  id: created.id,
+                });
+              }
+            })
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ["pipelines"] });
+            });
         },
       },
       duration: 4000,
     });
-  }, [pipeline.name, onDelete, queryClient]);
+  }, [pipeline.id, pipeline.name, onDelete, queryClient]);
 
   return (
     <div
