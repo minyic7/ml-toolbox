@@ -152,7 +152,11 @@ function PipelineCard({
     const trimmed = draft.trim();
     if (!trimmed) {
       inputRef.current?.classList.add("shake");
-      setTimeout(() => inputRef.current?.classList.remove("shake"), 300);
+      setTimeout(() => {
+        inputRef.current?.classList.remove("shake");
+        setDraft(pipeline.name);
+        setIsRenaming(false);
+      }, 300);
       return;
     }
     setIsRenaming(false);
