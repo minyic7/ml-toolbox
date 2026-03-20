@@ -344,7 +344,9 @@ export default function PipelineScreen() {
 
   const handleRename = useCallback(
     (nodeId: string, name: string) => {
-      patchNodeMutation.mutate({ nodeId, body: { name } });
+      patchNodeMutation.mutate({ nodeId, body: { name } }, {
+        onError: () => toast.error("Failed to rename node"),
+      });
     },
     [patchNodeMutation],
   );
@@ -374,6 +376,8 @@ export default function PipelineScreen() {
         params: node.params,
         code: node.code,
         name: `${baseName} (copy)`,
+      }, {
+        onError: () => toast.error("Failed to duplicate node"),
       });
     },
     [pipeline, addNodeMutation],
@@ -416,6 +420,8 @@ export default function PipelineScreen() {
               target,
               targetPort: e.targetPort,
               ...(e.condition ? { condition: e.condition } : {}),
+            }, {
+              onError: () => toast.error("Failed to create edge during paste"),
             });
           }
         }
