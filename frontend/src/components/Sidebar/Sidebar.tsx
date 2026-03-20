@@ -137,6 +137,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
           className="h-6 w-6 text-[var(--text-secondary)]"
           onClick={() => setOpen((v) => !v)}
           title={open ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
         >
           {open ? "\u00AB" : "\u00BB"}
         </Button>
