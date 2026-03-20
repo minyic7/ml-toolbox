@@ -1,5 +1,7 @@
 /* ── Shared run status constants, color maps, and utility functions ── */
 
+import type { GlobalRunRecord } from "./types";
+
 /* 1. Status keys */
 export const RUN_STATUSES = ["done", "error", "cancelled"] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
@@ -41,7 +43,31 @@ export const ARTIFACT_TYPE_COLORS: Record<string, { bg: string; color: string }>
   svg: { bg: "var(--artifact-png-bg)", color: "var(--artifact-png-text)" },
 };
 
-/* 6. Formatting helpers */
+/* 6. Date grouping helpers */
+export function dateLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (today.getTime() - target.getTime()) / 86_400_000;
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function groupByDate(runs: GlobalRunRecord[]): [string, GlobalRunRecord[]][] {
+  const groups = new Map<string, GlobalRunRecord[]>();
+  for (const run of runs) {
+    const label = dateLabel(run.started_at);
+    const list = groups.get(label);
+    if (list) list.push(run);
+    else groups.set(label, [run]);
+  }
+  return Array.from(groups.entries());
+}
+
+/* 7. Formatting helpers */
+
 export function formatDuration(seconds: number | null): string {
   if (seconds == null) return "\u2014";
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -64,7 +90,7 @@ export function relativeTime(iso: string): string {
   return `${diffDay}d ago`;
 }
 
-/* 7. Pipeline dot color helper */
+/* 8. Pipeline dot color helper */
 const PIPELINE_DOT_COLORS = [
   "var(--category-ingest)",
   "var(--category-transform)",

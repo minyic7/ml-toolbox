@@ -1,6 +1,6 @@
 import { CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import type { GlobalRunRecord } from "../../lib/types";
-import { formatDuration, relativeTime, pipelineDotColor } from "../../lib/runConstants";
+import { formatDuration, relativeTime, pipelineDotColor, groupByDate } from "../../lib/runConstants";
 import TinyDag from "./TinyDag";
 
 interface RunListProps {
@@ -8,28 +8,6 @@ interface RunListProps {
   selectedRunId: string | null;
   onSelectRun: (runId: string) => void;
   isLoading: boolean;
-}
-
-function dateLabel(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diff = (today.getTime() - target.getTime()) / 86_400_000;
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function groupByDate(runs: GlobalRunRecord[]): [string, GlobalRunRecord[]][] {
-  const groups = new Map<string, GlobalRunRecord[]>();
-  for (const run of runs) {
-    const label = dateLabel(run.started_at);
-    const list = groups.get(label);
-    if (list) list.push(run);
-    else groups.set(label, [run]);
-  }
-  return Array.from(groups.entries());
 }
 
 const STATUS_ICON_COLOR: Record<string, string> = {
