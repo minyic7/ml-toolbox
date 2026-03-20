@@ -222,26 +222,42 @@ class TestNodeConnections:
 
         run = _run_and_wait(client, pid, tmp_path)
 
-        # Verify split produced two TABLE outputs
+        # Verify split produced two TABLE outputs (train + test)
         resp = client.get(
             f"/api/pipelines/{pid}/outputs/{split['id']}?run_id={run['id']}"
         )
         assert resp.status_code == 200
+        split_out = resp.json()
+        assert "outputs" in split_out, "Split should produce multiple output files"
+        assert len(split_out["outputs"]) == 2, "Split should produce exactly 2 outputs"
 
-        # Verify train produced model + metrics
+        # Verify train produced model + metrics (multi-output)
         resp = client.get(
             f"/api/pipelines/{pid}/outputs/{train['id']}?run_id={run['id']}"
         )
         assert resp.status_code == 200
+        train_out = resp.json()
+        assert "outputs" in train_out, "Train should produce multiple output files"
+        train_types = {o["type"] for o in train_out["outputs"]}
+        assert "joblib" in train_types, "Train should produce a joblib model file"
+        assert "json" in train_types, "Train should produce a json metrics file"
 
-        # Verify classification produced metrics
+        # Verify classification produced metrics with expected keys
         resp = client.get(
             f"/api/pipelines/{pid}/outputs/{evaluate['id']}?run_id={run['id']}"
         )
         assert resp.status_code == 200
-        output = resp.json()
-        # Classification metrics output is JSON
-        assert output["type"] == "json"
+        eval_out = resp.json()
+        assert eval_out["type"] == "json"
+        # Download metrics and verify content
+        resp = client.get(
+            f"/api/pipelines/{pid}/outputs/{evaluate['id']}/download?run_id={run['id']}"
+        )
+        assert resp.status_code == 200
+        metrics = json.loads(resp.content)
+        for key in ("accuracy", "precision", "recall", "f1", "confusion_matrix"):
+            assert key in metrics, f"Classification metrics missing '{key}'"
+        assert 0.0 <= metrics["accuracy"] <= 1.0
 
     def test_c_four_hop_chain(self, client: TestClient, tmp_path: Path):
         """4-hop: Generate → Clean → Feature Eng → Split → sklearn Train.
@@ -278,6 +294,28 @@ class TestNodeConnections:
             assert resp.status_code == 200, (
                 f"No output for node {node['id']}"
             )
+
+        # Download and verify intermediate TABLE outputs are valid parquet
+        import io
+        import pyarrow.parquet as pq
+
+        for node_ref, label in ((gen, "gen"), (clean, "clean"), (feat, "feat")):
+            resp = client.get(
+                f"/api/pipelines/{pid}/outputs/{node_ref['id']}/download?run_id={run['id']}"
+            )
+            assert resp.status_code == 200, f"Could not download {label} output"
+            table = pq.read_table(io.BytesIO(resp.content))
+            assert table.num_rows > 0, f"{label} output should have rows"
+
+        # Verify train produced both model and metrics
+        resp = client.get(
+            f"/api/pipelines/{pid}/outputs/{train['id']}?run_id={run['id']}"
+        )
+        train_out = resp.json()
+        assert "outputs" in train_out, "Train should produce multiple output files"
+        train_types = {o["type"] for o in train_out["outputs"]}
+        assert "joblib" in train_types, "Train should produce a model file"
+        assert "json" in train_types, "Train should produce a metrics file"
 
     def test_d_cache_hit_on_rerun(self, client: TestClient, tmp_path: Path):
         """Cache: run twice — second run (run_from) hardlinks upstream cached nodes.
