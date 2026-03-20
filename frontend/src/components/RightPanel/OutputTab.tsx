@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download } from "lucide-react";
+import { Download, AlertCircle, RefreshCw } from "lucide-react";
 import { TablePreview } from "./TablePreview";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { ErrorTraceback } from "./ErrorTraceback";
@@ -38,7 +38,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
   }, [requestedRunId, onRequestedRunHandled]);
 
   const { data: runs } = useRuns(pipelineId);
-  const { data: output = null, isLoading: outputLoading } = useOutput(pipelineId, nodeId, selectedRunId);
+  const { data: output = null, isLoading: outputLoading, isError: outputError, refetch: refetchOutput } = useOutput(pipelineId, nodeId, selectedRunId);
 
   const downloadUrl = useMemo(
     () => getOutputDownloadUrl(pipelineId, nodeId, selectedRunId),
@@ -71,7 +71,19 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
       )}
 
       {/* Output content */}
-      {outputLoading ? (
+      {outputError ? (
+        <div
+          className="flex flex-col h-32 items-center justify-center gap-2 text-sm"
+          style={{ color: "var(--text-muted)" }}
+        >
+          <AlertCircle className="h-5 w-5" style={{ color: "var(--error-red)" }} />
+          <span>Failed to load output</span>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => refetchOutput()}>
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
+      ) : outputLoading ? (
         <div className="flex flex-col gap-3 p-4">
           <div className="animate-pulse h-4 w-24 rounded" style={{ background: "var(--border-default)" }} />
           <div className="animate-pulse h-32 rounded" style={{ background: "var(--border-default)", opacity: 0.5 }} />
