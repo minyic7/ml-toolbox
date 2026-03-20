@@ -205,6 +205,10 @@ test.describe("Canvas smoke tests", () => {
       timeout: 5000,
     });
 
+    // Right panel should NOT be visible before any node is clicked
+    const rightPanelParamsTab = page.getByRole("button", { name: "Params" }).nth(1);
+    await expect(rightPanelParamsTab).not.toBeVisible();
+
     // Add a node
     await page.locator("text=Generate Data").click();
     await expect(page.locator(".react-flow__node")).toBeVisible({
@@ -214,10 +218,39 @@ test.describe("Canvas smoke tests", () => {
     // Click the node on canvas to select it
     await page.locator(".react-flow__node").click();
 
-    // Right panel should open with tabs (use .nth(1) to target panel tabs, not node card tabs)
-    await expect(page.getByRole("button", { name: "Params" }).nth(1)).toBeVisible({ timeout: 3000 });
+    // Right panel should now be open with tabs
+    await expect(rightPanelParamsTab).toBeVisible({ timeout: 3000 });
     await expect(page.getByRole("button", { name: "Code" }).nth(1)).toBeVisible();
     await expect(page.getByRole("button", { name: "Output" }).nth(1)).toBeVisible();
+  });
+
+  test("shows error toast when backend returns 500 on node creation", async ({
+    page,
+  }) => {
+    await page.goto(`/ml-toolbox/pipeline/${PIPELINE_FIXTURE.id}`);
+    await expect(page.locator("text=Generate Data")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Override the node creation mock to return 500
+    await page.route("**/api/pipelines/*/nodes", (route) => {
+      if (route.request().method() === "POST") {
+        route.fulfill({ status: 500, body: "Internal Server Error" });
+      } else {
+        route.continue();
+      }
+    });
+
+    // Click sidebar node to trigger the failing POST
+    await page.locator("text=Generate Data").click();
+
+    // Error toast should appear
+    await expect(page.locator("text=Failed to add node")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Page should not crash — sidebar and topbar still visible
+    await expect(page.locator("text=Clean Data")).toBeVisible();
   });
 
   test("run button is visible and disabled with no nodes", async ({
