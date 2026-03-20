@@ -48,6 +48,11 @@
   --success-green: #10B981;
   --error-red: #9E3F4E;
   --warning-amber: #F59E0B;
+  --dot-grid: #ACB3B8;
+  --error-red-bg: rgba(158, 63, 78, 0.08);
+  --error-red-border: rgba(158, 63, 78, 0.15);
+  --success-green-bg: rgba(16, 185, 129, 0.08);
+  --success-green-border: rgba(16, 185, 129, 0.15);
 
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;

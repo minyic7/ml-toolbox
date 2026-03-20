@@ -544,7 +544,7 @@ function CanvasInner({
         width: "100%",
         height: "100%",
         background: "var(--canvas-bg)",
-        backgroundImage: "radial-gradient(circle, #ACB3B8 1px, transparent 1px)",
+        backgroundImage: "radial-gradient(circle, var(--dot-grid) 1px, transparent 1px)",
         backgroundSize: "24px 24px",
         position: "relative",
       }}
@@ -579,7 +579,7 @@ function CanvasInner({
         proOptions={{ hideAttribution: true }}
         style={{ background: "var(--canvas-bg)" }}
       >
-        <Background gap={24} size={1} color="#ACB3B8" />
+        <Background gap={24} size={1} color="var(--dot-grid)" />
         <Controls
           showInteractive={false}
           style={{ borderRadius: 8, border: "1px solid var(--border-default)" }}

@@ -300,8 +300,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             padding: "4px 12px",
             fontSize: 11,
             color: "var(--error-red)",
-            background: "rgba(158,63,78,0.08)",
-            borderTop: "1px solid rgba(158,63,78,0.15)",
+            background: "var(--error-red-bg)",
+            borderTop: "1px solid var(--error-red-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -335,8 +335,8 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             padding: "4px 12px",
             fontSize: 11,
             color: "var(--success-green)",
-            background: "rgba(16,185,129,0.08)",
-            borderTop: "1px solid rgba(16,185,129,0.15)",
+            background: "var(--success-green-bg)",
+            borderTop: "1px solid var(--success-green-border)",
           }}
         >
           ↩ using cached output
