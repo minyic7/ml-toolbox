@@ -7,6 +7,7 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5173/ml-toolbox/",
     headless: true,
+    viewport: { width: 1280, height: 720 },
   },
   webServer: {
     command: "pnpm dev",

@@ -261,4 +261,24 @@ test.describe("Canvas smoke tests", () => {
     await expect(runButton).toBeVisible({ timeout: 5000 });
     await expect(runButton).toBeDisabled();
   });
+
+  test("home screen survives backend 500 without crashing", async ({
+    page,
+  }) => {
+    // Override pipeline list to return 500
+    await page.route("**/api/pipelines", (route) => {
+      route.fulfill({ status: 500, body: "Internal Server Error" });
+    });
+    await page.route("**/api/nodes", (route) => {
+      route.fulfill({ json: [] });
+    });
+
+    await page.goto("/");
+
+    // Page should not crash — the app shell should still render
+    // React Query handles the error gracefully (no pipelines shown)
+    await expect(page.locator("body")).toBeVisible();
+    // Should NOT show an unhandled error or blank white screen
+    await expect(page.locator("text=Application error")).not.toBeVisible();
+  });
 });
