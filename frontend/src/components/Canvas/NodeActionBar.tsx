@@ -27,23 +27,6 @@ function NodeActionBar({ visible, onRun, onCode, onDelete }: NodeActionBarProps)
           e.stopPropagation();
           onRun?.();
         }}
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 3,
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          fontSize: 9,
-          fontFamily: "'Inter', sans-serif",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-          color: "var(--text-muted)",
-          padding: 0,
-        }}
       >
         <svg width="8" height="9" viewBox="0 0 8 9" fill="currentColor">
           <path d="M1 1.5v6l6-3-6-3z" />
@@ -55,23 +38,6 @@ function NodeActionBar({ visible, onRun, onCode, onDelete }: NodeActionBarProps)
         onClick={(e) => {
           e.stopPropagation();
           onCode?.();
-        }}
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 3,
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          fontSize: 9,
-          fontFamily: "'Inter', sans-serif",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-          color: "var(--text-muted)",
-          padding: 0,
         }}
       >
         <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -85,23 +51,6 @@ function NodeActionBar({ visible, onRun, onCode, onDelete }: NodeActionBarProps)
         onClick={(e) => {
           e.stopPropagation();
           onDelete?.();
-        }}
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 3,
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          fontSize: 9,
-          fontFamily: "'Inter', sans-serif",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-          color: "var(--text-muted)",
-          padding: 0,
         }}
       >
         <svg width="9" height="10" viewBox="0 0 9 10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">

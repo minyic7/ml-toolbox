@@ -161,15 +161,37 @@ body {
   animation: shake 0.3s ease-in-out;
 }
 
-/* ── NodeActionBar hover styles ─────────────── */
+/* ── NodeActionBar styles ──────────────────── */
+.node-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  transition: color 150ms ease;
+}
 .node-action-btn:hover {
-  color: var(--text-secondary) !important;
+  color: var(--text-secondary);
+}
+.node-action-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
 }
 .node-action-run:hover {
-  color: var(--border-selected) !important;
+  color: var(--border-selected);
 }
 .node-action-del:hover {
-  color: var(--error-red) !important;
+  color: var(--error-red);
 }
 
 @keyframes fadeIn {
