@@ -36,6 +36,11 @@ describe("formatDuration", () => {
     expect(formatDuration(0)).toBe("0s");
   });
 
+  it("shows <1s for sub-second durations", () => {
+    expect(formatDuration(0.3)).toBe("<1s");
+    expect(formatDuration(0.9)).toBe("<1s");
+  });
+
   it("returns seconds for values < 60", () => {
     expect(formatDuration(30)).toBe("30s");
   });

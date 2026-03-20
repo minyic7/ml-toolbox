@@ -70,6 +70,7 @@ export function groupByDate(runs: GlobalRunRecord[]): [string, GlobalRunRecord[]
 
 export function formatDuration(seconds: number | null): string {
   if (seconds == null) return "\u2014";
+  if (seconds > 0 && seconds < 1) return "<1s";
   if (seconds < 60) return `${Math.round(seconds)}s`;
   if (seconds < 3600) {
     const m = Math.floor(seconds / 60);
