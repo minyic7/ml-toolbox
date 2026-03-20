@@ -66,6 +66,8 @@ export default function PipelineScreen() {
   }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId]);
 
   // Pipeline switch transition: show skeleton while fetching new pipeline
+  const viewportCenterRef = useRef<(() => { x: number; y: number }) | null>(null);
+  const clickAddCountRef = useRef(0);
   const prevPipelineIdRef = useRef(pipelineId);
   const [switched, setSwitched] = useState(false);
 
@@ -254,8 +256,11 @@ export default function PipelineScreen() {
 
   const handleAddNodeFromSidebar = useCallback(
     (nodeType: string) => {
+      const center = viewportCenterRef.current?.() ?? { x: 250, y: 150 };
+      const n = clickAddCountRef.current++;
+      const position = { x: center.x + n * 220, y: center.y };
       addNodeMutation.mutate(
-        { type: nodeType, position: { x: 250, y: 150 } },
+        { type: nodeType, position },
         { onError: () => toast.error("Failed to add node") },
       );
     },
@@ -561,6 +566,7 @@ export default function PipelineScreen() {
             onRenameNode={handleRenameFromContextMenu}
             onDuplicateNode={handleDuplicateNode}
             onPasteNodes={handlePasteNodes}
+            viewportCenterRef={viewportCenterRef}
           />
           </div>
         </main>

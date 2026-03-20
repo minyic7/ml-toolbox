@@ -4,6 +4,7 @@ interface CanvasContextMenuProps {
   x: number;
   y: number;
   onFitView: () => void;
+  onSelectAll: () => void;
   onPaste?: () => void;
   hasCopied?: boolean;
   onClose: () => void;
@@ -13,6 +14,7 @@ export default function CanvasContextMenu({
   x,
   y,
   onFitView,
+  onSelectAll,
   onPaste,
   hasCopied,
   onClose,
@@ -35,6 +37,16 @@ export default function CanvasContextMenu({
           }}
         >
           Fit view
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-8 px-2 text-[13px] font-normal"
+          onClick={() => {
+            onSelectAll();
+            onClose();
+          }}
+        >
+          Select all
         </Button>
         {onPaste && (
           <Button
