@@ -42,23 +42,27 @@ class ConnectionManager:
 # Singleton instance
 manager = ConnectionManager()
 
+# Captured at startup so background threads can schedule coroutines on it.
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+
+def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Store a reference to the main async event loop."""
+    global _main_loop
+    _main_loop = loop
+
 
 def broadcast_sync(pipeline_id: str, message: dict[str, Any]) -> None:
     """Thread-safe bridge: schedule an async broadcast from a sync context.
 
     Called by the executor running in a background thread.
     """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                manager.broadcast(pipeline_id, message), loop
-            )
-        else:
-            loop.run_until_complete(manager.broadcast(pipeline_id, message))
-    except RuntimeError:
-        # No event loop available — skip broadcast silently
-        pass
+    if _main_loop is None or _main_loop.is_closed():
+        logger.warning("broadcast_sync: no event loop available, dropping message")
+        return
+    asyncio.run_coroutine_threadsafe(
+        manager.broadcast(pipeline_id, message), _main_loop
+    )
 
 
 @router.websocket("/pipelines/{pipeline_id}")
