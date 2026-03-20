@@ -98,15 +98,26 @@ export function useExecutionSocket(pipelineId: string | undefined) {
         // Check pipeline completion: all pending nodes resolved
         const updated = useExecutionStore.getState();
         if (updated.isRunning && updated.pendingNodeIds.length === 0) {
-          const hasError = Object.values(updated.nodeStatuses).some(
-            (s) => s === "error",
-          );
+          const statuses = Object.values(updated.nodeStatuses);
+          const hasError = statuses.some((s) => s === "error");
           const result = hasError ? "error" : "success";
           store.setRunResult(result);
+
+          // Build summary
+          const total = statuses.length;
+          const done = statuses.filter((s) => s === "done").length;
+          const cached = statuses.filter((s) => s === "cached").length;
+          const errors = statuses.filter((s) => s === "error").length;
+          const skipped = statuses.filter((s) => s === "skipped").length;
+
           if (result === "success") {
-            toast.success("Pipeline completed");
+            const parts = [`${total} nodes`];
+            if (cached > 0) parts.push(`${cached} cached`);
+            toast.success(`Pipeline completed: ${parts.join(", ")}`);
           } else {
-            toast.error("Pipeline failed");
+            toast.error(
+              `Pipeline failed: ${errors} error(s), ${done} succeeded, ${skipped} skipped`,
+            );
           }
           store.setRunning(false);
           store.setCurrentNodeId(null);
