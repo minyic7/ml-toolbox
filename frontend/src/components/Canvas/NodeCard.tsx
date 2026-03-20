@@ -23,25 +23,25 @@ const STATUS_BORDERS: Record<
   NodeStatus,
   { width: string; style: string; color: string }
 > = {
-  idle: { width: "1px", style: "solid", color: "#E2E8F0" },
-  dirty: { width: "1px", style: "dashed", color: "#E2E8F0" },
+  idle: { width: "1px", style: "solid", color: "var(--border-default)" },
+  dirty: { width: "1px", style: "dashed", color: "var(--border-default)" },
   pending: { width: "1px", style: "solid", color: "#B5D4F4" },
-  running: { width: "1.5px", style: "solid", color: "#4A4558" },
-  done: { width: "1.5px", style: "solid", color: "#10B981" },
-  error: { width: "1.5px", style: "solid", color: "#9E3F4E" },
-  skipped: { width: "1.5px", style: "solid", color: "#F59E0B" },
-  cached: { width: "1.5px", style: "solid", color: "#F59E0B" },
+  running: { width: "1.5px", style: "solid", color: "var(--accent-primary)" },
+  done: { width: "1.5px", style: "solid", color: "var(--success-green)" },
+  error: { width: "1.5px", style: "solid", color: "var(--error-red)" },
+  skipped: { width: "1.5px", style: "solid", color: "var(--warning-amber)" },
+  cached: { width: "1.5px", style: "solid", color: "var(--warning-amber)" },
 };
 
 const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
-  idle: "#E2E8F0",
-  dirty: "#E2E8F0",
+  idle: "var(--border-default)",
+  dirty: "var(--border-default)",
   pending: "#B5D4F4",
-  running: "#4A4558",
-  done: "#10B981",
-  error: "#9E3F4E",
-  skipped: "#F59E0B",
-  cached: "#10B981",
+  running: "var(--accent-primary)",
+  done: "var(--success-green)",
+  error: "var(--error-red)",
+  skipped: "var(--warning-amber)",
+  cached: "var(--success-green)",
 };
 
 // ── Tab bar types ──────────────────────────────────────────────────
@@ -149,7 +149,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             style={{
               width: "100%",
               height: "100%",
-              background: `linear-gradient(90deg, transparent 0%, var(--accent-blue) 50%, transparent 100%)`,
+              background: `linear-gradient(90deg, transparent 0%, var(--accent-primary) 50%, transparent 100%)`,
               animation: "shimmer 1.5s ease-in-out infinite",
             }}
           />
@@ -210,7 +210,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
               borderRadius: "50%",
               background: STATUS_DOT_COLORS[status],
               flexShrink: 0,
-              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px #10B981` : undefined,
+              boxShadow: isCached ? `0 0 0 2px var(--node-bg), 0 0 0 3px var(--success-green)` : undefined,
             }}
           />
         </span>

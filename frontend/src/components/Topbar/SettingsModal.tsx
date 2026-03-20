@@ -54,7 +54,7 @@ export default function SettingsModal({
             className="relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors"
             style={{
               backgroundColor: settings.keep_outputs
-                ? "var(--accent-blue)"
+                ? "var(--accent-primary)"
                 : "var(--border-default)",
             }}
           >

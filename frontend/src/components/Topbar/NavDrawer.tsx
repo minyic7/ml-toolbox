@@ -57,7 +57,7 @@ export default function NavDrawer({
                   style={{
                     backgroundColor:
                       p.id === currentPipelineId
-                        ? "var(--accent-blue)"
+                        ? "var(--accent-primary)"
                         : "transparent",
                     color:
                       p.id === currentPipelineId

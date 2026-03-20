@@ -44,7 +44,7 @@
   --text-primary: #1E293B;
   --text-secondary: #475569;
   --text-muted: #94A3B8;
-  --accent-blue: #4A4558;
+  --accent-primary: #4A4558;
   --success-green: #10B981;
   --error-red: #9E3F4E;
   --warning-amber: #F59E0B;
@@ -60,7 +60,7 @@
   /* ── shadcn/ui CSS variable mapping ──────────────────── */
   --background: var(--node-bg);
   --foreground: var(--text-primary);
-  --primary: var(--accent-blue);
+  --primary: var(--accent-primary);
   --primary-foreground: #FFFFFF;
   --secondary: var(--canvas-bg);
   --secondary-foreground: var(--text-primary);
@@ -74,7 +74,7 @@
   --popover-foreground: var(--text-primary);
   --border: var(--border-default);
   --input: var(--border-default);
-  --ring: var(--accent-blue);
+  --ring: var(--accent-primary);
 }
 
 @keyframes pulse {
@@ -144,7 +144,7 @@ body {
 /* ── NodeCard tab hover ──────────────────────── */
 .node-card-tab:hover {
   color: var(--text-primary) !important;
-  border-bottom-color: var(--accent-blue) !important;
+  border-bottom-color: var(--accent-primary) !important;
 }
 
 @keyframes fadeIn {

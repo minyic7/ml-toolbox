@@ -70,7 +70,7 @@ export default function PipelineNameInput({
       className="font-semibold text-sm max-w-60 h-7 px-1.5 py-0.5"
       style={{
         color: "var(--text-primary)",
-        borderColor: "var(--accent-blue)",
+        borderColor: "var(--accent-primary)",
       }}
     />
   );

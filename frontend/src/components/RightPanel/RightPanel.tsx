@@ -172,7 +172,7 @@ export function RightPanel({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-[var(--text-muted)] hover:text-[var(--accent-blue)]"
+                className="h-6 w-6 text-[var(--text-muted)] hover:text-[var(--accent-primary)]"
                 onClick={() => onRunFrom(node.id)}
                 aria-label="Run from this node"
                 title="Run from this node"
@@ -202,11 +202,11 @@ export function RightPanel({
                 style={{
                   color:
                     activeTab === tab.key
-                      ? "var(--accent-blue)"
+                      ? "var(--accent-primary)"
                       : "var(--text-muted)",
                   borderBottom:
                     activeTab === tab.key
-                      ? "2px solid var(--accent-blue)"
+                      ? "2px solid var(--accent-primary)"
                       : "2px solid transparent",
                 }}
               >

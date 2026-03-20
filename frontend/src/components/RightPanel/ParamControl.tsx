@@ -123,7 +123,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
               }
             }}
             className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
-            style={{ accentColor: "var(--accent-blue)" }}
+            style={{ accentColor: "var(--accent-primary)" }}
           />
         </div>
       );
@@ -184,7 +184,7 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
             className="relative h-5 w-9 rounded-full transition-colors duration-200"
             style={{
               backgroundColor: checked
-                ? "var(--accent-blue)"
+                ? "var(--accent-primary)"
                 : "var(--border-default)",
             }}
           >

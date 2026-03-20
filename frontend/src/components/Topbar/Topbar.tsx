@@ -168,7 +168,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
               ? "var(--error-red)"
               : runResult === "success"
                 ? "var(--success-green)"
-                : "var(--accent-blue)",
+                : "var(--accent-primary)",
             opacity: runResult ? 1 : undefined,
           }}
         />
@@ -203,7 +203,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
           <span
             className="flex items-center gap-1.5 text-xs"
             style={{
-              color: "var(--accent-blue)",
+              color: "var(--accent-primary)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -218,7 +218,7 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
                 width: 6,
                 height: 6,
                 borderRadius: "50%",
-                background: "var(--accent-blue)",
+                background: "var(--accent-primary)",
                 flexShrink: 0,
               }}
             />
