@@ -34,10 +34,8 @@ class TestExportTableCSV:
             {"df": str(sample_parquet)},
             {"format": "csv", "filename": "output"},
         )
-        # Output passes through original input for chaining
-        assert result["file"] == str(sample_parquet)
-
         out = tmp_path / "output.csv"
+        assert result["file"] == str(out)
         assert out.exists()
         assert out.suffix == ".csv"
 
@@ -58,10 +56,8 @@ class TestExportTableParquet:
             {"df": str(sample_parquet)},
             {"format": "parquet", "filename": "output"},
         )
-        # Output passes through original input for chaining
-        assert result["file"] == str(sample_parquet)
-
         out = tmp_path / "output.parquet"
+        assert result["file"] == str(out)
         assert out.exists()
         assert out.suffix == ".parquet"
 
@@ -81,10 +77,8 @@ class TestExportTableFilename:
             {"df": str(sample_parquet)},
             {"format": "csv", "filename": "my_export"},
         )
-        # Output passes through original input for chaining
-        assert result["file"] == str(sample_parquet)
-
         out = tmp_path / "my_export.csv"
+        assert result["file"] == str(out)
         assert out.exists()
         assert out.name == "my_export.csv"
 
@@ -112,10 +106,8 @@ class TestExportModelJoblib:
             {"model": str(sample_model)},
             {"filename": "model"},
         )
-        # Passthrough for chaining
-        assert result["model"] == str(sample_model)
-
         out = tmp_path / "model.joblib"
+        assert result["model"] == str(out)
         assert out.exists()
         assert out.suffix == ".joblib"
 
@@ -132,9 +124,8 @@ class TestExportModelJoblib:
             {"model": str(sample_model)},
             {"filename": "my_model"},
         )
-        assert result["model"] == str(sample_model)
-
         out = tmp_path / "my_model.joblib"
+        assert result["model"] == str(out)
         assert out.exists()
         assert out.name == "my_model.joblib"
 
