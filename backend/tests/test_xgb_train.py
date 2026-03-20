@@ -86,10 +86,13 @@ def test_classification_model_is_fitted(tmp_path: Path):
             },
         )
 
-    # Model should be a fitted XGBClassifier (raw object, not path)
-    model = result["model"]
+    # Model should be a file path to a joblib-serialized XGBClassifier
+    import joblib
     from xgboost import XGBClassifier
 
+    model_path = Path(result["model"])
+    assert model_path.exists()
+    model = joblib.load(model_path)
     assert isinstance(model, XGBClassifier)
     # Fitted models have a classes_ attribute
     assert hasattr(model, "classes_")
@@ -121,9 +124,12 @@ def test_regression_with_squarederror(tmp_path: Path):
             },
         )
 
+    import joblib
     from xgboost import XGBRegressor
 
-    model = result["model"]
+    model_path = Path(result["model"])
+    assert model_path.exists()
+    model = joblib.load(model_path)
     assert isinstance(model, XGBRegressor)
 
     import json
@@ -153,7 +159,9 @@ def test_custom_hyperparameters_applied(tmp_path: Path):
             },
         )
 
-    model = result["model"]
+    import joblib
+
+    model = joblib.load(result["model"])
     assert model.n_estimators == 200
     assert model.max_depth == 10
     assert model.learning_rate == 0.05

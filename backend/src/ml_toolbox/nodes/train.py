@@ -235,9 +235,14 @@ def xgb_train(inputs: dict, params: dict) -> dict:
             "f1": float(f1_score(y_test, preds, average="weighted")),
         }
 
+    # Save model
+    import joblib
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(model, model_path)
+
     # Save metrics as JSON
     metrics_path = _get_output_path("xgb_metrics", ext=".json")
     metrics_path.write_text(json.dumps(metrics))
 
-    # Return raw model object — sandbox runner auto-serializes via joblib
-    return {"model": model, "metrics": str(metrics_path)}
+    return {"model": str(model_path), "metrics": str(metrics_path)}
