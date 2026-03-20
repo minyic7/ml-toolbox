@@ -1,8 +1,13 @@
-import { useEffect, useRef } from "react";
 import type { PipelineListItem } from "../../lib/types";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { X, Plus } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Plus } from "lucide-react";
 
 interface NavDrawerProps {
   open: boolean;
@@ -21,50 +26,13 @@ export default function NavDrawer({
   onSelect,
   onCreate,
 }: NavDrawerProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div
-        ref={panelRef}
-        className="fixed top-0 left-0 h-full w-72 z-50 shadow-lg overflow-y-auto bg-background"
-        style={{ animation: "fadeIn 0.15s ease-out" }}
-      >
+    <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <SheetContent side="left" className="w-72" aria-describedby={undefined}>
         <div className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2
-              className="text-sm font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Pipelines
-            </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-[var(--text-secondary)]"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <SheetHeader>
+            <SheetTitle>Pipelines</SheetTitle>
+          </SheetHeader>
 
           <Button
             className="w-full mb-3"
@@ -114,7 +82,7 @@ export default function NavDrawer({
             ))}
           </ul>
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

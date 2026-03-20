@@ -1,8 +1,13 @@
-import { useEffect, useRef } from "react";
 import type { RunInfo } from "../../lib/types";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { X, Trash2, Eye } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Trash2, Eye } from "lucide-react";
 
 interface HistoryDrawerProps {
   open: boolean;
@@ -19,49 +24,13 @@ export default function HistoryDrawer({
   onDeleteRun,
   onViewRun,
 }: HistoryDrawerProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div
-        ref={panelRef}
-        className="fixed top-0 right-0 h-full w-80 z-50 shadow-lg overflow-y-auto bg-background"
-      >
+    <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <SheetContent side="right" className="w-80" aria-describedby={undefined}>
         <div className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2
-              className="text-sm font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Run History
-            </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-[var(--text-secondary)]"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <SheetHeader>
+            <SheetTitle>Run History</SheetTitle>
+          </SheetHeader>
 
           <Separator className="mb-4" />
 
@@ -160,7 +129,7 @@ export default function HistoryDrawer({
             </>
           )}
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
