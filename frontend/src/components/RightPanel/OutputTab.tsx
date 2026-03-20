@@ -44,6 +44,52 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
 
   return (
     <div className="flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* Run selector bar — always visible when runs exist */}
+      {runs && runs.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            padding: "6px 12px",
+            borderBottom: "1px solid var(--output-summary-border)",
+          }}
+        >
+          <Select
+            value={selectedRunId ?? "latest"}
+            onValueChange={(v) =>
+              setSelectedRunId(v === "latest" ? undefined : v)
+            }
+          >
+            <SelectTrigger
+              className="h-6"
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                border: "1px solid var(--border-default)",
+                borderRadius: 6,
+                padding: "0 8px",
+                minWidth: 100,
+                background: "transparent",
+              }}
+            >
+              <SelectValue placeholder="Latest Run" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest">Latest Run</SelectItem>
+              {runs.map((run) => (
+                <SelectItem key={run.id} value={run.id}>
+                  {run.id.slice(0, 8)} — {formatTimestamp(run.started_at)} ({run.status})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Output content */}
       {outputError ? (
         <div
@@ -83,9 +129,6 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
         <OutputContent
           output={output}
           downloadUrl={downloadUrl}
-          runs={runs}
-          selectedRunId={selectedRunId}
-          onSelectRunId={setSelectedRunId}
           onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined}
         />
       )}
@@ -96,16 +139,10 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
 function OutputContent({
   output,
   downloadUrl,
-  runs,
-  selectedRunId,
-  onSelectRunId,
   onRunFrom,
 }: {
   output: OutputPreview | null;
   downloadUrl: string;
-  runs?: { id: string; started_at: string; status: string }[];
-  selectedRunId?: string;
-  onSelectRunId: (v: string | undefined) => void;
   onRunFrom?: () => void;
 }) {
   if (!output) {
@@ -227,42 +264,6 @@ function OutputContent({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Run selector dropdown */}
-          {runs && runs.length > 0 && (
-            <Select
-              value={selectedRunId ?? "latest"}
-              onValueChange={(v) =>
-                onSelectRunId(v === "latest" ? undefined : v)
-              }
-            >
-              <SelectTrigger
-                className="h-6"
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  fontFamily: "'Inter', sans-serif",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  border: "1px solid var(--border-default)",
-                  borderRadius: 6,
-                  padding: "0 8px",
-                  minWidth: 100,
-                  background: "transparent",
-                }}
-              >
-                <SelectValue placeholder="Latest Run" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="latest">Latest Run</SelectItem>
-                {runs.map((run) => (
-                  <SelectItem key={run.id} value={run.id}>
-                    {run.id.slice(0, 8)} — {formatTimestamp(run.started_at)} ({run.status})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
           {/* Export CSV / Download ghost button */}
           <a
             href={downloadUrl}
