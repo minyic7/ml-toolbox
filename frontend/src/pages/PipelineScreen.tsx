@@ -375,7 +375,7 @@ export default function PipelineScreen() {
     async (
       pastedNodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>,
       pastedEdges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>,
-    ) => {
+    ): Promise<string[]> => {
       // Create all nodes in parallel and collect new IDs (order preserved)
       const results = await Promise.allSettled(
         pastedNodes.map((n) =>
@@ -418,6 +418,7 @@ export default function PipelineScreen() {
           );
         }
       }
+      return newIds;
     },
     [addNodeMutation, addEdgeMutation],
   );

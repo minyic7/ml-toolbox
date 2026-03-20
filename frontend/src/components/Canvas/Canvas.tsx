@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   ReactFlow,
   Background,
@@ -69,7 +70,7 @@ interface CanvasProps {
   onTabClick?: (nodeId: string, tab: string) => void;
   onRenameNode?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
-  onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>, edges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>) => void;
+  onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>, edges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>) => Promise<string[]>;
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -475,6 +476,7 @@ function CanvasInner({
           }));
         clipboardRef.current = { nodes: copiedNodes, edges: copiedEdges };
         pasteCountRef.current = 0;
+        toast.success(`Copied ${selected.length} node(s)`);
         return;
       }
 
@@ -492,7 +494,12 @@ function CanvasInner({
             code: c.code,
           })),
           clipboardRef.current.edges,
-        );
+        ).then((newIds) => {
+          const idSet = new Set(newIds.filter(Boolean));
+          if (idSet.size > 0) {
+            setNodes((nds) => nds.map((n) => ({ ...n, selected: idSet.has(n.id) })));
+          }
+        });
         return;
       }
     };
@@ -602,7 +609,12 @@ function CanvasInner({
                 code: c.code,
               })),
               clipboardRef.current.edges,
-            );
+            ).then((newIds) => {
+              const idSet = new Set(newIds.filter(Boolean));
+              if (idSet.size > 0) {
+                setNodes((nds) => nds.map((n) => ({ ...n, selected: idSet.has(n.id) })));
+              }
+            });
           } : undefined}
           hasCopied={clipboardRef.current.nodes.length > 0}
           onClose={closeMenus}
