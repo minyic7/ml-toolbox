@@ -196,10 +196,10 @@ function OutputContent({
     );
   }
 
-  if (output.error) {
+  if (output.type === "ERROR" || output.error) {
     return (
       <div style={{ padding: "8px 12px" }}>
-        <ErrorTraceback error={output.error} />
+        <ErrorTraceback error={output.error ?? "Unknown error"} />
       </div>
     );
   }
