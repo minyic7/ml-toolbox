@@ -115,8 +115,3 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       lastDoneNodeId: null,
     }),
 }));
-
-// Expose store on window in dev/test so Playwright can drive state changes.
-if (import.meta.env.DEV) {
-  (window as unknown as Record<string, unknown>).__EXECUTION_STORE__ = useExecutionStore;
-}

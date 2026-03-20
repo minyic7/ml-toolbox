@@ -13,8 +13,7 @@ const PIPELINE = {
 
 /**
  * Install API mocks so the pipeline page loads without a real backend.
- * WS connections are aborted so the socket hook immediately enters
- * "reconnecting" state (onerror → onclose → setWsStatus("reconnecting")).
+ * WS connections are intercepted via routeWebSocket (not aborted).
  */
 async function mockAPIs(page: import("@playwright/test").Page) {
   await page.route("**/api/pipelines/" + PIPELINE_ID, (route) =>
@@ -36,44 +35,51 @@ async function mockAPIs(page: import("@playwright/test").Page) {
   await page.route("**/api/health", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ok" }) }),
   );
-  // Abort WS so the socket hook fires onerror → onclose immediately.
-  await page.route("**/ws/**", (route) => route.abort());
-}
-
-/** Helper: set wsStatus on the Zustand execution store via the dev-mode window bridge. */
-async function setWsStatus(page: import("@playwright/test").Page, status: string) {
-  await page.evaluate((s) => {
-    const store = (window as Record<string, unknown>).__EXECUTION_STORE__ as {
-      getState: () => { setWsStatus: (v: string) => void };
-    };
-    store.getState().setWsStatus(s);
-  }, status);
 }
 
 test.describe("WebSocket disconnection banner", () => {
   test("banner appears with 'Connection lost' text on disconnect", async ({ page }) => {
     await mockAPIs(page);
+
+    // Intercept the WebSocket: accept the connection, then close it to simulate disconnect.
+    await page.routeWebSocket("**/ws/**", (ws) => {
+      // Connection is accepted — app enters "connected" state via onopen.
+      // Wait briefly so the app processes the connected state, then close.
+      setTimeout(() => ws.close(), 500);
+    });
+
     await page.goto(`./pipeline/${PIPELINE_ID}`);
 
-    // WS is aborted → hook sets wsStatus = "reconnecting" → amber banner shows.
+    // After WS closes, the hook sets wsStatus = "reconnecting" → amber banner shows.
     const banner = page.getByText("Connection lost. Reconnecting\u2026");
     await expect(banner).toBeVisible({ timeout: 10_000 });
   });
 
   test("banner shows 'Reconnected' and auto-dismisses on reconnect", async ({ page }) => {
     await mockAPIs(page);
+
+    let connectionCount = 0;
+
+    await page.routeWebSocket("**/ws/**", (ws) => {
+      connectionCount++;
+      if (connectionCount === 1) {
+        // First connection: accept then close after a brief moment to trigger disconnect.
+        setTimeout(() => ws.close(), 500);
+      }
+      // Subsequent connections: keep open — app reconnects and enters "connected" state.
+    });
+
     await page.goto(`./pipeline/${PIPELINE_ID}`);
 
     // Wait for the disconnect banner first.
     const disconnectBanner = page.getByText("Connection lost. Reconnecting\u2026");
     await expect(disconnectBanner).toBeVisible({ timeout: 10_000 });
 
-    // Simulate reconnection via the Zustand store.
-    await setWsStatus(page, "connected");
-
+    // The hook's backoff timer will reconnect. The second routeWebSocket call
+    // keeps the connection open, so onopen fires → wsStatus = "connected".
     // Green "Reconnected" banner should appear.
     const reconnectedBanner = page.getByText("Reconnected");
-    await expect(reconnectedBanner).toBeVisible({ timeout: 5_000 });
+    await expect(reconnectedBanner).toBeVisible({ timeout: 15_000 });
 
     // Banner auto-dismisses after ~2 s.
     await expect(reconnectedBanner).not.toBeVisible({ timeout: 5_000 });
