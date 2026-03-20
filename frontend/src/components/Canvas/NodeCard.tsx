@@ -447,6 +447,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       {/* Action bar — visible on hover or selected */}
       <NodeActionBar
         visible={hovered || !!selected}
+        nodeId={id}
         onRun={() => onRunFrom?.(id)}
         onCode={() => onTabClick?.(id, "code")}
       />
