@@ -59,6 +59,24 @@ export function normalizeNodeParams(nodes: Array<{ params: unknown }>): void {
   }
 }
 
+// ── File upload ────────────────────────────────────────────────────
+
+export async function uploadFile(
+  file: File,
+): Promise<{ path: string; filename: string; size: number }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${basePath}/api/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Upload failed: ${res.status} ${res.statusText}: ${body}`);
+  }
+  return res.json();
+}
+
 // ── Health ──────────────────────────────────────────────────────────
 
 export function getHealth() {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Info } from "lucide-react";
+import { Info, Upload } from "lucide-react";
 import type { ParamDefinition } from "../../lib/types";
+import { uploadFile } from "../../lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -46,6 +47,8 @@ function ParamLabel({ param }: { param: ParamDefinition }) {
 export function ParamControl({ param, value, onChange, disabled }: ParamControlProps) {
   const [textValue, setTextValue] = useState(String(value ?? param.default ?? ""));
   const [textError, setTextError] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync text value when external value changes (e.g. revert on error)
   useEffect(() => {
@@ -153,36 +156,75 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
 
     case "text": {
       const isNumeric = typeof (param.default ?? value) === "number";
+      const isPathParam = param.name === "path";
       return (
         <div className="flex flex-col gap-1.5" style={disabledStyle}>
           <ParamLabel param={param} />
-          <Input
-            type="text"
-            value={textValue}
-            disabled={disabled}
-            placeholder={param.placeholder ?? ""}
-            onChange={(e) => {
-              setTextValue(e.target.value);
-              setTextError(false);
-            }}
-            onBlur={() => {
-              if (isNumeric) {
-                const num = Number(textValue);
-                if (isNaN(num)) {
-                  setTextError(true);
-                  return;
+          <div className="flex gap-1.5">
+            <Input
+              type="text"
+              value={textValue}
+              disabled={disabled}
+              placeholder={param.placeholder ?? ""}
+              onChange={(e) => {
+                setTextValue(e.target.value);
+                setTextError(false);
+              }}
+              onBlur={() => {
+                if (isNumeric) {
+                  const num = Number(textValue);
+                  if (isNaN(num)) {
+                    setTextError(true);
+                    return;
+                  }
+                  debouncedOnChange(param.name, num);
+                } else {
+                  debouncedOnChange(param.name, textValue);
                 }
-                debouncedOnChange(param.name, num);
-              } else {
-                debouncedOnChange(param.name, textValue);
-              }
-            }}
-            className="h-8 text-sm"
-            style={textError ? { borderColor: "var(--error-red)" } : undefined}
-          />
+              }}
+              className="h-8 text-sm flex-1"
+              style={textError ? { borderColor: "var(--error-red)" } : undefined}
+            />
+            {isPathParam && (
+              <>
+                <button
+                  type="button"
+                  disabled={disabled || uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 px-2 border rounded text-xs shrink-0 hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                  style={{ borderColor: "var(--border-default)" }}
+                  title="Upload file"
+                >
+                  <Upload size={14} />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".csv,.parquet,.tsv,.json"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploading(true);
+                    try {
+                      const result = await uploadFile(file);
+                      onChange(param.name, result.path);
+                      setTextValue(result.path);
+                    } catch {
+                      setTextError(true);
+                    } finally {
+                      setUploading(false);
+                      // Reset so re-selecting the same file triggers onChange
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </>
+            )}
+          </div>
           {textError && (
             <span className="text-[10px]" role="alert" aria-live="polite" style={{ color: "var(--error-red)" }}>
-              Must be a valid number
+              {isPathParam ? "Upload failed" : "Must be a valid number"}
             </span>
           )}
         </div>
