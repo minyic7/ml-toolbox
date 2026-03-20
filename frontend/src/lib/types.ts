@@ -109,7 +109,9 @@ export interface OutputPreview {
 export interface RunInfo {
   id: string;
   started_at: string;
+  completed_at: string | null;
   status: string;
+  duration: number | null; // seconds
 }
 
 // ── Global Runs (cross-pipeline) ──────────────────────────────────
