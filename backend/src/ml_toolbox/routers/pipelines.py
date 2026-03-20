@@ -540,7 +540,7 @@ def _find_output_file(run_dir: Path, node_id: str) -> Path | None:
     candidates = [
         f
         for f in run_dir.glob(f"{node_id}_*")
-        if not f.name.endswith((".json", ".hash", ".txt"))
+        if not _is_internal_file(f)
     ]
     if candidates:
         return candidates[0]
@@ -548,7 +548,7 @@ def _find_output_file(run_dir: Path, node_id: str) -> Path | None:
     candidates = [
         f
         for f in run_dir.glob(f"{node_id}.*")
-        if not f.name.endswith((".json", ".hash", ".txt"))
+        if not _is_internal_file(f)
     ]
     return candidates[0] if candidates else None
 
@@ -588,6 +588,12 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
             }
         except Exception:
             pass
+    elif ext == ".json":
+        try:
+            data = json.loads(output_file.read_text())
+            meta["preview"] = data
+        except Exception:
+            pass
     elif ext == ".joblib":
         # MODEL output: show file size only.
         # We intentionally do NOT call joblib.load() here because joblib
@@ -601,6 +607,17 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
     return meta
 
 
+def _is_internal_file(f: Path) -> bool:
+    """Return True for internal metadata files that are not node outputs."""
+    name = f.name
+    if name.endswith((".hash", ".txt")):
+        return True
+    # Exclude internal manifest/result/error JSON files but keep
+    # legitimate node output JSON (e.g. metrics.json).
+    _INTERNAL_SUFFIXES = ("_manifest.json", "_manifest_result.json", "_manifest_error.json")
+    return any(name.endswith(s) for s in _INTERNAL_SUFFIXES)
+
+
 def _output_metadata(run_dir: Path, node_id: str) -> dict:
     """Build output metadata for a node.
 
@@ -611,14 +628,14 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
     output_files = [
         f
         for f in run_dir.glob(f"{node_id}_*")
-        if not f.name.endswith((".json", ".hash", ".txt"))
+        if not _is_internal_file(f)
     ]
     if not output_files:
         # Also check for direct node_id.* files
         output_files = [
             f
             for f in run_dir.glob(f"{node_id}.*")
-            if not f.name.endswith((".json", ".hash", ".txt"))
+            if not _is_internal_file(f)
         ]
     if not output_files:
         raise HTTPException(status_code=404, detail="Output not found")

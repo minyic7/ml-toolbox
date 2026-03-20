@@ -28,6 +28,8 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
 )
 def export_table(inputs: dict, params: dict) -> dict:
     """Export a TABLE to CSV or Parquet for download."""
+    from pathlib import Path
+
     import polars as pl
 
     df = pl.read_parquet(inputs["df"])
@@ -63,6 +65,8 @@ def export_table(inputs: dict, params: dict) -> dict:
 )
 def export_model(inputs: dict, params: dict) -> dict:
     """Export a MODEL to a downloadable .joblib file."""
+    from pathlib import Path
+
     import joblib
 
     filename = params.get("filename", "model")
