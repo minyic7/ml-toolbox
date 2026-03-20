@@ -22,7 +22,7 @@ try:
 except Exception:
     _has_docker = False
 
-pytestmark = pytest.mark.skipif(not _has_docker, reason="Docker not available")
+_docker_required = pytest.mark.skipif(not _has_docker, reason="Docker not available")
 
 SANDBOX_IMAGE = "ml-toolbox-sandbox"
 
@@ -154,6 +154,7 @@ def _create_pipeline(client: TestClient, name: str) -> str:
 class TestNodeConnections:
     """End-to-end connection matrix tests through real Docker sandbox."""
 
+    @_docker_required
     def test_a_table_chain(self, client: TestClient, tmp_path: Path):
         """TABLE→TABLE→TABLE: Generate → Clean → Export Table.
 
@@ -195,6 +196,7 @@ class TestNodeConnections:
         assert table.num_rows == 100
         assert "value_a" in table.column_names
 
+    @_docker_required
     def test_b_multi_output_node(self, client: TestClient, tmp_path: Path):
         """Multi-output: Generate → Split → sklearn Train → Classification.
 
@@ -259,6 +261,7 @@ class TestNodeConnections:
             assert key in metrics, f"Classification metrics missing '{key}'"
         assert 0.0 <= metrics["accuracy"] <= 1.0
 
+    @_docker_required
     def test_c_four_hop_chain(self, client: TestClient, tmp_path: Path):
         """4-hop: Generate → Clean → Feature Eng → Split → sklearn Train.
 
@@ -317,6 +320,7 @@ class TestNodeConnections:
         assert "joblib" in train_types, "Train should produce a model file"
         assert "json" in train_types, "Train should produce a metrics file"
 
+    @_docker_required
     def test_d_cache_hit_on_rerun(self, client: TestClient, tmp_path: Path):
         """Cache: run twice — second run (run_from) hardlinks upstream cached nodes.
 
@@ -387,6 +391,7 @@ class TestNodeConnections:
         table = pq.read_table(io.BytesIO(resp.content))
         assert table.num_rows == 100
 
+    @_docker_required
     def test_e_branching_pipeline(self, client: TestClient, tmp_path: Path):
         """Branching: Split → [Train A, Train B].
 
