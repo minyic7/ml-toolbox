@@ -2,8 +2,11 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import CodePaneHeader from "./CodePaneHeader";
+import type { CodePaneTab } from "./CodePaneHeader";
 import CodePaneFooter from "./CodePaneFooter";
 import { CODEPANE_THEME_NAME, codepaneTheme } from "./codepaneTheme";
+import { ParamsTab } from "../Drawer/ParamsTab";
+import { OutputTab } from "../Drawer/OutputTab";
 
 const Editor = lazy(() =>
   import("@monaco-editor/react").then((m) => ({ default: m.default })),
@@ -14,6 +17,10 @@ interface CodePaneProps {
   definition: NodeDefinition;
   onSave: (nodeId: string, code: string) => void;
   onClose: () => void;
+  pipelineId: string;
+  onParamChange: (nodeId: string, name: string, value: unknown) => void;
+  paramSaving?: boolean;
+  onRunFrom?: (nodeId: string) => void;
 }
 
 export default function CodePane({
@@ -21,7 +28,12 @@ export default function CodePane({
   definition,
   onSave,
   onClose,
+  pipelineId,
+  onParamChange,
+  paramSaving,
+  onRunFrom,
 }: CodePaneProps) {
+  const [activeTab, setActiveTab] = useState<CodePaneTab>("code");
   const [localCode, setLocalCode] = useState(node.code);
   const [unsaved, setUnsaved] = useState(false);
   const lastSavedRef = useRef(node.code);
@@ -155,55 +167,104 @@ export default function CodePane({
         onSave={handleSave}
         onClose={onClose}
         hasDefault={!!definition.default_code}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
 
-      {/* Editor area */}
-      <div className="flex-1 min-h-0" onBlur={handleBlur}>
-        <Suspense
-          fallback={
-            <div
-              className="flex items-center justify-center h-full"
-              style={{
-                color: "var(--codepane-icon-color)",
-                fontFamily: "'Inter', sans-serif",
+      {/* Tab content */}
+      {activeTab === "code" && (
+        <div className="flex-1 min-h-0" onBlur={handleBlur}>
+          <Suspense
+            fallback={
+              <div
+                className="flex items-center justify-center h-full"
+                style={{
+                  color: "var(--codepane-icon-color)",
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: 11,
+                }}
+              >
+                Loading editor...
+              </div>
+            }
+          >
+            <Editor
+              height="100%"
+              language="python"
+              theme={CODEPANE_THEME_NAME}
+              value={localCode}
+              onChange={handleEditorChange}
+              beforeMount={handleBeforeMount}
+              onMount={handleEditorMount}
+              options={{
+                minimap: { enabled: false },
+                lineNumbers: "on",
+                fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 11,
+                lineHeight: 1.8 * 11,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                padding: { top: 12 },
+                wordWrap: "on",
+                renderLineHighlight: "none",
+                overviewRulerBorder: false,
+                hideCursorInOverviewRuler: true,
+                scrollbar: {
+                  verticalScrollbarSize: 6,
+                  horizontalScrollbarSize: 6,
+                },
               }}
-            >
-              Loading editor...
-            </div>
-          }
-        >
-          <Editor
-            height="100%"
-            language="python"
-            theme={CODEPANE_THEME_NAME}
-            value={localCode}
-            onChange={handleEditorChange}
-            beforeMount={handleBeforeMount}
-            onMount={handleEditorMount}
-            options={{
-              minimap: { enabled: false },
-              lineNumbers: "on",
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 11,
-              lineHeight: 1.8 * 11,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              padding: { top: 12 },
-              wordWrap: "on",
-              renderLineHighlight: "none",
-              overviewRulerBorder: false,
-              hideCursorInOverviewRuler: true,
-              scrollbar: {
-                verticalScrollbarSize: 6,
-                horizontalScrollbarSize: 6,
-              },
-            }}
-          />
-        </Suspense>
-      </div>
+            />
+          </Suspense>
+        </div>
+      )}
 
-      <CodePaneFooter unsaved={unsaved} />
+      {activeTab === "params" && (
+        <div
+          style={{
+            background: "#1A1625",
+            color: "#E2E0F0",
+            padding: 12,
+            overflowY: "auto",
+            flex: 1,
+          }}
+        >
+          <ParamsTab
+            params={definition.params}
+            values={buildParamValues(node)}
+            onChange={(name, value) => onParamChange(node.id, name, value)}
+            disabled={paramSaving}
+          />
+        </div>
+      )}
+
+      {activeTab === "output" && (
+        <div
+          style={{
+            background: "#1A1625",
+            color: "#E2E0F0",
+            padding: 12,
+            overflowY: "auto",
+            flex: 1,
+          }}
+        >
+          <OutputTab
+            pipelineId={pipelineId}
+            nodeId={node.id}
+            onRunFrom={onRunFrom ? () => onRunFrom(node.id) : undefined}
+          />
+        </div>
+      )}
+
+      <CodePaneFooter unsaved={unsaved} activeTab={activeTab} />
     </div>
   );
+}
+
+function buildParamValues(node: NodeInstance): Record<string, unknown> {
+  const values: Record<string, unknown> = {};
+  for (const p of node.params) {
+    values[p.name] = p.default;
+  }
+  return values;
 }

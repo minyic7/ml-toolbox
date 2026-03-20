@@ -591,6 +591,10 @@ export default function PipelineScreen() {
               definition={selectedDefinition}
               onSave={handleCodeSave}
               onClose={handleCodePaneClose}
+              pipelineId={pipelineId}
+              onParamChange={handleParamChange}
+              paramSaving={patchNodeMutation.isPending}
+              onRunFrom={handleRunFrom}
             />
           )}
         </div>
