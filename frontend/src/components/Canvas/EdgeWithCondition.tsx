@@ -113,6 +113,7 @@ export default function EdgeWithCondition({
 
   return (
     <g onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <title>Hover to add a condition or delete this connection</title>
       {/* Invisible wider path for easier hover targeting */}
       <path
         d={edgePath}
@@ -172,6 +173,17 @@ export default function EdgeWithCondition({
             ×
           </button>
         </EdgeLabelRenderer>
+      )}
+      {/* Subtle dot hint at midpoint when no condition exists */}
+      {!condition && !editing && (
+        <circle
+          cx={labelX}
+          cy={labelY - 16}
+          r={3}
+          fill="var(--text-muted)"
+          opacity={0.35}
+          style={{ transition: "opacity 0.15s" }}
+        />
       )}
       {/* "+ Condition" button on hover when no condition exists */}
       {hovered && !condition && !editing && onPatchEdge && (
