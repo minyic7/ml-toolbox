@@ -17,6 +17,7 @@ const CATEGORY_CHIP_COLORS: Record<
 > = {
   ingest: { bg: "#EFF8F4", border: "#BBF7D0", icon: "#166534", dot: "#1D9E75" },
   preprocessing: { bg: "#FFF7ED", border: "#FDBA74", icon: "#9A3412", dot: "#F97316" },
+  eda: { bg: "#F0F9FF", border: "#BAE6FD", icon: "#0369A1", dot: "#0EA5E9" },
 };
 
 const DEFAULT_CHIP_COLORS = { bg: "#F8F9FB", border: "#E2E8F0", icon: "#64748B", dot: "#888780" };
@@ -28,7 +29,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
 };
 
 /** Stable category ordering */
-const CATEGORY_ORDER = ["ingest", "preprocessing"];
+const CATEGORY_ORDER = ["ingest", "preprocessing", "eda"];
 
 interface ToolbarProps {
   onAddNode: (nodeType: string) => void;

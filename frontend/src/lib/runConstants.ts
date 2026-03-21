@@ -100,6 +100,7 @@ export function relativeTime(iso: string): string {
 const PIPELINE_DOT_COLORS = [
   "var(--category-ingest)",
   "var(--category-preprocessing)",
+  "var(--category-eda)",
 ];
 export function pipelineDotColor(pipelineId: string): string {
   let hash = 0;

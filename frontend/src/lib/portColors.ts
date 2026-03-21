@@ -14,10 +14,12 @@ export const PORT_COLORS: Record<PortType, string> = {
 export const CATEGORY_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   preprocessing: "var(--category-preprocessing)",
+  eda: "var(--category-eda)",
 };
 
 /** Accent border color for each node category (4px left border on NodeCard) */
 export const CATEGORY_ACCENT_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   preprocessing: "var(--category-preprocessing)",
+  eda: "var(--category-eda)",
 };
