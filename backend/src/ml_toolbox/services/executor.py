@@ -562,6 +562,15 @@ class PipelineExecutor:
                         "run_id": run_id,
                         "outputs": outputs,
                     })
+
+                    # Auto-infer schema for ingest nodes
+                    _post_execution_hook(
+                        pipeline_id=pipeline_id,
+                        node_id=node_id,
+                        node_type=node.get("type", ""),
+                        run_dir=run_dir,
+                        broadcast=self._broadcast,
+                    )
                 except Exception as exc:
                     had_error = True
                     tb = str(exc)
@@ -627,3 +636,64 @@ def set_active_executor(pipeline_id: str, executor: PipelineExecutor) -> None:
 def remove_active_executor(pipeline_id: str) -> None:
     with _executors_lock:
         _active_executors.pop(pipeline_id, None)
+
+
+# ── Post-execution hook: auto schema inference ───────────────────────
+
+
+def _post_execution_hook(
+    pipeline_id: str,
+    node_id: str,
+    node_type: str,
+    run_dir: Path,
+    broadcast: Callable[[str, dict], None],
+) -> None:
+    """Trigger background schema inference for ingest nodes after execution."""
+    if ".ingest." not in node_type.lower():
+        return
+
+    thread = threading.Thread(
+        target=_infer_schema_background,
+        args=(pipeline_id, node_id, run_dir, broadcast),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _infer_schema_background(
+    pipeline_id: str,
+    node_id: str,
+    run_dir: Path,
+    broadcast: Callable[[str, dict], None],
+) -> None:
+    """Background schema inference — heuristic analysis → .meta.json."""
+    import pandas as pd
+
+    from ml_toolbox.llm.metadata import build_metadata_from_heuristics, heuristic_profile
+
+    # Find the output parquet file(s) for this node
+    output_files = list(run_dir.glob(f"{node_id}*.parquet"))
+    if not output_files:
+        return
+
+    output_file = output_files[0]
+
+    try:
+        df = pd.read_parquet(output_file)
+        profiles = heuristic_profile(df)
+        metadata = build_metadata_from_heuristics(
+            profiles, row_count=len(df), node_id=node_id,
+        )
+
+        # Write .meta.json alongside the parquet file
+        meta_path = output_file.with_suffix(".meta.json")
+        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+        # Notify frontend via WebSocket
+        broadcast(pipeline_id, {
+            "type": "metadata_updated",
+            "node_id": node_id,
+        })
+        logger.info("Auto schema inference completed for node %s", node_id)
+    except Exception as e:
+        logger.warning("Schema inference failed for %s: %s", node_id, e)
