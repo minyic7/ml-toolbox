@@ -28,7 +28,7 @@ class TestNodesAPI:
         resp = client.get("/api/nodes")
         assert resp.status_code == 200
         nodes = resp.json()
-        assert len(nodes) == 5
+        assert len(nodes) == 6
         types = {n["type"] for n in nodes}
         assert "ml_toolbox.nodes.ingest.csv_reader" in types
         assert "ml_toolbox.nodes.ingest.parquet_reader" in types
