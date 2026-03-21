@@ -13,6 +13,7 @@ import { Download, AlertCircle, RefreshCw } from "lucide-react";
 import { TablePreview } from "./TablePreview";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { ErrorTraceback } from "./ErrorTraceback";
+import { ProfileReport } from "../ProfileReport/ProfileReport";
 
 interface OutputTabProps {
   pipelineId: string;
@@ -483,6 +484,9 @@ function renderPreview(output: OutputPreview) {
       return null;
 
     case "METRICS":
+      if (preview && typeof preview === "object" && "report_type" in preview) {
+        return <ProfileReport data={preview as unknown as Record<string, unknown>} />;
+      }
       return <MetricsDisplay data={preview as unknown as Record<string, unknown>} />;
 
     case "VALUE":
