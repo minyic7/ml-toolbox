@@ -81,7 +81,7 @@ export default function PipelineScreen() {
       setRightPanelMode("output");
       setRightPanelOpen(true);
       if (status === "error") {
-        toast.error("Node failed — see Output panel for details");
+        toast.error("Node failed — see Output panel for details", { duration: 5000 });
       }
     } else if (status === "error") {
       // Non-selected node errored — show toast with action to navigate
