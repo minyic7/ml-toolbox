@@ -286,7 +286,26 @@ export default function PipelineScreen() {
       addEdgeMutation.mutate(conn, {
         onError: (err) => {
           const msg = err instanceof Error ? err.message : "Connection failed";
-          toast.error(msg.includes("cycle") ? "Cannot connect: would create cycle" : msg);
+          // Try to extract structured error detail from the response body
+          // The API helper throws Error("status statusText: {json body}")
+          const bodyMatch = msg.match(/:\s*(\{.*\})$/s);
+          if (bodyMatch) {
+            try {
+              const body = JSON.parse(bodyMatch[1]);
+              const detail = body.detail;
+              if (typeof detail === "object" && detail?.message) {
+                toast.error(detail.message);
+                return;
+              }
+              if (typeof detail === "string") {
+                toast.error(detail);
+                return;
+              }
+            } catch {
+              // Fall through to generic message
+            }
+          }
+          toast.error(msg);
         },
       });
     },

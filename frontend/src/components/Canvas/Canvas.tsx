@@ -226,8 +226,8 @@ function CanvasInner({
   // ── Derive React Flow nodes/edges from props ───────────────────
   const rfNodesFromProps = useMemo(
     () =>
-      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo)),
-    [pipelineNodes, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo],
+      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, pipelineEdges, onTabClick, onRunFrom, handleDeleteNodeWithUndo)),
+    [pipelineNodes, nodeStatuses, nodeDefinitions, pipelineEdges, onTabClick, onRunFrom, handleDeleteNodeWithUndo],
   );
 
   const rfEdgesFromProps = useMemo(
@@ -288,6 +288,8 @@ function CanvasInner({
   const [connectStartParams, setConnectStartParams] =
     useState<OnConnectStartParams | null>(null);
 
+  const setDraggingFrom = useExecutionStore((s) => s.setDraggingFrom);
+
   const onConnectStart = useCallback(
     (_: unknown, params: OnConnectStartParams) => {
       setConnectStartParams(params);
@@ -300,15 +302,21 @@ function CanvasInner({
         if (port) {
           setDraggingPortType(port.type);
         }
+        // Set dragging source for node compatibility dimming
+        if (node) {
+          const outputTypes = node.outputs.map((p) => p.type);
+          setDraggingFrom(params.nodeId, outputTypes);
+        }
       }
     },
-    [pipelineNodes, setDraggingPortType],
+    [pipelineNodes, setDraggingPortType, setDraggingFrom],
   );
 
   const onConnectEnd = useCallback(() => {
     setConnectStartParams(null);
     setDraggingPortType(null);
-  }, [setDraggingPortType]);
+    setDraggingFrom(null, []);
+  }, [setDraggingPortType, setDraggingFrom]);
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
