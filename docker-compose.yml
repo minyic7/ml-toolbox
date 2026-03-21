@@ -18,6 +18,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - ML_TOOLBOX_DATA_DIR=/root/.ml-toolbox
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 
   sandbox:
     image: ghcr.io/minyic7/ml-toolbox/sandbox:latest

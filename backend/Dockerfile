@@ -1,5 +1,18 @@
 FROM python:3.13-slim AS base
 
+# Install system dependencies for Pipeline CC (tmux for session management,
+# curl/git for Claude CLI install, nodejs/npm for Claude Code CLI)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tmux \
+    curl \
+    git \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
