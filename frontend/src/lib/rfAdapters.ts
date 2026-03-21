@@ -18,6 +18,7 @@ export interface NodeCardData extends Record<string, unknown> {
   params: ParamDefinition[];
   code: string;
   isKnownType: boolean;
+  occupiedInputPorts: string[];
   onTabClick?: (nodeId: string, tab: string) => void;
   onRunFrom?: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
@@ -31,6 +32,7 @@ export function toRFNode(
   node: NodeInstance,
   statuses: Record<string, NodeStatus>,
   nodeDefinitions: Record<string, NodeDefinition>,
+  edges: PipelineEdge[],
   onTabClick?: (nodeId: string, tab: string) => void,
   onRunFrom?: (nodeId: string) => void,
   onDeleteNode?: (nodeId: string) => void,
@@ -38,6 +40,10 @@ export function toRFNode(
   const def = nodeDefinitions[node.type];
   // Derive category from definition, or from the node type path (e.g. "transform/clean" → "transform")
   const category = def?.category ?? node.type.split("/")[0] ?? "ingest";
+  // Collect input ports that already have an incoming edge
+  const occupiedInputPorts = edges
+    .filter((e) => e.target === node.id)
+    .map((e) => e.target_port);
   return {
     id: node.id,
     type: "nodeCard",
@@ -52,6 +58,7 @@ export function toRFNode(
       params: node.params,
       code: node.code,
       isKnownType: !!def,
+      occupiedInputPorts,
       onTabClick,
       onRunFrom,
       onDeleteNode,

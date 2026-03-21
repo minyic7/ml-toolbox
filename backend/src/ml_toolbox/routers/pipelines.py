@@ -318,9 +318,24 @@ async def update_node(pipeline_id: str, node_id: str, body: UpdateNodeRequest) -
 # ── Edge Operations ──────────────────────────────────────────────
 
 
+def _node_label(node: dict) -> str:
+    """Return the display label for a pipeline node."""
+    return node.get("name") or node.get("type", "unknown").split(".")[-1].replace("_", " ").title()
+
+
 @router.post("/{pipeline_id}/edges", status_code=201)
 async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
     data = _load_pipeline(pipeline_id)
+
+    # 0. Self-loop check
+    if body.source == body.target:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "self_loop",
+                "message": "A node cannot connect to itself",
+            },
+        )
 
     # 1. Validate source and target nodes exist
     source_node = next(
@@ -334,6 +349,9 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
     )
     if target_node is None:
         raise HTTPException(status_code=400, detail="Target node not found")
+
+    source_label = _node_label(source_node)
+    target_label = _node_label(target_node)
 
     # 2. Validate port names exist
     source_port = next(
@@ -356,14 +374,36 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
             detail=f"Target port '{body.target_port}' not found",
         )
 
-    # 3. Validate port types match
+    # 3. Check if target port is already occupied
+    existing_edge = next(
+        (e for e in data["edges"]
+         if e["target"] == body.target and e["target_port"] == body.target_port),
+        None,
+    )
+    if existing_edge is not None:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "port_occupied",
+                "message": f"Input port '{body.target_port}' on {target_label} already has a connection. Remove the existing connection first or add another {target_label} node.",
+                "target_port": body.target_port,
+                "existing_source": existing_edge["source"],
+            },
+        )
+
+    # 4. Validate port types match
     if source_port["type"] != target_port["type"]:
         raise HTTPException(
             status_code=400,
-            detail=f"Port type mismatch: {source_port['type']} != {target_port['type']}",
+            detail={
+                "error": "type_mismatch",
+                "message": f"Port type mismatch: {source_port['type']} output cannot connect to {target_port['type']} input",
+                "source_port_type": source_port["type"],
+                "target_port_type": target_port["type"],
+            },
         )
 
-    # 4. Check allowed_upstream constraint
+    # 5. Check allowed_upstream constraint
     source_type = source_node.get("type", "")
     target_type = target_node.get("type", "")
     source_template = NODE_REGISTRY.get(source_type, {})
@@ -371,18 +411,28 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
     source_category = source_template.get("category", "")
     allowed = target_template.get("allowed_upstream", [])
     if allowed and source_category not in allowed:
+        source_fn = source_type.split(".")[-1] if "." in source_type else source_type
+        target_fn = target_type.split(".")[-1] if "." in target_type else target_type
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Invalid connection: {source_category} nodes cannot connect to "
-                f"{target_template.get('label', target_type)}. "
-                f"Allowed upstream: {', '.join(allowed)}"
-            ),
+            detail={
+                "error": "invalid_upstream",
+                "message": f"{source_label} ({source_fn}) cannot connect to {target_label}. Allowed upstream categories: {', '.join(allowed)}",
+                "source_node": source_fn,
+                "target_node": target_fn,
+                "allowed_upstream": allowed,
+            },
         )
 
-    # 5. Check for cycles
+    # 6. Check for cycles
     if would_create_cycle(data, body.source, body.target):
-        raise HTTPException(status_code=400, detail="Edge would create a cycle")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "cycle",
+                "message": f"Cannot connect {source_label} to {target_label}: would create a cycle",
+            },
+        )
 
     edge_id = uuid.uuid4().hex
     edge = {

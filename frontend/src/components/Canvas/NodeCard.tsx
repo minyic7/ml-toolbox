@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import type { NodeCardData } from "../../lib/rfAdapters";
 import type { NodeStatus } from "../../lib/types";
@@ -88,6 +88,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
     inputs,
     outputs,
     isKnownType,
+    occupiedInputPorts,
     onTabClick,
     onRunFrom,
     onDeleteNode,
@@ -99,6 +100,33 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
   const [hovered, setHovered] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const traceback = useExecutionStore((s) => s.nodeTracebacks[id]);
+
+  // Connection compatibility dimming
+  const draggingFromNodeId = useExecutionStore((s) => s.draggingFromNodeId);
+  const draggingSourceOutputTypes = useExecutionStore((s) => s.draggingSourceOutputTypes);
+
+  const isCompatible = useMemo(() => {
+    if (!draggingFromNodeId) return true; // not dragging
+    if (draggingFromNodeId === id) return true; // source node stays bright
+
+    // No inputs → not a valid target (root node)
+    if (inputs.length === 0) return false;
+
+    // Check if any unoccupied input port has a matching type
+    const occupiedSet = new Set(occupiedInputPorts);
+    const availableInputTypes = inputs
+      .filter((inp) => !occupiedSet.has(inp.name))
+      .map((inp) => inp.type);
+
+    if (availableInputTypes.length === 0) return false; // all inputs occupied
+
+    // Check if any source output type matches any available input type
+    return draggingSourceOutputTypes.some((outType) =>
+      availableInputTypes.includes(outType),
+    );
+  }, [draggingFromNodeId, draggingSourceOutputTypes, id, inputs, occupiedInputPorts]);
+
+  const isDimmed = !isCompatible;
   const errorSummary = traceback
     ? traceback.split("\n").filter((l) => l.trim()).pop() ?? "Error"
     : "Error";
@@ -136,7 +164,9 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         position: "relative",
         overflow: "visible",
         fontSize: 13,
-        transition: "box-shadow 150ms ease",
+        transition: "box-shadow 150ms ease, opacity 200ms ease",
+        opacity: isDimmed ? 0.3 : 1,
+        pointerEvents: isDimmed ? "none" : "auto",
       }}
     >
       {/* Progress bar — indeterminate shimmer when running */}
