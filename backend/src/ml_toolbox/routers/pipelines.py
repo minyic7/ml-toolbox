@@ -1035,6 +1035,25 @@ async def put_metadata(
     return {"status": "saved"}
 
 
+@router.put("/{pipeline_id}/selection")
+async def update_selection(pipeline_id: str, body: dict) -> dict:
+    """Persist the set of node IDs the user currently has selected on the canvas."""
+    _validate_path_id(pipeline_id, "pipeline_id")
+    selection_file = file_store.PROJECTS_DIR / pipeline_id / ".selection.json"
+    selection_file.write_text(json.dumps(body))
+    return {"status": "saved"}
+
+
+@router.get("/{pipeline_id}/selection")
+async def get_selection(pipeline_id: str) -> dict:
+    """Return the current canvas selection for a pipeline."""
+    _validate_path_id(pipeline_id, "pipeline_id")
+    selection_file = file_store.PROJECTS_DIR / pipeline_id / ".selection.json"
+    if selection_file.exists():
+        return json.loads(selection_file.read_text())
+    return {"selected_nodes": []}
+
+
 @router.post("/{pipeline_id}/outputs/{node_id}/metadata-notify")
 async def notify_metadata_updated(pipeline_id: str, node_id: str) -> dict:
     """Broadcast a metadata_updated event over WebSocket.

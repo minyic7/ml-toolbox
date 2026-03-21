@@ -548,6 +548,14 @@ export default function PipelineScreen() {
     [addNodeMutation, addEdgeMutation],
   );
 
+  // ── Selection persistence ────────────────────────────────────
+  const handleSelectionChange = useCallback(
+    (nodeIds: string[]) => {
+      api.updateSelection(pipelineId, nodeIds).catch(() => {});
+    },
+    [pipelineId],
+  );
+
   // ── Loading state ─────────────────────────────────────────────
   if (!id) return null;
 
@@ -697,6 +705,7 @@ export default function PipelineScreen() {
               onRenameNode={handleRenameFromContextMenu}
               onDuplicateNode={handleDuplicateNode}
               onPasteNodes={handlePasteNodes}
+              onSelectionChange={handleSelectionChange}
               viewportCenterRef={viewportCenterRef}
             />
             </ErrorBoundary>
