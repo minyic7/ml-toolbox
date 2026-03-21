@@ -6,10 +6,9 @@ interface NodeActionBarProps {
   nodeId: string;
   onRun?: () => void;
   onDelete?: () => void;
-  onOpenTerminal?: () => void;
 }
 
-function NodeActionBar({ visible, nodeId, onRun, onDelete, onOpenTerminal }: NodeActionBarProps) {
+function NodeActionBar({ visible, nodeId, onRun, onDelete }: NodeActionBarProps) {
   const isRunning = useExecutionStore((s) => s.isRunning);
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
   const thisNodeRunning =
@@ -65,19 +64,6 @@ function NodeActionBar({ visible, nodeId, onRun, onDelete, onOpenTerminal }: Nod
             <path d="M1 1.5v6l6-3-6-3z" />
           </svg>
         )}
-      </button>
-      <button
-        className="node-action-btn"
-        title="Configure with CC"
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpenTerminal?.();
-        }}
-        style={{ color: "#bb9af7" }}
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3l1.9 5.5H20l-4.6 3.4 1.8 5.5L12 14l-5.2 3.4 1.8-5.5L4 8.5h6.1z" />
-        </svg>
       </button>
       <button
         className="node-action-btn"
