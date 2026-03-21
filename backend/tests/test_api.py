@@ -28,10 +28,11 @@ class TestNodesAPI:
         resp = client.get("/api/nodes")
         assert resp.status_code == 200
         nodes = resp.json()
-        assert len(nodes) == 2
+        assert len(nodes) == 3
         types = {n["type"] for n in nodes}
         assert "ml_toolbox.nodes.ingest.csv_reader" in types
         assert "ml_toolbox.nodes.ingest.parquet_reader" in types
+        assert "ml_toolbox.nodes.preprocessing.random_holdout" in types
 
     def test_list_nodes_entry_shape(self):
         resp = client.get("/api/nodes")
@@ -44,6 +45,7 @@ class TestNodesAPI:
         assert "outputs" in node
         assert "params" in node
         assert "default_code" in node
+        assert "guide" in node
 
     def test_get_node_by_type(self):
         resp = client.get("/api/nodes/ml_toolbox.nodes.ingest.csv_reader")

@@ -14,6 +14,7 @@ def node(
     label: str | None = None,
     category: str | None = None,
     description: str | None = None,
+    guide: str | None = None,
 ):
     """Decorator that registers a node function into the global NODE_REGISTRY."""
 
@@ -54,6 +55,7 @@ def node(
             "label": label or auto_label,
             "category": category or auto_category,
             "description": description or (inspect.getdoc(fn) or ""),
+            "guide": guide or "",
             "inputs": [{"name": k, "type": v.value} for k, v in inputs.items()],
             "outputs": [{"name": k, "type": v.value} for k, v in outputs.items()],
             "params": serialized_params,
