@@ -12,6 +12,7 @@ import DisconnectionBanner from "../components/Canvas/DisconnectionBanner";
 import BottomDrawer from "../components/Drawer/BottomDrawer";
 import CodePane from "../components/CodePane/CodePane";
 import OutputPanel from "../components/OutputPanel/OutputPanel";
+import InfoPanel from "../components/InfoPanel/InfoPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
@@ -133,7 +134,7 @@ export default function PipelineScreen() {
   // Drawer + right panel state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [rightPanelMode, setRightPanelMode] = useState<"code" | "output">("code");
+  const [rightPanelMode, setRightPanelMode] = useState<"code" | "output" | "info">("code");
 
   // Escape key: close right panel first, then drawer, then clear selection
   useEffect(() => {
@@ -414,6 +415,15 @@ export default function PipelineScreen() {
     }
   }, [rightPanelOpen, rightPanelMode]);
 
+  const handleInfoToggle = useCallback(() => {
+    if (rightPanelOpen && rightPanelMode === "info") {
+      setRightPanelOpen(false);
+    } else {
+      setRightPanelMode("info");
+      setRightPanelOpen(true);
+    }
+  }, [rightPanelOpen, rightPanelMode]);
+
   const handleRightPanelClose = useCallback(() => {
     setRightPanelOpen(false);
   }, []);
@@ -673,6 +683,7 @@ export default function PipelineScreen() {
               onRunFrom={handleRunFrom}
               onCodeClick={handleCodeToggle}
               onOutputClick={handleOutputToggle}
+              onInfoClick={handleInfoToggle}
               rightPanelOpen={rightPanelOpen}
               rightPanelMode={rightPanelMode}
             />
@@ -698,6 +709,13 @@ export default function PipelineScreen() {
               onRunFrom={handleRunFrom}
               requestedRunId={requestedRunId}
               onRequestedRunHandled={() => setRequestedRunId(null)}
+            />
+          )}
+          {rightPanelOpen && selectedNode && selectedDefinition && rightPanelMode === "info" && (
+            <InfoPanel
+              node={selectedNode}
+              definition={selectedDefinition}
+              onClose={handleRightPanelClose}
             />
           )}
       </div>

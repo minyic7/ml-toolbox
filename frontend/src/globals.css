@@ -405,3 +405,17 @@ body {
   text-align: center;
   padding: 24px 0;
 }
+
+/* ── InfoPanel markdown prose ──────────────── */
+.info-prose h2 { font-size: 16px; font-weight: 700; margin: 20px 0 8px; color: var(--text-primary); }
+.info-prose h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--text-primary); }
+.info-prose p { font-size: 13px; line-height: 1.6; margin: 6px 0; color: var(--text-secondary); }
+.info-prose ul, .info-prose ol { font-size: 13px; padding-left: 20px; margin: 6px 0; color: var(--text-secondary); }
+.info-prose li { margin: 4px 0; }
+.info-prose code { font-size: 12px; background: var(--ghost-hover-bg); padding: 2px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; }
+.info-prose pre { background: var(--ghost-hover-bg); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
+.info-prose pre code { background: none; padding: 0; }
+.info-prose strong { color: var(--text-primary); font-weight: 600; }
+.info-prose table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+.info-prose th { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border-default); font-weight: 600; color: var(--text-primary); }
+.info-prose td { padding: 6px 10px; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); }
