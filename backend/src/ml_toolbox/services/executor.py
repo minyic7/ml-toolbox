@@ -55,6 +55,14 @@ def _translate_params_for_sandbox(
     return translated
 
 
+_SIDECAR_SUFFIXES = (".meta.json", "_manifest_error.json", "_logs.txt", ".hash", "_manifest.json", "_result.json")
+
+
+def _is_sidecar_file(path: Path) -> bool:
+    """True for metadata sidecars and internal files, not actual data outputs."""
+    return any(path.name.endswith(suffix) for suffix in _SIDECAR_SUFFIXES)
+
+
 class CycleError(Exception):
     """Raised when the pipeline graph contains a cycle."""
 
@@ -270,11 +278,17 @@ class PipelineExecutor:
 
             # Look for any file matching source output pattern
             pattern = f"{source_id}_{source_port}*"
-            matches = list(run_dir.glob(pattern))
+            matches = [
+                f for f in run_dir.glob(pattern)
+                if not _is_sidecar_file(f)
+            ]
             if not matches:
                 # Try simple node_id pattern
                 pattern = f"{source_id}_output*"
-                matches = list(run_dir.glob(pattern))
+                matches = [
+                    f for f in run_dir.glob(pattern)
+                    if not _is_sidecar_file(f)
+                ]
 
             if matches:
                 # Use relative path — the sandbox runner resolves from manifest_path.parent
