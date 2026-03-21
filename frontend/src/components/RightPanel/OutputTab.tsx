@@ -129,6 +129,9 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
         <OutputContent
           output={output}
           downloadUrl={downloadUrl}
+          pipelineId={pipelineId}
+          nodeId={nodeId}
+          selectedRunId={selectedRunId}
           onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined}
         />
       )}
@@ -136,13 +139,46 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
   );
 }
 
+const ghostButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 9,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  fontFamily: "'Inter', sans-serif",
+  border: "1px solid var(--border-default)",
+  borderRadius: 6,
+  background: "transparent",
+  color: "var(--text-muted)",
+  padding: "3px 10px",
+  cursor: "pointer",
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+};
+
+function hoverIn(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.currentTarget.style.background = "var(--output-row-hover)";
+}
+
+function hoverOut(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.currentTarget.style.background = "transparent";
+}
+
 function OutputContent({
   output,
   downloadUrl,
+  pipelineId,
+  nodeId,
+  selectedRunId,
   onRunFrom,
 }: {
   output: OutputPreview | null;
   downloadUrl: string;
+  pipelineId: string;
+  nodeId: string;
+  selectedRunId?: string;
   onRunFrom?: () => void;
 }) {
   if (!output) {
@@ -289,39 +325,42 @@ function OutputContent({
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Export CSV / Download ghost button */}
-          <a
-            href={downloadUrl}
-            download
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 9,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              fontFamily: "'Inter', sans-serif",
-              border: "1px solid var(--border-default)",
-              borderRadius: 6,
-              background: "transparent",
-              color: "var(--text-muted)",
-              padding: "3px 10px",
-              cursor: "pointer",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--output-row-hover)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <Download style={{ width: 10, height: 10 }} />
-            {type === "TABLE" ? "Export CSV" : "Download"}
-          </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {type === "TABLE" ? (
+            <>
+              <a
+                href={getOutputDownloadUrl(pipelineId, nodeId, selectedRunId, "csv")}
+                download
+                style={ghostButtonStyle}
+                onMouseEnter={hoverIn}
+                onMouseLeave={hoverOut}
+              >
+                <Download style={{ width: 10, height: 10 }} />
+                CSV
+              </a>
+              <a
+                href={getOutputDownloadUrl(pipelineId, nodeId, selectedRunId)}
+                download
+                style={ghostButtonStyle}
+                onMouseEnter={hoverIn}
+                onMouseLeave={hoverOut}
+              >
+                <Download style={{ width: 10, height: 10 }} />
+                Parquet
+              </a>
+            </>
+          ) : (
+            <a
+              href={downloadUrl}
+              download
+              style={ghostButtonStyle}
+              onMouseEnter={hoverIn}
+              onMouseLeave={hoverOut}
+            >
+              <Download style={{ width: 10, height: 10 }} />
+              Download
+            </a>
+          )}
         </div>
       </div>
 
