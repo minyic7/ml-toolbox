@@ -21,7 +21,6 @@ export default function PipelineTerminal({
 
   // ── Scroll mode (tmux copy-mode) ────────────────────────────
   const [isInScrollMode, setIsInScrollMode] = useState(false);
-  const [hasNewContent, setHasNewContent] = useState(false);
   const scrollModeRef = useRef(false);
 
   // Keep ref in sync with state
@@ -110,12 +109,12 @@ export default function PipelineTerminal({
       // Exit copy-mode
       ws.send(new TextEncoder().encode("q"));
       setIsInScrollMode(false);
-      setHasNewContent(false);
+
     } else {
       // Enter copy-mode: Ctrl-A + [
       ws.send(new TextEncoder().encode("\x01["));
       setIsInScrollMode(true);
-      setHasNewContent(false);
+
     }
   }, [isInScrollMode]);
 
@@ -141,10 +140,6 @@ export default function PipelineTerminal({
         } else {
           terminal.write(event.data);
         }
-        // Flag new content while in scroll mode
-        if (scrollModeRef.current) {
-          setHasNewContent(true);
-        }
       };
 
       ws.onclose = () => {
@@ -166,7 +161,7 @@ export default function PipelineTerminal({
         // Detect manual exit from tmux copy-mode (pressing q or Escape)
         if (scrollModeRef.current && (data === "q" || data === "\x1b")) {
           setIsInScrollMode(false);
-          setHasNewContent(false);
+    
         }
       });
 
@@ -258,7 +253,7 @@ export default function PipelineTerminal({
       if (e.deltaY < 0 && !scrollModeRef.current) {
         ws.send(new TextEncoder().encode("\x01[")); // Ctrl-A + [
         setIsInScrollMode(true);
-        setHasNewContent(false);
+  
       }
 
       // Send arrow keys for scrolling
