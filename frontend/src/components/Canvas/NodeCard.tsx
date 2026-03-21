@@ -91,7 +91,6 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
     onTabClick,
     onRunFrom,
     onDeleteNode,
-    onOpenTerminal,
   } = data;
   const isDeprecated = !isKnownType;
   const isError = status === "error";
@@ -490,7 +489,6 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         nodeId={id}
         onRun={() => onRunFrom?.(id)}
         onDelete={() => setConfirmOpen(true)}
-        onOpenTerminal={() => onOpenTerminal?.(id)}
       />
 
     </div>

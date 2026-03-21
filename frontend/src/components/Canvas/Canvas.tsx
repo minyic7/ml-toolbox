@@ -71,7 +71,6 @@ interface CanvasProps {
   onRenameNode?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
   onPasteNodes?: (nodes: Array<{ type: string; position: { x: number; y: number }; params?: unknown; code?: string }>, edges?: Array<{ sourceIdx: number; targetIdx: number; sourcePort: string; targetPort: string; condition?: string }>) => Promise<string[]>;
-  onOpenTerminal?: (nodeId: string) => void;
   viewportCenterRef?: React.MutableRefObject<(() => { x: number; y: number }) | null>;
 }
 
@@ -143,7 +142,6 @@ function CanvasInner({
   onRenameNode,
   onDuplicateNode,
   onPasteNodes,
-  onOpenTerminal,
   viewportCenterRef,
 }: CanvasProps) {
   const reactFlow = useReactFlow();
@@ -228,8 +226,8 @@ function CanvasInner({
   // ── Derive React Flow nodes/edges from props ───────────────────
   const rfNodesFromProps = useMemo(
     () =>
-      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo, onOpenTerminal)),
-    [pipelineNodes, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo, onOpenTerminal],
+      pipelineNodes.map((n) => toRFNode(n, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo)),
+    [pipelineNodes, nodeStatuses, nodeDefinitions, onTabClick, onRunFrom, handleDeleteNodeWithUndo],
   );
 
   const rfEdgesFromProps = useMemo(
