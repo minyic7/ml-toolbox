@@ -11,6 +11,7 @@ interface NodeIconChipProps {
   icon: LucideIcon;
   label: string;
   colors: CategoryColors;
+  text?: string;
   onClick: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function NodeIconChip({
   icon: Icon,
   label,
   colors,
+  text,
   onClick,
 }: NodeIconChipProps) {
   return (
@@ -54,7 +56,22 @@ export default function NodeIconChip({
         e.currentTarget.style.transform = "scale(1)";
       }}
     >
-      <Icon size={14} color={colors.icon} strokeWidth={2} />
+      {text ? (
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 800,
+            fontFamily: "'Inter', sans-serif",
+            letterSpacing: "-0.02em",
+            color: colors.icon,
+            userSelect: "none",
+          }}
+        >
+          {text}
+        </span>
+      ) : (
+        <Icon size={14} color={colors.icon} strokeWidth={2} />
+      )}
       {/* Badge dot */}
       <span
         style={{
