@@ -6,11 +6,9 @@ import { useExecutionStore } from "../../store/executionStore";
 interface PortDotProps {
   port: PortDefinition;
   side: "input" | "output";
-  index: number;
-  total: number;
 }
 
-export default function PortDot({ port, side, index, total }: PortDotProps) {
+export default function PortDot({ port, side }: PortDotProps) {
   const color = PORT_COLORS[port.type];
   const isInput = side === "input";
   const draggingPortType = useExecutionStore((s) => s.draggingPortType);
@@ -18,9 +16,6 @@ export default function PortDot({ port, side, index, total }: PortDotProps) {
   const isDragging = draggingPortType !== null;
   const isMatch = isDragging && port.type === draggingPortType;
   const isMismatch = isDragging && port.type !== draggingPortType;
-
-  // Distribute ports evenly along the node height
-  const offset = total === 1 ? 50 : 20 + (60 / (total - 1)) * index;
 
   // Build className for hover pseudo-class styling
   const className = isMatch
@@ -37,7 +32,6 @@ export default function PortDot({ port, side, index, total }: PortDotProps) {
       title={`${port.name} (${port.type})`}
       className={className}
       style={{
-        top: `${offset}%`,
         width: 10,
         height: 10,
         borderRadius: "50%",
