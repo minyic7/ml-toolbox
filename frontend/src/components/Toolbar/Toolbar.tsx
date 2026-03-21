@@ -66,16 +66,16 @@ const NODE_TYPE_ICONS: Record<string, LucideIcon> = {
 /** 2-3 letter abbreviations for node chips (replaces duplicate icons) */
 const NODE_ABBREVIATIONS: Record<string, string> = {
   // Classification
-  random_forest_classifier: "RF",
-  gradient_boosting_classifier: "GB",
-  logistic_regression: "LR",
+  random_forest_classifier: "RFC",
+  gradient_boosting_classifier: "GBC",
+  logistic_regression: "LOG",
   svc_classifier: "SVC",
   decision_tree_classifier: "DT",
   knn_classifier: "KNN",
   // Regression
-  linear_regression: "LR",
-  random_forest_regressor: "RF",
-  gradient_boosting_regressor: "GB",
+  linear_regression: "LIN",
+  random_forest_regressor: "RFR",
+  gradient_boosting_regressor: "GBR",
   svr_train: "SVR",
   // Train
   xgb_train: "XGB",
