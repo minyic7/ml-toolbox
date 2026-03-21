@@ -13,6 +13,7 @@ export interface NodeCardData extends Record<string, unknown> {
   type: string;
   category: string;
   status: NodeStatus;
+  seq?: number;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
   params: ParamDefinition[];
@@ -53,6 +54,7 @@ export function toRFNode(
       type: node.type,
       category,
       status: statuses[node.id] ?? "idle",
+      seq: node.seq,
       inputs: node.inputs,
       outputs: node.outputs,
       params: node.params,

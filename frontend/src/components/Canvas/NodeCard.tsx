@@ -85,6 +85,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
     type: nodeType,
     category,
     status,
+    seq,
     inputs,
     outputs,
     isKnownType,
@@ -284,12 +285,12 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
             fontSize: 9,
             fontFamily: "'JetBrains Mono', monospace",
             color: "var(--text-muted)",
-            opacity: 0.5,
+            opacity: 0.6,
             userSelect: "all",
           }}
           title={id}
         >
-          {id.slice(0, 8)}
+          #{seq ?? id.slice(0, 8)}
         </span>
       </div>
 
