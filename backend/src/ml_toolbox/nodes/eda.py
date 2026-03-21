@@ -1,7 +1,13 @@
 """EDA (Exploratory Data Analysis) nodes."""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas
 
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
@@ -470,33 +476,33 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     total_outlier_cells = 0
 
     for col in numeric_df.columns:
-        series = numeric_df[col].dropna()
-        if len(series) == 0:
+        col_series: pd.Series = numeric_df[col].dropna()  # type: ignore[assignment]
+        if len(col_series) == 0:
             continue
 
         col_result: dict = {"name": col}
 
         if method in ("iqr", "both"):
-            col_result.update(_iqr_analysis(series, iqr_multiplier))
+            col_result.update(_iqr_analysis(col_series, iqr_multiplier))
         if method in ("zscore", "both"):
-            col_result.update(_zscore_analysis(series, zscore_threshold))
+            col_result.update(_zscore_analysis(col_series, zscore_threshold))
 
         # Determine outlier mask for counting
-        outlier_mask = _get_outlier_mask(series, method, iqr_multiplier, zscore_threshold)
+        outlier_mask: pd.Series = _get_outlier_mask(col_series, method, iqr_multiplier, zscore_threshold)  # type: ignore[assignment]
         outlier_count = int(outlier_mask.sum())
         outlier_pct = round(outlier_count / total_rows, 4) if total_rows > 0 else 0.0
 
         col_result["outlier_count"] = outlier_count
         col_result["outlier_pct"] = outlier_pct
-        col_result["min_value"] = float(series.min())
-        col_result["max_value"] = float(series.max())
+        col_result["min_value"] = float(col_series.min().item())
+        col_result["max_value"] = float(col_series.max().item())
 
         # Sample top 5 extreme outlier values
-        outlier_values = series[outlier_mask]
+        outlier_values: pd.Series = col_series[outlier_mask]  # type: ignore[assignment]
         if len(outlier_values) > 0:
-            sorted_by_extremity = outlier_values.reindex(
-                (outlier_values - series.median()).abs().sort_values(ascending=False).index
-            )
+            median_val = col_series.median()
+            extremity: pd.Series = (outlier_values - median_val).abs().sort_values(ascending=False)  # type: ignore[assignment]
+            sorted_by_extremity = outlier_values.loc[extremity.index]
             col_result["outlier_values_sample"] = [
                 float(v) for v in sorted_by_extremity.head(5).values
             ]
@@ -565,10 +571,10 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     return {"report": str(out_path)}
 
 
-def _iqr_analysis(series: "pd.Series", multiplier: float) -> dict:
+def _iqr_analysis(series: pandas.Series, multiplier: float) -> dict:  # type: ignore[type-arg]
     """Compute IQR-based statistics for a numeric series."""
-    q1 = float(series.quantile(0.25))
-    q3 = float(series.quantile(0.75))
+    q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
+    q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
     iqr = q3 - q1
     lower_fence = round(q1 - multiplier * iqr, 4)
     upper_fence = round(q3 + multiplier * iqr, 4)
@@ -581,40 +587,45 @@ def _iqr_analysis(series: "pd.Series", multiplier: float) -> dict:
     }
 
 
-def _zscore_analysis(series: "pd.Series", threshold: float) -> dict:
+def _zscore_analysis(series: pandas.Series, threshold: float) -> dict:  # type: ignore[type-arg]
     """Compute z-score-based statistics for a numeric series."""
-    mean = float(series.mean())
-    std = float(series.std())
+    mean = float(series.mean())  # pyright: ignore[reportArgumentType]
+    std = float(series.std())  # pyright: ignore[reportArgumentType]
     if std == 0:
         return {"mean": mean, "std": std, "z_max": 0.0}
     z_scores = ((series - mean) / std).abs()
-    z_max = float(z_scores.max())
+    z_max = float(z_scores.max())  # pyright: ignore[reportArgumentType]
     return {"mean": mean, "std": std, "z_max": z_max}
 
 
-def _get_outlier_mask(series: "pd.Series", method: str, iqr_multiplier: float, zscore_threshold: float):
+def _get_outlier_mask(
+    series: pandas.Series,  # type: ignore[type-arg]
+    method: str,
+    iqr_multiplier: float,
+    zscore_threshold: float,
+) -> pandas.Series:  # type: ignore[type-arg]
     """Return a boolean mask identifying outliers in the series."""
     import pandas as pd
 
     if method == "iqr":
-        q1 = series.quantile(0.25)
-        q3 = series.quantile(0.75)
+        q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
+        q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
         iqr = q3 - q1
-        return (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)
+        return (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)  # type: ignore[return-value]
     elif method == "zscore":
-        mean = series.mean()
-        std = series.std()
+        mean = float(series.mean())  # pyright: ignore[reportArgumentType]
+        std = float(series.std())  # pyright: ignore[reportArgumentType]
         if std == 0:
             return pd.Series(False, index=series.index)
-        return ((series - mean) / std).abs() > zscore_threshold
+        return ((series - mean) / std).abs() > zscore_threshold  # type: ignore[return-value]
     else:  # both — union of IQR and z-score outliers
-        q1 = series.quantile(0.25)
-        q3 = series.quantile(0.75)
+        q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
+        q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
         iqr = q3 - q1
         iqr_mask = (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)
-        mean = series.mean()
-        std = series.std()
+        mean = float(series.mean())  # pyright: ignore[reportArgumentType]
+        std = float(series.std())  # pyright: ignore[reportArgumentType]
         if std == 0:
-            return iqr_mask
+            return iqr_mask  # type: ignore[return-value]
         zscore_mask = ((series - mean) / std).abs() > zscore_threshold
-        return iqr_mask | zscore_mask
+        return iqr_mask | zscore_mask  # type: ignore[return-value]
