@@ -73,14 +73,22 @@ export default function PipelineScreen() {
   const nodeStatuses = useExecutionStore((s) => s.nodeStatuses);
 
   useEffect(() => {
-    if (lastDoneNodeId && lastDoneNodeId === selectedNodeId) {
+    if (!lastDoneNodeId) return;
+    const status = nodeStatuses[lastDoneNodeId];
+
+    if (lastDoneNodeId === selectedNodeId) {
+      // Selected node completed — open output panel
       setRightPanelMode("output");
       setRightPanelOpen(true);
-      setLastDoneNodeId(null);
-    } else if (lastDoneNodeId) {
-      setLastDoneNodeId(null);
+    } else if (status === "error") {
+      // Non-selected node errored — auto-select it and show output
+      setSelectedNodeId(lastDoneNodeId);
+      setDrawerOpen(true);
+      setRightPanelMode("output");
+      setRightPanelOpen(true);
     }
-  }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId]);
+    setLastDoneNodeId(null);
+  }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId, nodeStatuses]);
 
   // Pipeline switch transition: show skeleton while fetching new pipeline
   const viewportCenterRef = useRef<(() => { x: number; y: number }) | null>(null);
