@@ -116,7 +116,8 @@ export default function PipelineTerminal({
     (terminal: Terminal) => {
       const proto =
         window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${proto}//${window.location.host}/ws/pipelines/${pipelineId}/terminal`;
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const wsUrl = `${proto}//${window.location.host}${basePath}/ws/pipelines/${pipelineId}/terminal`;
 
       const ws = new WebSocket(wsUrl);
       ws.binaryType = "arraybuffer";
