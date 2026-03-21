@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from ml_toolbox.protocol import PortType, Select, Text, node
+from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
@@ -435,3 +435,186 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
     out_path = _get_output_path("report")
     out_path.write_text(json.dumps(report, indent=2))
     return {"report": str(out_path)}
+
+
+@node(
+    inputs={"df": PortType.TABLE},
+    outputs={"report": PortType.METRICS},
+    params={
+        "method": Select(["iqr", "zscore", "both"], default="iqr",
+                        description="Outlier detection method"),
+        "iqr_multiplier": Slider(min=1.0, max=3.0, step=0.1, default=1.5,
+                                description="IQR fence multiplier (1.5 = standard, 3.0 = extreme only)"),
+        "zscore_threshold": Slider(min=2.0, max=5.0, step=0.1, default=3.0,
+                                  description="Z-score threshold for outlier classification"),
+    },
+    label="Outlier Detection",
+    category="Eda",
+    description="Detect outliers in numeric columns using IQR or z-score methods.",
+    guide="""## Outlier Detection\n\nIdentify extreme values that may affect model training.\n\n### Methods\n- **IQR (Interquartile Range)**: outlier if value < Q1 - k*IQR or > Q3 + k*IQR. Default k=1.5. Robust to non-normal distributions.\n- **Z-score**: outlier if |z| > threshold. Assumes roughly normal distribution. Default threshold=3.0.\n\n### What to do with outliers\n- **Cap/Winsorize**: clip to fence values. Safe default.\n- **Log transform**: reduces impact of right-skewed outliers.\n- **Keep**: tree-based models (RF, XGBoost) handle outliers well.\n- **Remove**: only if you're sure they're data errors, not real signal.\n\n### Remember\nOutlier thresholds computed on train only. Apply the same caps/transforms to val/test.""",
+)
+def outlier_detection(inputs: dict, params: dict) -> dict:
+    """Detect outliers in numeric columns using IQR or z-score methods."""
+    import pandas as pd
+
+    df = pd.read_parquet(inputs["df"])
+    numeric_df = df.select_dtypes(include="number")
+
+    method = params.get("method", "iqr")
+    iqr_multiplier = float(params.get("iqr_multiplier", 1.5))
+    zscore_threshold = float(params.get("zscore_threshold", 3.0))
+
+    total_rows = len(df)
+    columns_results: list[dict] = []
+    warnings: list[dict] = []
+    total_outlier_cells = 0
+
+    for col in numeric_df.columns:
+        series = numeric_df[col].dropna()
+        if len(series) == 0:
+            continue
+
+        col_result: dict = {"name": col}
+
+        if method in ("iqr", "both"):
+            col_result.update(_iqr_analysis(series, iqr_multiplier))
+        if method in ("zscore", "both"):
+            col_result.update(_zscore_analysis(series, zscore_threshold))
+
+        # Determine outlier mask for counting
+        outlier_mask = _get_outlier_mask(series, method, iqr_multiplier, zscore_threshold)
+        outlier_count = int(outlier_mask.sum())
+        outlier_pct = round(outlier_count / total_rows, 4) if total_rows > 0 else 0.0
+
+        col_result["outlier_count"] = outlier_count
+        col_result["outlier_pct"] = outlier_pct
+        col_result["min_value"] = float(series.min())
+        col_result["max_value"] = float(series.max())
+
+        # Sample top 5 extreme outlier values
+        outlier_values = series[outlier_mask]
+        if len(outlier_values) > 0:
+            sorted_by_extremity = outlier_values.reindex(
+                (outlier_values - series.median()).abs().sort_values(ascending=False).index
+            )
+            col_result["outlier_values_sample"] = [
+                float(v) for v in sorted_by_extremity.head(5).values
+            ]
+        else:
+            col_result["outlier_values_sample"] = []
+
+        total_outlier_cells += outlier_count
+        columns_results.append(col_result)
+
+        # Generate warnings
+        if outlier_pct >= 0.01:
+            fence_info = ""
+            if "upper_fence" in col_result:
+                fence_info = f" at {col_result['upper_fence']}"
+            warnings.append({
+                "column": col,
+                "type": "high_outlier_rate",
+                "message": f"{outlier_pct * 100:.1f}% outliers — consider capping{fence_info} or log transform",
+            })
+
+        if outlier_count > 0 and "iqr" in col_result.get("_methods", [method]):
+            q1 = col_result.get("q1", 0)
+            q3 = col_result.get("q3", 0)
+            iqr_val = col_result.get("iqr", 1)
+            if iqr_val > 0:
+                max_val = col_result["max_value"]
+                min_val = col_result["min_value"]
+                max_iqrs_above = (max_val - q3) / iqr_val if max_val > q3 else 0
+                max_iqrs_below = (q1 - min_val) / iqr_val if min_val < q1 else 0
+                max_iqrs = max(max_iqrs_above, max_iqrs_below)
+                extreme_val = max_val if max_iqrs_above >= max_iqrs_below else min_val
+                direction = "above Q3" if max_iqrs_above >= max_iqrs_below else "below Q1"
+                if max_iqrs > 5:
+                    warnings.append({
+                        "column": col,
+                        "type": "extreme_outlier",
+                        "message": f"Value {extreme_val} is {max_iqrs:.1f} IQRs {direction} — likely data error",
+                    })
+
+    # Sort columns by outlier_pct descending
+    columns_results.sort(key=lambda c: c["outlier_pct"], reverse=True)
+
+    # Build params dict for report
+    report_params: dict = {}
+    if method in ("iqr", "both"):
+        report_params["iqr_multiplier"] = iqr_multiplier
+    if method in ("zscore", "both"):
+        report_params["zscore_threshold"] = zscore_threshold
+
+    report = {
+        "report_type": "outlier_detection",
+        "method": method,
+        "params": report_params,
+        "summary": {
+            "total_rows": total_rows,
+            "numeric_columns": len(numeric_df.columns),
+            "columns_with_outliers": sum(1 for c in columns_results if c["outlier_count"] > 0),
+            "total_outlier_cells": total_outlier_cells,
+        },
+        "columns": columns_results,
+        "warnings": warnings,
+    }
+
+    out_path = _get_output_path("report")
+    out_path.write_text(json.dumps(report, indent=2))
+    return {"report": str(out_path)}
+
+
+def _iqr_analysis(series: "pd.Series", multiplier: float) -> dict:
+    """Compute IQR-based statistics for a numeric series."""
+    q1 = float(series.quantile(0.25))
+    q3 = float(series.quantile(0.75))
+    iqr = q3 - q1
+    lower_fence = round(q1 - multiplier * iqr, 4)
+    upper_fence = round(q3 + multiplier * iqr, 4)
+    return {
+        "q1": q1,
+        "q3": q3,
+        "iqr": iqr,
+        "lower_fence": lower_fence,
+        "upper_fence": upper_fence,
+    }
+
+
+def _zscore_analysis(series: "pd.Series", threshold: float) -> dict:
+    """Compute z-score-based statistics for a numeric series."""
+    mean = float(series.mean())
+    std = float(series.std())
+    if std == 0:
+        return {"mean": mean, "std": std, "z_max": 0.0}
+    z_scores = ((series - mean) / std).abs()
+    z_max = float(z_scores.max())
+    return {"mean": mean, "std": std, "z_max": z_max}
+
+
+def _get_outlier_mask(series: "pd.Series", method: str, iqr_multiplier: float, zscore_threshold: float):
+    """Return a boolean mask identifying outliers in the series."""
+    import pandas as pd
+
+    if method == "iqr":
+        q1 = series.quantile(0.25)
+        q3 = series.quantile(0.75)
+        iqr = q3 - q1
+        return (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)
+    elif method == "zscore":
+        mean = series.mean()
+        std = series.std()
+        if std == 0:
+            return pd.Series(False, index=series.index)
+        return ((series - mean) / std).abs() > zscore_threshold
+    else:  # both — union of IQR and z-score outliers
+        q1 = series.quantile(0.25)
+        q3 = series.quantile(0.75)
+        iqr = q3 - q1
+        iqr_mask = (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)
+        mean = series.mean()
+        std = series.std()
+        if std == 0:
+            return iqr_mask
+        zscore_mask = ((series - mean) / std).abs() > zscore_threshold
+        return iqr_mask | zscore_mask
