@@ -248,72 +248,98 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         {category} &middot; {nodeType.includes("/") ? nodeType.split("/").pop() : nodeType}
       </div>
 
-      {/* Port labels */}
+      {/* Port rows — each row aligns a port label with its PortDot */}
       <div
         style={{
-          padding: "0 10px 8px",
+          paddingTop: 2,
+          paddingBottom: 8,
           display: "flex",
-          justifyContent: "space-between",
-          gap: 6,
+          flexDirection: "column",
+          gap: 4,
         }}
       >
-        {/* Input labels */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          {inputs.map((p) => (
-            <div
-              key={p.name}
-              style={{ display: "flex", alignItems: "center", gap: 4 }}
-            >
-              <span
-                title={p.name}
+        {Array.from({ length: Math.max(inputs.length, outputs.length) }).map(
+          (_, i) => {
+            const inp = inputs[i];
+            const out = outputs[i];
+            return (
+              <div
+                key={i}
                 style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9,
-                  color: "var(--text-muted)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: "7ch",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  minHeight: 20,
+                  position: "relative",
                 }}
               >
-                {p.name}
-              </span>
-              <TypeBadge type={p.type} />
-            </div>
-          ))}
-        </div>
-        {/* Output labels */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 3,
-            alignItems: "flex-end",
-          }}
-        >
-          {outputs.map((p) => (
-            <div
-              key={p.name}
-              style={{ display: "flex", alignItems: "center", gap: 4 }}
-            >
-              <TypeBadge type={p.type} />
-              <span
-                title={p.name}
-                style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9,
-                  color: "var(--text-muted)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: "7ch",
-                }}
-              >
-                {p.name}
-              </span>
-            </div>
-          ))}
-        </div>
+                {/* Input label */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingLeft: 10,
+                  }}
+                >
+                  {inp && (
+                    <>
+                      <span
+                        title={inp.name}
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 9,
+                          color: "var(--text-muted)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          maxWidth: "7ch",
+                        }}
+                      >
+                        {inp.name}
+                      </span>
+                      <TypeBadge type={inp.type} />
+                    </>
+                  )}
+                </div>
+
+                {/* Output label */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    paddingRight: 10,
+                  }}
+                >
+                  {out && (
+                    <>
+                      <TypeBadge type={out.type} />
+                      <span
+                        title={out.name}
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 9,
+                          color: "var(--text-muted)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          maxWidth: "7ch",
+                        }}
+                      >
+                        {out.name}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Port dots — inside the row so they align vertically */}
+                {inp && <PortDot port={inp} side="input" />}
+                {out && <PortDot port={out} side="output" />}
+              </div>
+            );
+          },
+        )}
       </div>
 
       {/* Error strip */}
@@ -453,25 +479,6 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         onDelete={() => setConfirmOpen(true)}
       />
 
-      {/* Port dots */}
-      {inputs.map((port, i) => (
-        <PortDot
-          key={`in-${port.name}`}
-          port={port}
-          side="input"
-          index={i}
-          total={inputs.length}
-        />
-      ))}
-      {outputs.map((port, i) => (
-        <PortDot
-          key={`out-${port.name}`}
-          port={port}
-          side="output"
-          index={i}
-          total={outputs.length}
-        />
-      ))}
     </div>
   );
 }
