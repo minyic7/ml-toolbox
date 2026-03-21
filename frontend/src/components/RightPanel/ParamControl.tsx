@@ -90,8 +90,10 @@ function ColumnSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [direction, setDirection] = useState<"down" | "up">("down");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const filtered = useMemo(
     () =>
@@ -101,10 +103,14 @@ function ColumnSelect({
     [columns, search],
   );
 
-  // Focus search input when dropdown opens
+  // Focus search input and compute direction when dropdown opens
   useEffect(() => {
     if (open) {
-      // Small delay to ensure DOM is ready
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setDirection(spaceBelow < 220 ? "up" : "down");
+      }
       requestAnimationFrame(() => inputRef.current?.focus());
     } else {
       setSearch("");
@@ -114,6 +120,7 @@ function ColumnSelect({
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen(!open)}
@@ -136,13 +143,16 @@ function ColumnSelect({
       {open && (
         <div
           ref={listRef}
-          className="absolute z-50 mt-1 w-full rounded-md border shadow-md"
+          className="absolute z-50 w-full rounded-md border shadow-md"
           style={{
             background: "var(--bg-primary)",
             borderColor: "var(--border-default)",
             maxHeight: 200,
             display: "flex",
             flexDirection: "column",
+            ...(direction === "up"
+              ? { bottom: "100%", marginBottom: 4 }
+              : { top: "100%", marginTop: 4 }),
           }}
         >
           <div className="p-1.5" style={{ borderBottom: "1px solid var(--border-default)" }}>
