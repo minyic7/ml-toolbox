@@ -98,25 +98,6 @@ class PipelineCCManager:
         pipeline = self._load_pipeline_safe(pipeline_id)
         name = pipeline.get("name", pipeline_id) if pipeline else pipeline_id
 
-        nodes_section = ""
-        if pipeline and pipeline.get("nodes"):
-            lines: list[str] = []
-            for n in pipeline["nodes"]:
-                node_type = n.get("type", "unknown")
-                label = n.get("name") or node_type.rsplit(".", 1)[-1]
-                lines.append(f"- **{label}** (`{n.get('id', '?')}`): type=`{node_type}`")
-            nodes_section = "### Nodes\n" + "\n".join(lines)
-
-        edges_section = ""
-        if pipeline and pipeline.get("edges"):
-            lines = []
-            for e in pipeline["edges"]:
-                lines.append(
-                    f"- `{e.get('source', '?')}:{e.get('source_port', '?')}` → "
-                    f"`{e.get('target', '?')}:{e.get('target_port', '?')}`"
-                )
-            edges_section = "### Edges\n" + "\n".join(lines)
-
         project_dir = self.data_dir / "projects" / pipeline_id
         runs_dir = project_dir / "runs"
         api_base = "http://localhost:8000"
@@ -127,8 +108,6 @@ class PipelineCCManager:
             "{{project_dir}}": str(project_dir),
             "{{runs_dir}}": str(runs_dir),
             "{{api_base}}": api_base,
-            "{{nodes_section}}": nodes_section,
-            "{{edges_section}}": edges_section,
         }
 
         template_path = self._TEMPLATE_DIR / "CLAUDE.md"
@@ -165,7 +144,7 @@ class PipelineCCManager:
             for key, value in placeholders.items():
                 content = content.replace(key, value)
             # Claude Code expects skills/{name}/SKILL.md directory structure
-            skill_name = skill_file.stem  # e.g. "configure-node"
+            skill_name = skill_file.stem  # e.g. "suggest-dag"
             skill_dir = skills_dir / skill_name
             skill_dir.mkdir(parents=True, exist_ok=True)
             (skill_dir / "SKILL.md").write_text(content)
