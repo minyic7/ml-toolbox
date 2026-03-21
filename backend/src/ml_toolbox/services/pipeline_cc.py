@@ -40,6 +40,7 @@ class PipelineCCManager:
 
         self._write_claude_md(work_dir, pipeline_id)
         self._install_skills(work_dir, pipeline_id)
+        self._write_settings(work_dir)
 
         subprocess.run(
             ["tmux", "new-session", "-d", "-s", name, "-x", "200", "-y", "50"],
@@ -148,6 +149,31 @@ class PipelineCCManager:
             skill_dir = skills_dir / skill_name
             skill_dir.mkdir(parents=True, exist_ok=True)
             (skill_dir / "SKILL.md").write_text(content)
+
+    # ------------------------------------------------------------------
+    # Auto-allow settings
+    # ------------------------------------------------------------------
+
+    def _write_settings(self, work_dir: Path) -> None:
+        settings_dir = work_dir / ".claude"
+        settings_dir.mkdir(parents=True, exist_ok=True)
+        settings = {
+            "permissions": {
+                "allow": [
+                    "Bash(curl *)",
+                    "Bash(python3 *)",
+                    "Bash(ls *)",
+                    "Bash(cat *)",
+                    "Bash(head *)",
+                    "Bash(find *)",
+                    "Bash(wc *)",
+                    "Read(*)",
+                    "Glob(*)",
+                    "Grep(*)",
+                ]
+            }
+        }
+        (settings_dir / "settings.json").write_text(json.dumps(settings, indent=2))
 
     # ------------------------------------------------------------------
     # Helpers
