@@ -270,9 +270,13 @@ export function getOutputDownloadUrl(
   pipelineId: string,
   nodeId: string,
   runId?: string,
+  format?: string,
 ) {
-  const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
-  return `${basePath}/api/pipelines/${pipelineId}/outputs/${nodeId}/download${params}`;
+  const params = new URLSearchParams();
+  if (runId) params.set("run_id", runId);
+  if (format) params.set("format", format);
+  const qs = params.toString();
+  return `${basePath}/api/pipelines/${pipelineId}/outputs/${nodeId}/download${qs ? `?${qs}` : ""}`;
 }
 
 export function getRunOutput(
@@ -289,6 +293,10 @@ export function getRunOutputDownloadUrl(
   pipelineId: string,
   runId: string,
   nodeId: string,
+  format?: string,
 ) {
-  return `${basePath}/api/pipelines/${pipelineId}/runs/${runId}/outputs/${nodeId}/download`;
+  const params = new URLSearchParams();
+  if (format) params.set("format", format);
+  const qs = params.toString();
+  return `${basePath}/api/pipelines/${pipelineId}/runs/${runId}/outputs/${nodeId}/download${qs ? `?${qs}` : ""}`;
 }
