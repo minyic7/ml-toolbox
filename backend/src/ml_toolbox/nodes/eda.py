@@ -64,11 +64,18 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         selected = [c.strip() for c in columns_param.split(",") if c.strip()]
         numeric_df = numeric_df[[c for c in selected if c in numeric_df.columns]]
     elif col_metadata.get("columns"):
-        # Use metadata: only correlate continuous columns
-        continuous_cols = [
-            c["name"] for c in col_metadata["columns"]
-            if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
-        ]
+        # Use metadata: only correlate continuous columns (handle dict or list format)
+        columns_meta = col_metadata["columns"]
+        if isinstance(columns_meta, dict):
+            continuous_cols = [
+                name for name, meta in columns_meta.items()
+                if meta.get("semantic_type") == "continuous" and name in numeric_df.columns
+            ]
+        else:
+            continuous_cols = [
+                c["name"] for c in columns_meta
+                if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
+            ]
         if continuous_cols:
             numeric_df = numeric_df[continuous_cols]
         # Use target from metadata if not specified
@@ -549,11 +556,18 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
         selected = [c.strip() for c in columns_param.split(",") if c.strip()]
         numeric_df = numeric_df[[c for c in selected if c in numeric_df.columns]]
     elif col_metadata.get("columns"):
-        # Use metadata: only analyze continuous columns
-        continuous_cols = [
-            c["name"] for c in col_metadata["columns"]
-            if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
-        ]
+        # Use metadata: only analyze continuous columns (handle dict or list format)
+        columns_meta = col_metadata["columns"]
+        if isinstance(columns_meta, dict):
+            continuous_cols = [
+                name for name, meta in columns_meta.items()
+                if meta.get("semantic_type") == "continuous" and name in numeric_df.columns
+            ]
+        else:
+            continuous_cols = [
+                c["name"] for c in columns_meta
+                if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
+            ]
         if continuous_cols:
             numeric_df = numeric_df[continuous_cols]
 

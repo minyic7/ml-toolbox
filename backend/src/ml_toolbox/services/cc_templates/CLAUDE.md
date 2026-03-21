@@ -131,6 +131,10 @@ When the user asks you to build a pipeline:
 ## Skills
 - **/suggest-dag** — Recommend a pipeline DAG based on dataset characteristics
 - **/explain-output {node_id}** — Interpret an EDA node's output report
+- **/pipeline** — Show current pipeline overview (nodes, edges, runs, metadata)
+- **/metadata** — Show column metadata from .meta.json files in the latest run
+- **/outputs** — List all node outputs from the latest run with file sizes and types
+- **/runs** — Show pipeline run history with status and duration
 
 ## Guidelines
 - This is a single-user personal project — no auth, no multi-tenancy.

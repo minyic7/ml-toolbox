@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import mimetypes
 import re
 from datetime import datetime
@@ -9,6 +10,8 @@ import uuid
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -945,9 +948,40 @@ async def put_metadata(
     """Save user-edited metadata to .meta.json alongside the output file."""
     _load_pipeline(pipeline_id)
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    output_file = _find_output_file(run_dir, node_id)
+
     meta_path = run_dir / f"{node_id}_df.meta.json"
     meta_path.write_text(json.dumps(body, indent=2))
     broadcast_sync(pipeline_id, {"type": "metadata_updated", "node_id": node_id})
+
+    # Re-cast parquet in background when output file exists
+    if output_file is not None:
+        def _recast() -> None:
+            try:
+                import pandas as pd
+
+                from ml_toolbox.llm.metadata import cast_by_metadata
+
+                df = pd.read_parquet(output_file)
+                df, cast_results = cast_by_metadata(df, body)
+
+                # Update cast_status in metadata
+                for col_name, result in cast_results.items():
+                    if col_name in body.get("columns", {}):
+                        body["columns"][col_name]["cast_status"] = result.get("status")
+                        if result.get("reason"):
+                            body["columns"][col_name]["cast_reason"] = result["reason"]
+
+                meta_path.write_text(json.dumps(body, indent=2, ensure_ascii=False))
+                df.to_parquet(output_file, index=False)
+                broadcast_sync(
+                    pipeline_id, {"type": "metadata_updated", "node_id": node_id},
+                )
+            except Exception as e:
+                logger.warning("Re-cast failed for %s: %s", node_id, e)
+
+        threading.Thread(target=_recast, daemon=True).start()
+
     return {"status": "saved"}
 
 
