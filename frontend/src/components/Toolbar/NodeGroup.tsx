@@ -57,7 +57,7 @@ export default function NodeGroup({
         {nodes.map((node) => (
           <NodeIconChip
             key={node.type}
-            icon={iconMap[node.type] ?? defaultIcon}
+            icon={iconMap[node.type.split('.').pop() ?? node.type] ?? defaultIcon}
             label={node.label}
             colors={colors}
             onClick={() => onAddNode(node.type)}
