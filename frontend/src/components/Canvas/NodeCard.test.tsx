@@ -17,6 +17,7 @@ vi.mock("../../store/executionStore", () => ({
     selector({
       isRunning: false,
       nodeStatuses: {},
+      nodeTracebacks: {},
       pendingNodeIds: [],
       currentNodeId: null,
     }),
@@ -44,6 +45,7 @@ function makeData(overrides: Partial<NodeCardData> = {}): NodeCardData {
     outputs: BASE_OUTPUTS,
     params: [],
     code: "",
+    isKnownType: true,
     ...overrides,
   };
 }
@@ -268,6 +270,24 @@ describe("NodeCard", () => {
       const card = container.querySelector(".node-card") as HTMLElement;
       expect(card).not.toBeNull();
       expect(card.style.width).toBe("210px");
+    });
+  });
+
+  describe("deprecated node warning", () => {
+    it("shows warning strip when isKnownType is false", () => {
+      renderCard({ isKnownType: false });
+      expect(screen.getByText("Unknown node type")).toBeInTheDocument();
+    });
+
+    it("applies amber border when isKnownType is false", () => {
+      const { container } = renderCard({ isKnownType: false });
+      const card = container.querySelector(".node-card") as HTMLElement;
+      expect(card.style.borderRight).toContain("var(--warning-amber)");
+    });
+
+    it("does not show warning strip when isKnownType is true", () => {
+      renderCard({ isKnownType: true });
+      expect(screen.queryByText("Unknown node type")).not.toBeInTheDocument();
     });
   });
 });
