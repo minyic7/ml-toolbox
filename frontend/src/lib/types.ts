@@ -116,6 +116,7 @@ export interface OutputPreview {
     file_size?: number;
   } | null;
   error: string | null;
+  logs?: string | null;
 }
 
 export interface RunInfo {
