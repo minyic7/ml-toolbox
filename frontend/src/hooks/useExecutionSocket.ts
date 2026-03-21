@@ -66,32 +66,42 @@ export function useExecutionSocket(pipelineId: string | undefined) {
       };
 
       ws.onmessage = (event) => {
-        const msg: WsMessage = JSON.parse(event.data as string);
+        const msg = JSON.parse(event.data as string) as Record<string, unknown>;
+
+        // Handle metadata_updated events (sent with "type" instead of "status")
+        if (msg.type === "metadata_updated" && typeof msg.node_id === "string") {
+          qc.invalidateQueries({
+            queryKey: ["metadata", pipelineId, msg.node_id],
+          });
+          return;
+        }
+
+        const wsMsg = msg as unknown as WsMessage;
         const store = useExecutionStore.getState();
 
-        if (!msg.node_id) return;
+        if (!wsMsg.node_id) return;
 
-        switch (msg.status) {
+        switch (wsMsg.status) {
           case "running":
-            store.setNodeStatus(msg.node_id, "running");
-            store.setCurrentNodeId(msg.node_id);
+            store.setNodeStatus(wsMsg.node_id!, "running");
+            store.setCurrentNodeId(wsMsg.node_id!);
             break;
           case "done":
-            store.setNodeStatus(msg.node_id, msg.cached ? "cached" : "done");
-            store.setLastDoneNodeId(msg.node_id);
+            store.setNodeStatus(wsMsg.node_id!, wsMsg.cached ? "cached" : "done");
+            store.setLastDoneNodeId(wsMsg.node_id!);
             qc.invalidateQueries({
-              queryKey: ["output", pipelineId, msg.node_id],
+              queryKey: ["output", pipelineId, wsMsg.node_id],
             });
             break;
           case "error":
-            store.setNodeStatus(msg.node_id, "error");
-            store.setLastDoneNodeId(msg.node_id);
-            if (msg.traceback) {
-              store.setNodeTraceback(msg.node_id, msg.traceback);
+            store.setNodeStatus(wsMsg.node_id!, "error");
+            store.setLastDoneNodeId(wsMsg.node_id!);
+            if (wsMsg.traceback) {
+              store.setNodeTraceback(wsMsg.node_id!, wsMsg.traceback);
             }
             break;
           case "skipped":
-            store.setNodeStatus(msg.node_id, "skipped");
+            store.setNodeStatus(wsMsg.node_id!, "skipped");
             break;
         }
 

@@ -930,4 +930,15 @@ async def put_metadata(
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
     meta_path = run_dir / f"{node_id}_df.meta.json"
     meta_path.write_text(json.dumps(body, indent=2))
+    broadcast_sync(pipeline_id, {"type": "metadata_updated", "node_id": node_id})
     return {"status": "saved"}
+
+
+@router.post("/{pipeline_id}/outputs/{node_id}/metadata-notify")
+async def notify_metadata_updated(pipeline_id: str, node_id: str) -> dict:
+    """Broadcast a metadata_updated event over WebSocket.
+
+    Called by Pipeline CC after writing .meta.json directly to disk.
+    """
+    broadcast_sync(pipeline_id, {"type": "metadata_updated", "node_id": node_id})
+    return {"status": "notified"}

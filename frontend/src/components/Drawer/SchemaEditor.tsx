@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMetadata, updateMetadata } from "../../lib/api";
 import { AlertTriangle, ChevronRight, ChevronDown, Sparkles, Check } from "lucide-react";
 
@@ -55,34 +56,23 @@ export default function SchemaEditor({
   nodeId,
   onOpenTerminal,
 }: SchemaEditorProps) {
-  const [metadata, setMetadata] = useState<MetadataPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [noData, setNoData] = useState(false);
+  const qc = useQueryClient();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [savedCol, setSavedCol] = useState<string | null>(null);
 
-  const fetchMeta = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: metadata, isLoading: loading } = useQuery({
+    queryKey: ["metadata", pipelineId, nodeId],
+    queryFn: async () => {
       const res = await getMetadata(pipelineId, nodeId);
       if (res.metadata && typeof res.metadata === "object" && "columns" in res.metadata) {
-        setMetadata(res.metadata as MetadataPayload);
-        setNoData(false);
-      } else {
-        setMetadata(null);
-        setNoData(true);
+        return res.metadata as MetadataPayload;
       }
-    } catch {
-      setMetadata(null);
-      setNoData(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [pipelineId, nodeId]);
+      return null;
+    },
+    enabled: !!pipelineId && !!nodeId,
+  });
 
-  useEffect(() => {
-    fetchMeta();
-  }, [fetchMeta]);
+  const noData = !loading && !metadata;
 
   const handleChange = useCallback(
     async (colName: string, field: "semantic_type" | "role", value: string) => {
@@ -94,17 +84,18 @@ export default function SchemaEditor({
           [colName]: { ...metadata.columns[colName], [field]: value },
         },
       };
-      setMetadata(updated);
+      // Optimistic update
+      qc.setQueryData(["metadata", pipelineId, nodeId], updated);
       try {
         await updateMetadata(pipelineId, nodeId, updated);
         setSavedCol(colName);
         setTimeout(() => setSavedCol(null), 1500);
       } catch {
         // Revert on failure — refetch
-        fetchMeta();
+        qc.invalidateQueries({ queryKey: ["metadata", pipelineId, nodeId] });
       }
     },
-    [metadata, pipelineId, nodeId, fetchMeta],
+    [metadata, pipelineId, nodeId, qc],
   );
 
   // ── Loading state ──
