@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { TerminalSquare, X, Maximize2, Minimize2 } from "lucide-react";
+import { TerminalSquare, X, Maximize2, Minimize2, ArrowDown } from "lucide-react";
 
 interface PipelineTerminalProps {
   pipelineId: string;
@@ -18,6 +18,16 @@ export default function PipelineTerminal({
   const terminalRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+
+  // ── Scroll mode (tmux copy-mode) ────────────────────────────
+  const [isInScrollMode, setIsInScrollMode] = useState(false);
+  const [hasNewContent, setHasNewContent] = useState(false);
+  const scrollModeRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    scrollModeRef.current = isInScrollMode;
+  }, [isInScrollMode]);
 
   // ── Fullscreen ─────────────────────────────────────────────
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -91,6 +101,16 @@ export default function PipelineTerminal({
     }
   }, []);
 
+  // ── Scroll-to-bottom ────────────────────────────────────────
+  const scrollToBottom = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(new TextEncoder().encode("q")); // Exit tmux copy-mode
+    }
+    setIsInScrollMode(false);
+    setHasNewContent(false);
+  }, []);
+
   // ── WebSocket connection ─────────────────────────────────────
   const connectWs = useCallback(
     (terminal: Terminal) => {
@@ -112,6 +132,10 @@ export default function PipelineTerminal({
         } else {
           terminal.write(event.data);
         }
+        // Flag new content while in scroll mode
+        if (scrollModeRef.current) {
+          setHasNewContent(true);
+        }
       };
 
       ws.onclose = () => {
@@ -129,6 +153,11 @@ export default function PipelineTerminal({
       terminal.onData((data) => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(new TextEncoder().encode(data));
+        }
+        // Detect manual exit from tmux copy-mode (pressing q or Escape)
+        if (scrollModeRef.current && (data === "q" || data === "\x1b")) {
+          setIsInScrollMode(false);
+          setHasNewContent(false);
         }
       });
 
@@ -179,9 +208,34 @@ export default function PipelineTerminal({
     });
     ro.observe(termRef.current);
 
+    // Wheel handler for tmux scroll mode
+    const el = termRef.current;
+    const handleWheel = (e: WheelEvent) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      e.preventDefault();
+
+      // Enter tmux copy-mode on first wheel-up
+      if (e.deltaY < 0 && !scrollModeRef.current) {
+        ws.send(new TextEncoder().encode("\x01[")); // Ctrl-A + [
+        setIsInScrollMode(true);
+        setHasNewContent(false);
+      }
+
+      // Send arrow keys for scrolling
+      const lines = Math.max(1, Math.ceil(Math.abs(e.deltaY) / 40));
+      const key = e.deltaY < 0 ? "\x1b[A" : "\x1b[B";
+      for (let i = 0; i < lines; i++) {
+        ws.send(new TextEncoder().encode(key));
+      }
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+
     return () => {
       terminal.dispose();
       ro.disconnect();
+      el.removeEventListener("wheel", handleWheel);
       wsRef.current?.close();
     };
   }, [pipelineId, connectWs, sendResize]);
@@ -337,7 +391,49 @@ export default function PipelineTerminal({
       </div>
 
       {/* Terminal */}
-      <div ref={termRef} style={{ flex: 1, padding: "4px 0 0 4px" }} />
+      <div style={{ flex: 1, position: "relative" }}>
+        <div ref={termRef} style={{ height: "100%", padding: "4px 0 0 4px" }} />
+
+        {/* Scroll-to-bottom floating button */}
+        {isInScrollMode && (
+          <button
+            onClick={scrollToBottom}
+            title="Scroll to bottom"
+            style={{
+              position: "absolute",
+              bottom: 16,
+              right: 16,
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "rgba(122, 162, 247, 0.9)",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              zIndex: 10,
+              animation: hasNewContent ? "pulse 1.5s infinite" : undefined,
+            }}
+          >
+            <ArrowDown size={16} color="#1a1b26" />
+            {hasNewContent && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -2,
+                  right: -2,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: "#f7768e",
+                }}
+              />
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
