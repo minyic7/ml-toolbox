@@ -110,6 +110,34 @@ try:
                 except ImportError:
                     pass
 
+    # ── Propagate .meta.json sidecars from inputs to outputs ────
+    # If an input file has a .meta.json sidecar, copy it alongside each
+    # TABLE output so downstream nodes inherit column metadata.
+    import shutil
+
+    for _input_name, input_path_str in inputs.items():
+        input_path = Path(str(input_path_str))
+        # Look for {stem}.meta.json alongside the input file
+        meta_path = input_path.with_suffix(".meta.json")
+        if not meta_path.exists():
+            # Also check for {node_id}_portname.meta.json pattern
+            meta_candidates = list(input_path.parent.glob(
+                f"{input_path.stem}.meta.json"
+            ))
+            if meta_candidates:
+                meta_path = meta_candidates[0]
+            else:
+                continue
+        # Copy to each TABLE output
+        if isinstance(result, dict):
+            for out_key, out_value in result.items():
+                out_type = output_types.get(out_key, "")
+                if out_type == "TABLE" and isinstance(out_value, str):
+                    out_p = Path(out_value)
+                    dest_meta = out_p.with_suffix(".meta.json")
+                    if not dest_meta.exists():
+                        shutil.copy2(str(meta_path), str(dest_meta))
+
     out_path = manifest_path.parent / (manifest_path.stem + "_result.json")
     out_path.write_text(json.dumps(result))
 except Exception:

@@ -673,12 +673,24 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
 def _is_internal_file(f: Path) -> bool:
     """Return True for internal metadata files that are not node outputs."""
     name = f.name
-    if name.endswith((".hash", ".txt")):
+    if name.endswith((".hash", ".txt", ".meta.json")):
         return True
     # Exclude internal manifest/result/error JSON files but keep
     # legitimate node output JSON (e.g. metrics.json).
     _INTERNAL_SUFFIXES = ("_manifest.json", "_manifest_result.json", "_manifest_error.json")
     return any(name.endswith(s) for s in _INTERNAL_SUFFIXES)
+
+
+def _find_meta_json(run_dir: Path, node_id: str) -> Path | None:
+    """Find the .meta.json sidecar for a node's output.
+
+    Looks for {node_id}_df.meta.json first, then any {node_id}*.meta.json.
+    """
+    preferred = run_dir / f"{node_id}_df.meta.json"
+    if preferred.exists():
+        return preferred
+    candidates = list(run_dir.glob(f"{node_id}*.meta.json"))
+    return candidates[0] if candidates else None
 
 
 def _output_metadata(run_dir: Path, node_id: str) -> dict:
@@ -731,6 +743,14 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
         "node_id": node_id,
         **_file_metadata(primary),
     }
+
+    # Include .meta.json sidecar content if present
+    meta_json_path = _find_meta_json(run_dir, node_id)
+    if meta_json_path is not None:
+        try:
+            meta["column_metadata"] = json.loads(meta_json_path.read_text())
+        except Exception:
+            pass
 
     if len(output_files) > 1:
         outputs_list = []
@@ -875,3 +895,39 @@ async def download_run_output(
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={output_file.name}"},
     )
+
+
+# ── Metadata Sidecar API ─────────────────────────────────────────
+
+
+@router.get("/{pipeline_id}/outputs/{node_id}/metadata")
+async def get_metadata(
+    pipeline_id: str,
+    node_id: str,
+    run_id: str | None = Query(default=None),
+) -> dict:
+    """Read .meta.json sidecar for a node's output."""
+    _load_pipeline(pipeline_id)
+    _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    meta_path = _find_meta_json(run_dir, node_id)
+    if meta_path is None:
+        return {"metadata": None}
+    try:
+        return {"metadata": json.loads(meta_path.read_text())}
+    except Exception:
+        return {"metadata": None}
+
+
+@router.put("/{pipeline_id}/outputs/{node_id}/metadata")
+async def put_metadata(
+    pipeline_id: str,
+    node_id: str,
+    body: dict,
+    run_id: str | None = Query(default=None),
+) -> dict:
+    """Save user-edited metadata to .meta.json alongside the output file."""
+    _load_pipeline(pipeline_id)
+    _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    meta_path = run_dir / f"{node_id}_df.meta.json"
+    meta_path.write_text(json.dumps(body, indent=2))
+    return {"status": "saved"}
