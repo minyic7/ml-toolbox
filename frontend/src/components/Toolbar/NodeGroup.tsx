@@ -14,6 +14,7 @@ interface NodeGroupProps {
   nodes: NodeDefinition[];
   colors: CategoryColors;
   iconMap: Record<string, LucideIcon>;
+  abbreviations: Record<string, string>;
   defaultIcon: LucideIcon;
   onAddNode: (nodeType: string) => void;
   isLast: boolean;
@@ -24,6 +25,7 @@ export default function NodeGroup({
   nodes,
   colors,
   iconMap,
+  abbreviations,
   defaultIcon,
   onAddNode,
   isLast,
@@ -60,6 +62,7 @@ export default function NodeGroup({
             icon={iconMap[node.type] ?? iconMap[node.category.toLowerCase()] ?? defaultIcon}
             label={node.label}
             colors={colors}
+            text={abbreviations[node.type]}
             onClick={() => onAddNode(node.type)}
           />
         ))}
