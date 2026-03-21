@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import type { OutputPreview, OutputPortPreview } from "../../lib/types";
-import { useOutput, useRuns } from "../../hooks/useOutputs";
+import { useOutput, useRuns, useAnalysis } from "../../hooks/useOutputs";
 import { getOutputDownloadUrl } from "../../lib/api";
 import {
   Select,
@@ -14,6 +14,7 @@ import { TablePreview } from "./TablePreview";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { ErrorTraceback } from "./ErrorTraceback";
 import { ProfileReport } from "../ProfileReport/ProfileReport";
+import { AnalysisPanel } from "../ProfileReport/AnalysisPanel";
 
 interface OutputTabProps {
   pipelineId: string;
@@ -38,6 +39,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
 
   const { data: runs } = useRuns(pipelineId);
   const { data: output = null, isLoading: outputLoading, isError: outputError, refetch: refetchOutput } = useOutput(pipelineId, nodeId, selectedRunId);
+  const { data: analysis = null } = useAnalysis(pipelineId, nodeId, selectedRunId);
 
   const isMultiOutput = !!(output?.outputs && output.outputs.length > 1);
 
@@ -189,6 +191,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
           selectedRunId={selectedRunId}
           selectedPort={selectedPort}
           onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined}
+          analysis={analysis}
         />
       )}
     </div>
@@ -230,6 +233,7 @@ function OutputContent({
   selectedRunId,
   selectedPort,
   onRunFrom,
+  analysis,
 }: {
   output: OutputPreview | null;
   downloadUrl: string;
@@ -238,6 +242,7 @@ function OutputContent({
   selectedRunId?: string;
   selectedPort?: string;
   onRunFrom?: () => void;
+  analysis?: import("../../lib/types").CcAnalysis | null;
 }) {
   if (!output) {
     return (
@@ -439,6 +444,9 @@ function OutputContent({
       <div style={{ padding: "0 12px 8px" }}>
         {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize })}
       </div>
+
+      {/* CC Analysis panel */}
+      {analysis && <AnalysisPanel analysis={analysis} />}
     </>
   );
 }

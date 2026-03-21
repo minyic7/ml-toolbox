@@ -76,6 +76,14 @@ export function useExecutionSocket(pipelineId: string | undefined) {
           return;
         }
 
+        // Handle analysis_updated events (CC subprocess output analysis)
+        if (msg.type === "analysis_updated" && typeof msg.node_id === "string") {
+          qc.invalidateQueries({
+            queryKey: ["analysis", pipelineId, msg.node_id],
+          });
+          return;
+        }
+
         // Handle pipeline_updated events (e.g. CC patched node params)
         if (msg.type === "pipeline_updated") {
           qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });

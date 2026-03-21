@@ -15,6 +15,7 @@ import type {
   PatchNodeRequest,
   AddEdgeRequest,
   PatchEdgeRequest,
+  CcAnalysis,
 } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -301,6 +302,17 @@ export function getMetadata(
   const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
   return request<{ metadata: Record<string, unknown> | null }>(
     `/api/pipelines/${pipelineId}/outputs/${nodeId}/metadata${params}`,
+  );
+}
+
+export function getAnalysis(
+  pipelineId: string,
+  nodeId: string,
+  runId?: string,
+) {
+  const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  return request<{ analysis: CcAnalysis | null }>(
+    `/api/pipelines/${pipelineId}/outputs/${nodeId}/analysis${params}`,
   );
 }
 

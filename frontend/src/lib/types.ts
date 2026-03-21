@@ -198,6 +198,20 @@ export interface WsMessage {
   traceback?: string | null;
 }
 
+// ── CC Analysis ─────────────────────────────────────────────────────
+
+export interface AnalysisWarning {
+  type: string;
+  column?: string | null;
+  message: string;
+}
+
+export interface CcAnalysis {
+  findings: string[];
+  warnings: AnalysisWarning[];
+  suggestions: string[];
+}
+
 // ── Request types ───────────────────────────────────────────────────
 
 export interface CreatePipelineRequest {

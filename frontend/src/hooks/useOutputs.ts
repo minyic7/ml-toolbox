@@ -3,8 +3,8 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { OutputPreview, RunInfo } from "../lib/types";
-import { getOutput, listRuns, deleteRun } from "../lib/api";
+import type { OutputPreview, RunInfo, CcAnalysis } from "../lib/types";
+import { getOutput, listRuns, deleteRun, getAnalysis } from "../lib/api";
 
 export function useOutput(
   pipelineId: string,
@@ -23,6 +23,21 @@ export function useRuns(pipelineId: string) {
     queryKey: ["runs", pipelineId],
     queryFn: () => listRuns(pipelineId),
     enabled: !!pipelineId,
+  });
+}
+
+export function useAnalysis(
+  pipelineId: string,
+  nodeId: string,
+  runId?: string,
+) {
+  return useQuery<CcAnalysis | null>({
+    queryKey: ["analysis", pipelineId, nodeId, runId],
+    queryFn: async () => {
+      const res = await getAnalysis(pipelineId, nodeId, runId);
+      return res.analysis;
+    },
+    enabled: !!pipelineId && !!nodeId,
   });
 }
 
