@@ -63,6 +63,42 @@ const NODE_TYPE_ICONS: Record<string, LucideIcon> = {
   export_model: Upload,
 };
 
+/** 2-3 letter abbreviations for node chips (replaces duplicate icons) */
+const NODE_ABBREVIATIONS: Record<string, string> = {
+  // Classification
+  random_forest_classifier: "RFC",
+  gradient_boosting_classifier: "GBC",
+  logistic_regression: "LOG",
+  svc_classifier: "SVC",
+  decision_tree_classifier: "DT",
+  knn_classifier: "KNN",
+  // Regression
+  linear_regression: "LIN",
+  random_forest_regressor: "RFR",
+  gradient_boosting_regressor: "GBR",
+  svr_train: "SVR",
+  // Train
+  xgb_train: "XGB",
+  // Evaluate
+  classification: "CL",
+  regression: "RG",
+  feature_importance: "FI",
+  // Export
+  export_table: "TBL",
+  export_model: "MDL",
+  // Ingest
+  csv_reader: "CSV",
+  parquet_reader: "PQ",
+  // Transform
+  clean: "CLN",
+  feature_eng: "FE",
+  split: "SPL",
+  compute_stats: "ST",
+  // Demo
+  run: "GEN",
+  summarize_data: "SUM",
+};
+
 /** Stable category ordering */
 const CATEGORY_ORDER = ["ingest", "transform", "classification", "regression", "train", "evaluate", "export", "demo"];
 
@@ -121,6 +157,7 @@ export default function Toolbar({ onAddNode }: ToolbarProps) {
           nodes={categoryNodes}
           colors={CATEGORY_CHIP_COLORS[category] ?? DEFAULT_CHIP_COLORS}
           iconMap={iconMap}
+          abbreviations={NODE_ABBREVIATIONS}
           defaultIcon={Box}
           onAddNode={onAddNode}
           isLast={idx === grouped.length - 1}
