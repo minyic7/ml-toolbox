@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { TerminalSquare, X, Maximize2, Minimize2, ArrowDown, RotateCw } from "lucide-react";
+import { TerminalSquare, X, Maximize2, Minimize2, ScrollText, RotateCw } from "lucide-react";
 
 interface PipelineTerminalProps {
   pipelineId: string;
@@ -101,15 +101,23 @@ export default function PipelineTerminal({
     }
   }, []);
 
-  // ── Scroll-to-bottom ────────────────────────────────────────
-  const scrollToBottom = useCallback(() => {
+  // ── Toggle tmux scroll (copy-mode) ─────────────────────────
+  const toggleScrollMode = useCallback(() => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(new TextEncoder().encode("q")); // Exit tmux copy-mode
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    if (isInScrollMode) {
+      // Exit copy-mode
+      ws.send(new TextEncoder().encode("q"));
+      setIsInScrollMode(false);
+      setHasNewContent(false);
+    } else {
+      // Enter copy-mode: Ctrl-A + [
+      ws.send(new TextEncoder().encode("\x01["));
+      setIsInScrollMode(true);
+      setHasNewContent(false);
     }
-    setIsInScrollMode(false);
-    setHasNewContent(false);
-  }, []);
+  }, [isInScrollMode]);
 
   // ── WebSocket connection ─────────────────────────────────────
   const connectWs = useCallback(
@@ -364,83 +372,81 @@ export default function PipelineTerminal({
 
         <div style={{ flex: 1 }} />
 
-        {/* Scroll to bottom */}
+        {/* Scroll mode toggle */}
         <button
-          onClick={scrollToBottom}
-          aria-label="Scroll to bottom"
-          title="Scroll to bottom"
+          onClick={toggleScrollMode}
+          title={isInScrollMode ? "Exit scroll mode" : "Enter scroll mode"}
           style={{
-            width: 24,
-            height: 24,
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            border: isInScrollMode ? "1px solid #7aa2f7" : "1px solid #292e42",
+            gap: 4,
+            padding: "2px 6px",
             borderRadius: 4,
-            background: isInScrollMode ? "rgba(122, 162, 247, 0.15)" : "transparent",
+            border: "none",
+            background: isInScrollMode ? "rgba(224, 175, 104, 0.15)" : "transparent",
             cursor: "pointer",
-            color: isInScrollMode ? "#7aa2f7" : "#565f89",
+            color: isInScrollMode ? "#e0af68" : "#565f89",
+            fontSize: 10,
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 500,
             flexShrink: 0,
-            position: "relative",
+            transition: "background 150ms, color 150ms",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = isInScrollMode
-              ? "rgba(122, 162, 247, 0.25)"
-              : "#292e42";
+            if (!isInScrollMode) {
+              e.currentTarget.style.background = "#292e42";
+              e.currentTarget.style.color = "#a9b1d6";
+            }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = isInScrollMode
-              ? "rgba(122, 162, 247, 0.15)"
+              ? "rgba(224, 175, 104, 0.15)"
               : "transparent";
+            e.currentTarget.style.color = isInScrollMode ? "#e0af68" : "#565f89";
           }}
         >
-          <ArrowDown size={13} />
-          {hasNewContent && (
-            <span
-              style={{
-                position: "absolute",
-                top: 2,
-                right: 2,
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "#f7768e",
-              }}
-            />
-          )}
+          <ScrollText size={10} />
+          {isInScrollMode ? "Scrolling" : "Scroll"}
         </button>
 
         {/* Restart button */}
         <button
           onClick={restartSession}
           disabled={restarting}
-          aria-label="Restart session"
           title="Restart session"
           style={{
-            width: 24,
-            height: 24,
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            border: "1px solid #292e42",
+            gap: 4,
+            padding: "2px 6px",
             borderRadius: 4,
+            border: "none",
             background: "transparent",
             cursor: restarting ? "not-allowed" : "pointer",
             color: "#565f89",
+            fontSize: 10,
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 500,
             flexShrink: 0,
             opacity: restarting ? 0.5 : 1,
+            transition: "background 150ms, color 150ms",
           }}
           onMouseEnter={(e) => {
-            if (!restarting) e.currentTarget.style.background = "#292e42";
+            if (!restarting) {
+              e.currentTarget.style.background = "#292e42";
+              e.currentTarget.style.color = "#a9b1d6";
+            }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#565f89";
           }}
         >
           <RotateCw
-            size={13}
+            size={10}
             style={restarting ? { animation: "spin 1s linear infinite" } : undefined}
           />
+          {restarting ? "Restarting..." : "Restart"}
         </button>
 
         {/* Fullscreen toggle */}
