@@ -68,7 +68,7 @@ def _validate_and_split(inputs: dict, params: dict):  # type: ignore[no-untyped-
         "min_samples_split": Slider(min=2, max=20, step=1, default=2, description="Minimum samples to split a node"),
     },
     label="Random Forest Classifier",
-    category="Train",
+    category="Classification",
 )
 def random_forest_classifier(inputs: dict, params: dict) -> dict:
     """Train a Random Forest classifier."""
@@ -94,7 +94,7 @@ def random_forest_classifier(inputs: dict, params: dict) -> dict:
         "learning_rate": Slider(min=0.001, max=1, step=0.01, default=0.1, description="Step size shrinkage"),
     },
     label="Gradient Boosting Classifier",
-    category="Train",
+    category="Classification",
 )
 def gradient_boosting_classifier(inputs: dict, params: dict) -> dict:
     """Train a Gradient Boosting classifier."""
@@ -119,7 +119,7 @@ def gradient_boosting_classifier(inputs: dict, params: dict) -> dict:
         "max_iter": Slider(min=100, max=5000, step=100, default=1000, description="Maximum iterations"),
     },
     label="Logistic Regression",
-    category="Train",
+    category="Classification",
 )
 def logistic_regression(inputs: dict, params: dict) -> dict:
     """Train a Logistic Regression classifier."""
@@ -143,7 +143,7 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
         "C": Slider(min=0.001, max=100, step=0.1, default=1.0, description="Regularization parameter"),
     },
     label="SVC",
-    category="Train",
+    category="Classification",
 )
 def svc_classifier(inputs: dict, params: dict) -> dict:
     """Train a Support Vector Classifier."""
@@ -168,7 +168,7 @@ def svc_classifier(inputs: dict, params: dict) -> dict:
         "criterion": Select(["gini", "entropy"], default="gini", description="Split quality function"),
     },
     label="Decision Tree Classifier",
-    category="Train",
+    category="Classification",
 )
 def decision_tree_classifier(inputs: dict, params: dict) -> dict:
     """Train a Decision Tree classifier."""
@@ -193,7 +193,7 @@ def decision_tree_classifier(inputs: dict, params: dict) -> dict:
         "weights": Select(["uniform", "distance"], default="uniform", description="Weight function for prediction"),
     },
     label="KNN Classifier",
-    category="Train",
+    category="Classification",
 )
 def knn_classifier(inputs: dict, params: dict) -> dict:
     """Train a K-Nearest Neighbors classifier."""
@@ -219,7 +219,7 @@ def knn_classifier(inputs: dict, params: dict) -> dict:
         "target_column": Text(default="", description="Column name to predict", placeholder="target"),
     },
     label="Linear Regression",
-    category="Train",
+    category="Regression",
 )
 def linear_regression(inputs: dict, params: dict) -> dict:
     """Train a LinearRegression model (no tunable hyperparameters)."""
@@ -240,7 +240,7 @@ def linear_regression(inputs: dict, params: dict) -> dict:
         "min_samples_split": Slider(min=2, max=20, step=1, default=2, description="Minimum samples required to split an internal node"),
     },
     label="Random Forest Regressor",
-    category="Train",
+    category="Regression",
 )
 def random_forest_regressor(inputs: dict, params: dict) -> dict:
     """Train a RandomForestRegressor."""
@@ -266,7 +266,7 @@ def random_forest_regressor(inputs: dict, params: dict) -> dict:
         "learning_rate": Slider(min=0.001, max=1, step=0.01, default=0.1, description="Step size shrinkage to prevent overfitting"),
     },
     label="Gradient Boosting Regressor",
-    category="Train",
+    category="Regression",
 )
 def gradient_boosting_regressor(inputs: dict, params: dict) -> dict:
     """Train a GradientBoostingRegressor."""
@@ -296,7 +296,7 @@ def gradient_boosting_regressor(inputs: dict, params: dict) -> dict:
         "epsilon": Slider(min=0.01, max=1, step=0.01, default=0.1, description="Epsilon in the epsilon-SVR model"),
     },
     label="SVR",
-    category="Train",
+    category="Regression",
 )
 def svr_train(inputs: dict, params: dict) -> dict:
     """Train a Support Vector Regressor (SVR)."""

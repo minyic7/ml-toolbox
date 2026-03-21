@@ -13,6 +13,7 @@ import {
   ArrowLeftRight,
   CircleDot,
   Wrench,
+  TrendingUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getNodeDefinitions } from "../../lib/api";
@@ -26,6 +27,8 @@ const CATEGORY_CHIP_COLORS: Record<
 > = {
   ingest: { bg: "#EFF8F4", border: "#BBF7D0", icon: "#166534", dot: "#1D9E75" },
   transform: { bg: "#F5F3FF", border: "#DDD6FE", icon: "#5B21B6", dot: "#7F77DD" },
+  classification: { bg: "#EFF6FF", border: "#BFDBFE", icon: "#1D4ED8", dot: "#378ADD" },
+  regression: { bg: "#E0F2FE", border: "#BAE6FD", icon: "#0369A1", dot: "#0EA5E9" },
   train: { bg: "#EFF6FF", border: "#BFDBFE", icon: "#1D4ED8", dot: "#378ADD" },
   evaluate: { bg: "#FFFBEB", border: "#FDE68A", icon: "#92400E", dot: "#EF9F27" },
   export: { bg: "#FFF7ED", border: "#FED7AA", icon: "#9A3412", dot: "#D85A30" },
@@ -38,6 +41,8 @@ const DEFAULT_CHIP_COLORS = CATEGORY_CHIP_COLORS.demo;
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   ingest: Download,
   transform: Shuffle,
+  classification: Brain,
+  regression: TrendingUp,
   train: Brain,
   evaluate: BarChart3,
   export: Upload,
@@ -59,7 +64,7 @@ const NODE_TYPE_ICONS: Record<string, LucideIcon> = {
 };
 
 /** Stable category ordering */
-const CATEGORY_ORDER = ["ingest", "transform", "train", "evaluate", "export", "demo"];
+const CATEGORY_ORDER = ["ingest", "transform", "classification", "regression", "train", "evaluate", "export", "demo"];
 
 interface ToolbarProps {
   onAddNode: (nodeType: string) => void;
@@ -75,7 +80,7 @@ export default function Toolbar({ onAddNode }: ToolbarProps) {
   const grouped = useMemo(() => {
     const groups: Record<string, NodeDefinition[]> = {};
     for (const node of nodes) {
-      const cat = node.category;
+      const cat = node.category.toLowerCase();
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(node);
     }
