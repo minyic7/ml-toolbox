@@ -195,7 +195,7 @@ function OutputContent({
     return (
       <div style={{ padding: "8px 12px" }}>
         <ErrorTraceback error={output.error ?? "Unknown error"} />
-        {output.logs && (
+        {output.logs?.trim() && (
           <div style={{ marginTop: 8 }}>
             <div style={{
               fontFamily: "'Inter', sans-serif",

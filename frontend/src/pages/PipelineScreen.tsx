@@ -84,6 +84,7 @@ export default function PipelineScreen() {
       // Non-selected node errored — show toast with action to navigate
       const errorNodeId = lastDoneNodeId;
       toast.error("Node failed", {
+        duration: 8000,
         action: {
           label: "View Error",
           onClick: () => {
