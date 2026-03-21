@@ -330,3 +330,10 @@ export function getRunOutputDownloadUrl(
   const qs = params.toString();
   return `${basePath}/api/pipelines/${pipelineId}/runs/${runId}/outputs/${nodeId}/download${qs ? `?${qs}` : ""}`;
 }
+
+export function updateSelection(pipelineId: string, selectedNodes: string[]) {
+  return request<{ status: string }>(
+    `/api/pipelines/${pipelineId}/selection`,
+    { method: "PUT", ...json({ selected_nodes: selectedNodes }) },
+  );
+}
