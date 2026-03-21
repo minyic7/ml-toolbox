@@ -1,4 +1,4 @@
-"""Tests for the node protocol, decorator, and demo nodes."""
+"""Tests for the node protocol, decorator, and ingest nodes."""
 
 from pathlib import Path
 from unittest.mock import patch
@@ -13,52 +13,55 @@ import ml_toolbox.nodes  # noqa: F401
 
 
 EXPECTED_NODES = {
-    "ml_toolbox.nodes.demo.run",
-    "ml_toolbox.nodes.demo.summarize_data",
+    "ml_toolbox.nodes.ingest.csv_reader",
+    "ml_toolbox.nodes.ingest.parquet_reader",
 }
 
 
-def test_registry_contains_all_demo_nodes():
-    """All 3 demo nodes should be registered after import."""
+def test_registry_contains_all_ingest_nodes():
+    """Both ingest nodes should be registered after import."""
     assert EXPECTED_NODES.issubset(NODE_REGISTRY.keys())
 
 
-def test_generate_data_metadata():
-    meta = NODE_REGISTRY["ml_toolbox.nodes.demo.run"]
-    assert meta["label"] == "Generate Data"
-    assert meta["category"] == "Demo"
-    assert meta["type"] == "ml_toolbox.nodes.demo.run"
+def test_csv_reader_metadata():
+    meta = NODE_REGISTRY["ml_toolbox.nodes.ingest.csv_reader"]
+    assert meta["label"] == "CSV Reader"
+    assert meta["category"] == "Ingest"
+    assert meta["type"] == "ml_toolbox.nodes.ingest.csv_reader"
     assert meta["inputs"] == []
     assert meta["outputs"] == [{"name": "df", "type": "TABLE"}]
-    assert len(meta["params"]) == 1
-    param = meta["params"][0]
-    assert param["type"] == "slider"
-    assert param["name"] == "rows"
-    assert param["min"] == 10
-    assert param["max"] == 1000
+    assert len(meta["params"]) == 3
+    param_names = {p["name"] for p in meta["params"]}
+    assert param_names == {"path", "separator", "header"}
     assert "default_code" in meta
 
 
+def test_parquet_reader_metadata():
+    meta = NODE_REGISTRY["ml_toolbox.nodes.ingest.parquet_reader"]
+    assert meta["label"] == "Parquet Reader"
+    assert meta["category"] == "Ingest"
+    assert meta["inputs"] == []
+    assert meta["outputs"] == [{"name": "df", "type": "TABLE"}]
+    param_names = {p["name"] for p in meta["params"]}
+    assert param_names == {"path", "columns"}
 
-def test_summarize_data_metadata():
-    meta = NODE_REGISTRY["ml_toolbox.nodes.demo.summarize_data"]
-    assert meta["inputs"] == [{"name": "df", "type": "TABLE"}]
-    assert meta["outputs"] == [{"name": "summary", "type": "METRICS"}]
-    assert meta["params"] == []
 
+def test_csv_reader_produces_parquet(tmp_path: Path):
+    """Running csv_reader should produce a valid parquet file."""
+    # Create a CSV file to read
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("id,value\n1,10\n2,20\n3,30\n")
 
-def test_generate_data_produces_parquet(tmp_path: Path):
-    """Running generate_data should produce a valid parquet file."""
-    from ml_toolbox.nodes.demo import run as generate_data
+    from ml_toolbox.nodes.ingest import csv_reader
 
     output_file = tmp_path / "df.parquet"
     with patch(
-        "ml_toolbox.nodes.demo._get_output_path", return_value=output_file
+        "ml_toolbox.nodes.ingest._get_output_path", return_value=output_file
     ):
-        result = generate_data(inputs={}, params={"rows": 50})
+        result = csv_reader(inputs={}, params={"path": str(csv_path), "separator": ",", "header": True})
 
     parquet_path = Path(result["df"])
     assert parquet_path.exists()
     df = pl.read_parquet(parquet_path)
-    assert df.height == 50
-    assert set(df.columns) == {"id", "value_a", "value_b", "category"}
+    assert df.height == 3
+    assert set(df.columns) == {"id", "value"}

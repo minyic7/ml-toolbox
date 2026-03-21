@@ -37,7 +37,7 @@ export function toRFNode(
 ): Node<NodeCardData> {
   const def = nodeDefinitions[node.type];
   // Derive category from definition, or from the node type path (e.g. "transform/clean" → "transform")
-  const category = def?.category ?? node.type.split("/")[0] ?? "demo";
+  const category = def?.category ?? node.type.split("/")[0] ?? "ingest";
   return {
     id: node.id,
     type: "nodeCard",

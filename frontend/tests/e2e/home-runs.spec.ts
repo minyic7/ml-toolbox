@@ -12,11 +12,11 @@ const RUNS_FIXTURE = [
     completed_at: new Date().toISOString(),
     duration: 72,
     dag_snapshot: [
-      { node_id: "n1", node_name: "Generate Data", node_type: "demo.run", status: "done" },
-      { node_id: "n2", node_name: "Clean Data", node_type: "transform.clean", status: "done" },
+      { node_id: "n1", node_name: "CSV Reader", node_type: "ingest.csv_reader", status: "done" },
+      { node_id: "n2", node_name: "Parquet Reader", node_type: "ingest.parquet_reader", status: "done" },
     ],
     artifacts: [
-      { node_id: "n1", node_name: "Generate Data", filename: "df.parquet", type: "parquet", size: 40960, bars: null },
+      { node_id: "n1", node_name: "CSV Reader", filename: "df.parquet", type: "parquet", size: 40960, bars: null },
     ],
   },
   {
@@ -28,8 +28,8 @@ const RUNS_FIXTURE = [
     completed_at: new Date(Date.now() - 3500000).toISOString(),
     duration: 43,
     dag_snapshot: [
-      { node_id: "n1", node_name: "Generate Data", node_type: "demo.run", status: "done" },
-      { node_id: "n2", node_name: "Clean Data", node_type: "transform.clean", status: "error" },
+      { node_id: "n1", node_name: "CSV Reader", node_type: "ingest.csv_reader", status: "done" },
+      { node_id: "n2", node_name: "Parquet Reader", node_type: "ingest.parquet_reader", status: "error" },
     ],
     artifacts: [],
   },
