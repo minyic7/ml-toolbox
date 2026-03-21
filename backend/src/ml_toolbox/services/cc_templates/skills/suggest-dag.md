@@ -9,7 +9,7 @@ Analyze the ingested dataset and recommend a complete pipeline DAG — which nod
 
 ## Steps
 
-1. **Find the ingest node's .meta.json.** Look in `{{runs_dir}}` for the latest run. Find the `.meta.json` for the ingest node (csv_reader or parquet_reader). If none exists, suggest running `/infer-schema` first.
+1. **Find the ingest node's .meta.json.** Look in `{{runs_dir}}` for the latest run. Find the `.meta.json` for the ingest node (csv_reader or parquet_reader). If none exists, run the pipeline first to generate outputs.
 
 2. **Also read the parquet file** to get basic stats: row count, column count, memory size.
 
@@ -82,4 +82,4 @@ Analyze the ingested dataset and recommend a complete pipeline DAG — which nod
 ## Notes
 - The recommendations should be practical and actionable, not exhaustive.
 - Explain *why* each node is recommended, not just *what* to add.
-- The user can use `/configure-node` to auto-set params for each recommended node.
+- Use `PATCH {{api_base}}/api/pipelines/{{pipeline_id}}/nodes/{node_id}` to set params for each recommended node.
