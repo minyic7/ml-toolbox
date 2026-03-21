@@ -66,7 +66,12 @@ Analyze a parquet file from the pipeline and generate a `.meta.json` file descri
    }
    ```
 
-6. **Show a summary table.** After writing, display results:
+6. **Notify the frontend.** After writing `.meta.json`, notify the UI so the Schema Editor updates in real-time:
+   ```
+   curl -s -X POST {{api_base}}/api/pipelines/{{pipeline_id}}/outputs/{node_id}/metadata-notify
+   ```
+
+7. **Show a summary table.** After writing, display results:
 
    ```
    | Column | dtype | Semantic Type | Role | Nulls | Unique | Reasoning |
