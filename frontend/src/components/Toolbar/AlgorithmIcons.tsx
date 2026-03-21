@@ -10,26 +10,50 @@ interface IconProps {
 
 // ── Ingest ──────────────────────────────────────────────────────
 
-/** Spreadsheet grid with comma symbol */
+/** Document with comma — CSV / comma-separated */
 export function CsvReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="2" width="12" height="12" rx="1.5" stroke={color} strokeWidth="1.5" />
-      <line x1="2" y1="6" x2="14" y2="6" stroke={color} strokeWidth="1" />
-      <line x1="2" y1="10" x2="14" y2="10" stroke={color} strokeWidth="1" />
-      <line x1="6" y1="2" x2="6" y2="14" stroke={color} strokeWidth="1" />
-      <line x1="10" y1="2" x2="10" y2="14" stroke={color} strokeWidth="1" />
+      {/* Page with folded corner */}
+      <path
+        d="M4 1.5h5.5l3 3V13.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12A1 1 0 0 1 4 1.5z"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path d="M9.5 1.5V4.5h3" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* Prominent comma symbol */}
+      <text
+        x="8"
+        y="11.5"
+        textAnchor="middle"
+        fill={color}
+        fontSize="8"
+        fontFamily="sans-serif"
+        fontWeight="bold"
+      >
+        ,
+      </text>
     </svg>
   );
 }
 
-/** Columnar blocks (parquet = columnar format) */
+/** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="2" width="3" height="12" rx="1" stroke={color} strokeWidth="1.5" />
-      <rect x="6.5" y="2" width="3" height="12" rx="1" stroke={color} strokeWidth="1.5" />
-      <rect x="11" y="2" width="3" height="12" rx="1" stroke={color} strokeWidth="1.5" />
+      {/* Three columns of varying height — columnar storage */}
+      <rect x="1.5" y="5" width="3" height="9.5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="6.5" y="3" width="3" height="11.5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="11.5" y="6.5" width="3" height="8" rx="0.5" stroke={color} strokeWidth="1.2" />
+      {/* Lightning bolt — speed/compression */}
+      <path
+        d="M9 1L6.5 5.5h3L7 9"
+        stroke={color}
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
