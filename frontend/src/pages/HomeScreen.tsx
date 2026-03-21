@@ -101,7 +101,8 @@ export default function HomeScreen() {
   const duplicatePipeline = useDuplicatePipeline();
   const renamePipeline = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const res = await fetch(`/api/pipelines/${id}`, {
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const res = await fetch(`${basePath}/api/pipelines/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),

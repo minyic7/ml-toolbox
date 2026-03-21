@@ -429,7 +429,8 @@ export default function PipelineScreen() {
     setRightPanelMode("terminal");
     setRightPanelOpen(true);
     // Send configure-node command to the CC session
-    fetch(`/api/cc/pipelines/${pipelineId}/message`, {
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${basePath}/api/cc/pipelines/${pipelineId}/message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: `/configure-node ${nodeId}` }),
