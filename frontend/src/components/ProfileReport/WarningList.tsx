@@ -6,6 +6,8 @@ interface Warning {
 
 interface WarningListProps {
   warnings: Warning[];
+  /** "heuristic" (default) or "ai" — shown as a subtle label next to the header */
+  source?: "heuristic" | "ai";
 }
 
 const SEVERITY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -23,7 +25,7 @@ function getSeverity(type: string): string {
   return "low";
 }
 
-export function WarningList({ warnings }: WarningListProps) {
+export function WarningList({ warnings, source }: WarningListProps) {
   if (!warnings || warnings.length === 0) return null;
 
   return (
@@ -41,6 +43,24 @@ export function WarningList({ warnings }: WarningListProps) {
         }}
       >
         Warnings
+        {source === "ai" && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              padding: "1px 6px",
+              borderRadius: 9999,
+              background: "var(--ghost-hover-bg, rgba(0,0,0,0.04))",
+              color: "var(--text-muted)",
+              marginLeft: 6,
+              verticalAlign: "middle",
+            }}
+          >
+            AI
+          </span>
+        )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {warnings.map((w, i) => {

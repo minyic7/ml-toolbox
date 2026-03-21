@@ -150,6 +150,24 @@ When the user says 'selected nodes', 'these nodes', or is not specific about whi
 2. Use the selected node IDs to determine context
 3. The selection file is at `{{project_dir}}/.selection.json`
 
+## Output Analysis
+After every node execution, a subprocess Claude Code instance analyzes the output.
+The analysis is saved as `{node_id}.analysis.json` alongside the output file.
+This provides intelligent, context-aware insights instead of hardcoded rules.
+
+When the user asks about a node's output, check both:
+1. The raw output file (parquet/json)
+2. The `.analysis.json` for pre-computed insights
+
+The analysis JSON structure:
+```json
+{
+  "findings": ["Key insight 1", "Key insight 2"],
+  "warnings": [{"type": "medium", "column": "col_name", "message": "..."}],
+  "suggestions": ["Next step 1", "Next step 2"]
+}
+```
+
 ## Guidelines
 - This is a single-user personal project — no auth, no multi-tenancy.
 - Nodes execute in isolated Docker sandbox containers, not in the FastAPI process.
