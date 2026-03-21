@@ -143,9 +143,17 @@ async def list_pipelines() -> list[dict]:
 @router.get("/{pipeline_id}")
 async def get_pipeline(pipeline_id: str) -> dict:
     try:
-        return store.load(pipeline_id)
+        data = store.load(pipeline_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Pipeline not found")
+
+    # Backfill seq numbers for existing nodes that lack them
+    before = data.get("_next_node_seq")
+    _ensure_node_seqs(data)
+    if data.get("_next_node_seq") != before:
+        store.save(pipeline_id, data)
+
+    return data
 
 
 @router.put("/{pipeline_id}")
@@ -170,6 +178,7 @@ async def update_pipeline(pipeline_id: str, body: dict) -> dict:
             if field not in node:
                 node[field] = prev.get(field) or template.get(registry_key, [])
 
+    _ensure_node_seqs(body)
     store.save(pipeline_id, body)
     return body
 
@@ -210,6 +219,16 @@ async def update_settings(pipeline_id: str, body: SettingsUpdate) -> dict:
 # ── Helpers ──────────────────────────────────────────────────────
 
 
+def _ensure_node_seqs(data: dict) -> None:
+    """Backfill sequential numbers for nodes that don't have one."""
+    next_seq = data.get("_next_node_seq", 1)
+    for node in data.get("nodes", []):
+        if "seq" not in node:
+            node["seq"] = next_seq
+            next_seq += 1
+    data["_next_node_seq"] = next_seq
+
+
 def _load_pipeline(pipeline_id: str) -> dict:
     try:
         return store.load(pipeline_id)
@@ -230,8 +249,13 @@ async def add_node(pipeline_id: str, body: AddNodeRequest) -> dict:
     template = NODE_REGISTRY[body.type]
     node_id = uuid.uuid4().hex
 
+    # Assign sequential number
+    _ensure_node_seqs(data)
+    next_seq = data.get("_next_node_seq", 1)
+
     node: dict[str, Any] = {
         "id": node_id,
+        "seq": next_seq,
         "type": body.type,
         "position": body.position.model_dump(),
         "params": body.params if body.params is not None else list(template["params"]),
@@ -242,6 +266,7 @@ async def add_node(pipeline_id: str, body: AddNodeRequest) -> dict:
     if body.name:
         node["name"] = body.name
 
+    data["_next_node_seq"] = next_seq + 1
     data["nodes"].append(node)
     store.save(pipeline_id, data)
     return node
