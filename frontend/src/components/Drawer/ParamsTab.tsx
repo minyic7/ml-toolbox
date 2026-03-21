@@ -1,4 +1,4 @@
-import type { ParamDefinition } from "../../lib/types";
+import type { ParamDefinition, Edge, PortDefinition } from "../../lib/types";
 import { ParamControl } from "./ParamControl";
 
 interface ParamsTabProps {
@@ -6,9 +6,13 @@ interface ParamsTabProps {
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
   disabled?: boolean;
+  pipelineId?: string;
+  edges?: Edge[];
+  nodeId?: string;
+  nodeInputs?: PortDefinition[];
 }
 
-export function ParamsTab({ params, values, onChange, disabled }: ParamsTabProps) {
+export function ParamsTab({ params, values, onChange, disabled, pipelineId, edges, nodeId, nodeInputs }: ParamsTabProps) {
   if (params.length === 0) {
     return (
       <div
@@ -42,6 +46,10 @@ export function ParamsTab({ params, values, onChange, disabled }: ParamsTabProps
           value={values[param.name]}
           onChange={onChange}
           disabled={disabled}
+          pipelineId={pipelineId}
+          edges={edges}
+          nodeId={nodeId}
+          nodeInputs={nodeInputs}
         />
       ))}
     </div>
