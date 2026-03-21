@@ -21,7 +21,7 @@ interface DrawerHeaderProps {
   onOutputClick: () => void;
   onInfoClick: () => void;
   rightPanelOpen: boolean;
-  rightPanelMode: "code" | "output" | "info";
+  rightPanelMode: "code" | "output" | "info" | "terminal";
 }
 
 export default function DrawerHeader({

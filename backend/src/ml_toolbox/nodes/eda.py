@@ -27,6 +27,8 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
                         description="Correlation method"),
         "target_column": Text(default="", description="Target column to rank feature correlations",
                              placeholder="target"),
+        "columns": Text(default="", description="Comma-separated columns to analyze (empty = all appropriate)",
+                       placeholder="col1, col2, col3"),
     },
     label="Correlation Matrix",
     category="Eda",
@@ -36,6 +38,7 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
 def correlation_matrix(inputs: dict, params: dict) -> dict:
     """Compute pairwise correlation matrix for numeric columns."""
     import json
+    from pathlib import Path
 
     import pandas as pd
 
@@ -43,6 +46,33 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
     numeric_df = df.select_dtypes(include="number")
     method = params.get("method", "pearson")
     target_column = params.get("target_column", "")
+    columns_param = params.get("columns", "")
+
+    # Read .meta.json sidecar if available
+    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
+    col_metadata: dict = {}
+    if meta_path.exists():
+        try:
+            col_metadata = json.loads(meta_path.read_text())
+        except Exception:
+            pass
+
+    # Determine which columns to use
+    if columns_param and columns_param.strip():
+        # Manual override: only use specified columns
+        selected = [c.strip() for c in columns_param.split(",") if c.strip()]
+        numeric_df = numeric_df[[c for c in selected if c in numeric_df.columns]]
+    elif col_metadata.get("columns"):
+        # Use metadata: only correlate continuous columns
+        continuous_cols = [
+            c["name"] for c in col_metadata["columns"]
+            if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
+        ]
+        if continuous_cols:
+            numeric_df = numeric_df[continuous_cols]
+        # Use target from metadata if not specified
+        if not target_column and col_metadata.get("target"):
+            target_column = col_metadata["target"]
 
     cols = list(numeric_df.columns)
     n_cols = len(cols)
@@ -121,8 +151,8 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         return result
 
     if method == "both":
-        corr_pearson = numeric_df.corr(method="pearson")
-        corr_spearman = numeric_df.corr(method="spearman")
+        corr_pearson = numeric_df.corr(method="pearson")  # pyright: ignore[reportCallIssue]
+        corr_spearman = numeric_df.corr(method="spearman")  # pyright: ignore[reportCallIssue]
         report_pearson = _compute(corr_pearson, "pearson")
         report_spearman = _compute(corr_spearman, "spearman")
 
@@ -138,7 +168,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         if "target_correlations" in report_pearson:
             report["target_correlations"] = report_pearson["target_correlations"]
     else:
-        corr_df = numeric_df.corr(method=method)
+        corr_df = numeric_df.corr(method=method)  # pyright: ignore[reportCallIssue]
         report = _compute(corr_df, method)
 
     out = _get_output_path("report", ext=".json")
@@ -155,6 +185,8 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
             description="Target column for special analysis (class balance / distribution)",
             placeholder="target",
         ),
+        "columns": Text(default="", description="Comma-separated columns to analyze (empty = all)",
+                       placeholder="col1, col2, col3"),
     },
     label="Distribution Profile",
     category="Eda",
@@ -182,6 +214,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
 def distribution_profile(inputs: dict, params: dict) -> dict:
     """Profile all columns: dtype, stats, distribution shape, value counts."""
     import json
+    from pathlib import Path
     from typing import Any, cast
 
     import numpy as np
@@ -194,6 +227,25 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
     df = pd.read_parquet(inputs["df"])
 
     target_column = params.get("target_column", "")
+    columns_param = params.get("columns", "")
+
+    # Read .meta.json sidecar if available
+    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
+    col_metadata: dict = {}
+    if meta_path.exists():
+        try:
+            col_metadata = json.loads(meta_path.read_text())
+        except Exception:
+            pass
+
+    # Filter columns if specified
+    if columns_param and columns_param.strip():
+        selected = [c.strip() for c in columns_param.split(",") if c.strip()]
+        # Keep only selected columns (plus target if specified)
+        keep = set(selected)
+        if target_column:
+            keep.add(target_column)
+        df = df[[c for c in df.columns if c in keep]]
     total_rows = len(df)
     total_columns = len(df.columns)
 
@@ -207,7 +259,7 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
         role = "target" if col == target_column else "feature"
 
         if col in numeric_cols:
-            series = df[col].dropna()
+            series = pd.Series(df[col]).dropna()
             count = int(cast(int, series.count()))
             stats: dict = {
                 "count": count,
@@ -254,9 +306,10 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
                 })
         else:
             # Categorical column
-            value_counts = df[col].value_counts()
-            count = int(cast(int, df[col].count()))
-            cardinality = int(cast(int, df[col].nunique()))
+            col_series = pd.Series(df[col])
+            value_counts = col_series.value_counts()
+            count = int(cast(int, col_series.count()))
+            cardinality = int(cast(int, col_series.nunique()))
             top_values = []
             for val, cnt in value_counts.head(10).items():
                 top_values.append({
@@ -303,9 +356,10 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
     # Target section
     if target_column and target_column in df.columns:
         target_dtype = str(df[target_column].dtype)
-        if target_column in categorical_cols or int(cast(int, df[target_column].nunique())) <= 20:
+        target_series = pd.Series(df[target_column])
+        if target_column in categorical_cols or int(cast(int, target_series.nunique())) <= 20:
             # Classification-style: class balance
-            vc = df[target_column].value_counts()
+            vc = target_series.value_counts()
             class_balance = []
             for val, cnt in vc.items():
                 class_balance.append({
@@ -334,7 +388,7 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
                     })
         else:
             # Regression-style: distribution stats
-            series = df[target_column].dropna()
+            series = target_series.dropna()
             report["target"] = {
                 "name": target_column,
                 "dtype": target_dtype,
@@ -453,6 +507,8 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
                                 description="IQR fence multiplier (1.5 = standard, 3.0 = extreme only)"),
         "zscore_threshold": Slider(min=2.0, max=5.0, step=0.1, default=3.0,
                                   description="Z-score threshold for outlier classification"),
+        "columns": Text(default="", description="Comma-separated columns to analyze (empty = all appropriate)",
+                       placeholder="col1, col2, col3"),
     },
     label="Outlier Detection",
     category="Eda",
@@ -462,6 +518,7 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
 def outlier_detection(inputs: dict, params: dict) -> dict:
     """Detect outliers in numeric columns using IQR or z-score methods."""
     import json
+    from pathlib import Path
 
     import pandas as pd
 
@@ -471,6 +528,30 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     method = params.get("method", "iqr")
     iqr_multiplier = float(params.get("iqr_multiplier", 1.5))
     zscore_threshold = float(params.get("zscore_threshold", 3.0))
+    columns_param = params.get("columns", "")
+
+    # Read .meta.json sidecar if available
+    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
+    col_metadata: dict = {}
+    if meta_path.exists():
+        try:
+            col_metadata = json.loads(meta_path.read_text())
+        except Exception:
+            pass
+
+    # Determine which columns to analyze
+    if columns_param and columns_param.strip():
+        # Manual override: only use specified columns
+        selected = [c.strip() for c in columns_param.split(",") if c.strip()]
+        numeric_df = numeric_df[[c for c in selected if c in numeric_df.columns]]
+    elif col_metadata.get("columns"):
+        # Use metadata: only analyze continuous columns
+        continuous_cols = [
+            c["name"] for c in col_metadata["columns"]
+            if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
+        ]
+        if continuous_cols:
+            numeric_df = numeric_df[continuous_cols]
 
     total_rows = len(df)
     columns_results: list[dict] = []

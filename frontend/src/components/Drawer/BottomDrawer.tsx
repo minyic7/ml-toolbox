@@ -16,7 +16,7 @@ interface BottomDrawerProps {
   onOutputClick: () => void;
   onInfoClick: () => void;
   rightPanelOpen: boolean;
-  rightPanelMode: "code" | "output" | "info";
+  rightPanelMode: "code" | "output" | "info" | "terminal";
 }
 
 const DRAWER_HEADER_HEIGHT = 38;

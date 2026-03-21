@@ -17,7 +17,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, Clock, Settings } from "lucide-react";
+import { Menu, Clock, Settings, TerminalSquare } from "lucide-react";
 import { toast } from "sonner";
 import PipelineNameInput from "./PipelineNameInput";
 import RunButton from "./RunButton";
@@ -31,9 +31,10 @@ import NavDrawer from "./NavDrawer";
 interface TopbarProps {
   pipelineId: string;
   onViewRun?: (runId: string) => void;
+  onTerminalToggle?: () => void;
 }
 
-export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
+export default function Topbar({ pipelineId, onViewRun, onTerminalToggle }: TopbarProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -243,6 +244,37 @@ export default function Topbar({ pipelineId, onViewRun }: TopbarProps) {
         <RunButton pipelineId={pipelineId} nodeIds={nodeIds} currentNodeLabel={currentNodeLabel} />
 
         {isRunning && <CancelButton pipelineId={pipelineId} />}
+
+        {/* Terminal ghost button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="topbar-ghost-btn flex items-center justify-center shrink-0"
+              aria-label="Pipeline CC Terminal"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: "1px solid var(--border-default)",
+                background: "transparent",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                transition: "background 0.15s",
+              }}
+              onClick={() => onTerminalToggle?.()}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--ghost-hover-bg)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <TerminalSquare style={{ width: 14, height: 14 }} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Pipeline CC</TooltipContent>
+        </Tooltip>
 
         {/* ⚙ Settings ghost button */}
         <Tooltip>
