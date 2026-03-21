@@ -13,6 +13,7 @@ import BottomDrawer from "../components/Drawer/BottomDrawer";
 import CodePane from "../components/CodePane/CodePane";
 import OutputPanel from "../components/OutputPanel/OutputPanel";
 import InfoPanel from "../components/InfoPanel/InfoPanel";
+import PipelineTerminal from "../components/PipelineTerminal/PipelineTerminal";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { toast } from "sonner";
 
@@ -134,7 +135,7 @@ export default function PipelineScreen() {
   // Drawer + right panel state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [rightPanelMode, setRightPanelMode] = useState<"code" | "output" | "info">("code");
+  const [rightPanelMode, setRightPanelMode] = useState<"code" | "output" | "info" | "terminal">("code");
 
   // Escape key: close right panel first, then drawer, then clear selection
   useEffect(() => {
@@ -424,6 +425,28 @@ export default function PipelineScreen() {
     }
   }, [rightPanelOpen, rightPanelMode]);
 
+  const handleOpenTerminal = useCallback((nodeId: string) => {
+    setRightPanelMode("terminal");
+    setRightPanelOpen(true);
+    // Send configure-node command to the CC session
+    fetch(`/api/cc/pipelines/${pipelineId}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: `/configure-node ${nodeId}` }),
+    }).catch(() => {
+      // Best-effort — terminal will still open even if the POST fails
+    });
+  }, [pipelineId]);
+
+  const handleTerminalToggle = useCallback(() => {
+    if (rightPanelOpen && rightPanelMode === "terminal") {
+      setRightPanelOpen(false);
+    } else {
+      setRightPanelMode("terminal");
+      setRightPanelOpen(true);
+    }
+  }, [rightPanelOpen, rightPanelMode]);
+
   const handleRightPanelClose = useCallback(() => {
     setRightPanelOpen(false);
   }, []);
@@ -587,6 +610,7 @@ export default function PipelineScreen() {
           setRightPanelOpen(true);
           setRequestedRunId(runId);
         } : undefined}
+        onTerminalToggle={handleTerminalToggle}
       />
       <ErrorBoundary key={pipelineId} variant="compact">
         <Toolbar onAddNode={handleAddNodeFromToolbar} />
@@ -667,6 +691,7 @@ export default function PipelineScreen() {
               onRenameNode={handleRenameFromContextMenu}
               onDuplicateNode={handleDuplicateNode}
               onPasteNodes={handlePasteNodes}
+              onOpenTerminal={handleOpenTerminal}
               viewportCenterRef={viewportCenterRef}
             />
             </ErrorBoundary>
@@ -715,6 +740,12 @@ export default function PipelineScreen() {
             <InfoPanel
               node={selectedNode}
               definition={selectedDefinition}
+              onClose={handleRightPanelClose}
+            />
+          )}
+          {rightPanelOpen && rightPanelMode === "terminal" && (
+            <PipelineTerminal
+              pipelineId={pipelineId}
               onClose={handleRightPanelClose}
             />
           )}
