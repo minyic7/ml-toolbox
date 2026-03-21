@@ -76,6 +76,12 @@ export function useExecutionSocket(pipelineId: string | undefined) {
           return;
         }
 
+        // Handle pipeline_updated events (e.g. CC patched node params)
+        if (msg.type === "pipeline_updated") {
+          qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          return;
+        }
+
         const wsMsg = msg as unknown as WsMessage;
         const store = useExecutionStore.getState();
 

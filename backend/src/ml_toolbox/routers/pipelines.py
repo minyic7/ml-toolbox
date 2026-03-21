@@ -312,6 +312,13 @@ async def update_node(pipeline_id: str, node_id: str, body: UpdateNodeRequest) -
         node["name"] = body.name if body.name else None
 
     store.save(pipeline_id, data)
+
+    # Notify frontend to refetch pipeline (e.g. when CC patches params)
+    broadcast_sync(pipeline_id, {
+        'type': 'pipeline_updated',
+        'node_id': node_id,
+    })
+
     return node
 
 
