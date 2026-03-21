@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, Maximize2, Minimize2 } from "lucide-react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 import { OutputTab } from "../RightPanel/OutputTab";
 
@@ -23,6 +23,18 @@ export default function OutputPanel({
   onRequestedRunHandled,
 }: OutputPanelProps) {
   const displayName = node.name || definition.label || node.type;
+
+  // ── Fullscreen ─────────────────────────────────────────────
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isFullscreen]);
 
   // ── Resizable width ──────────────────────────────────────────
   const [width, setWidth] = useState(340);
@@ -67,16 +79,29 @@ export default function OutputPanel({
   return (
     <div
       className="flex flex-col h-full"
-      style={{
-        width,
-        minWidth: width,
-        background: "var(--canvas-bg)",
-        borderLeft: "1px solid var(--border-default)",
-        position: "relative",
-      }}
+      style={
+        isFullscreen
+          ? {
+              position: "fixed" as const,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: "100vw",
+              zIndex: 50,
+              background: "var(--canvas-bg)",
+            }
+          : {
+              width,
+              minWidth: width,
+              background: "var(--canvas-bg)",
+              borderLeft: "1px solid var(--border-default)",
+              position: "relative" as const,
+            }
+      }
     >
       {/* Drag handle for resizing */}
-      <div
+      {!isFullscreen && <div
         onMouseDown={handleDragStart}
         onMouseEnter={() => setHandleHovered(true)}
         onMouseLeave={() => setHandleHovered(false)}
@@ -102,7 +127,7 @@ export default function OutputPanel({
             transition: "background 150ms",
           }}
         />
-      </div>
+      </div>}
 
       {/* Header — light themed, node name + close button only */}
       <div
@@ -131,6 +156,34 @@ export default function OutputPanel({
         </span>
 
         <div style={{ flex: 1 }} />
+
+        {/* Fullscreen toggle */}
+        <button
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          style={{
+            width: 24,
+            height: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid var(--border-default)",
+            borderRadius: 4,
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--ghost-hover-bg)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        </button>
 
         {/* Close button */}
         <button
