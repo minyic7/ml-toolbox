@@ -1,6 +1,6 @@
-import type { LucideIcon } from "lucide-react";
 import type { NodeDefinition } from "../../lib/types";
 import NodeIconChip from "./NodeIconChip";
+import type { NodeIcon } from "./NodeIconChip";
 
 interface CategoryColors {
   bg: string;
@@ -13,9 +13,8 @@ interface NodeGroupProps {
   category: string;
   nodes: NodeDefinition[];
   colors: CategoryColors;
-  iconMap: Record<string, LucideIcon>;
-  abbreviations: Record<string, string>;
-  defaultIcon: LucideIcon;
+  iconMap: Record<string, NodeIcon>;
+  defaultIcon: NodeIcon;
   onAddNode: (nodeType: string) => void;
   isLast: boolean;
 }
@@ -25,7 +24,6 @@ export default function NodeGroup({
   nodes,
   colors,
   iconMap,
-  abbreviations,
   defaultIcon,
   onAddNode,
   isLast,
@@ -59,10 +57,9 @@ export default function NodeGroup({
         {nodes.map((node) => (
           <NodeIconChip
             key={node.type}
-            icon={iconMap[node.type] ?? iconMap[node.category.toLowerCase()] ?? defaultIcon}
+            icon={iconMap[node.type] ?? defaultIcon}
             label={node.label}
             colors={colors}
-            text={abbreviations[node.type]}
             onClick={() => onAddNode(node.type)}
           />
         ))}

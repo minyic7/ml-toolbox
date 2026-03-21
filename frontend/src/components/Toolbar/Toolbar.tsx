@@ -1,24 +1,36 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Download,
-  Shuffle,
-  Brain,
-  BarChart3,
-  Upload,
-  Box,
-  FileText,
-  Database,
-  Zap,
-  ArrowLeftRight,
-  CircleDot,
-  Wrench,
-  TrendingUp,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Box } from "lucide-react";
 import { getNodeDefinitions } from "../../lib/api";
 import type { NodeDefinition } from "../../lib/types";
+import type { NodeIcon } from "./NodeIconChip";
 import NodeGroup from "./NodeGroup";
+import {
+  CsvReaderIcon,
+  ParquetReaderIcon,
+  CleanDataIcon,
+  FeatureEngineeringIcon,
+  TrainTestSplitIcon,
+  ComputeStatsIcon,
+  RandomForestClassifierIcon,
+  GradientBoostingClassifierIcon,
+  LogisticRegressionIcon,
+  SvcClassifierIcon,
+  DecisionTreeClassifierIcon,
+  KnnClassifierIcon,
+  LinearRegressionIcon,
+  RandomForestRegressorIcon,
+  GradientBoostingRegressorIcon,
+  SvrIcon,
+  XgboostIcon,
+  ClassificationMetricsIcon,
+  RegressionMetricsIcon,
+  FeatureImportanceIcon,
+  ExportTableIcon,
+  ExportModelIcon,
+  GenerateDataIcon,
+  SummarizeDataIcon,
+} from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
 const CATEGORY_CHIP_COLORS: Record<
@@ -37,66 +49,40 @@ const CATEGORY_CHIP_COLORS: Record<
 
 const DEFAULT_CHIP_COLORS = CATEGORY_CHIP_COLORS.demo;
 
-/** Icons per category (fallback) and per node type */
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  ingest: Download,
-  transform: Shuffle,
-  classification: Brain,
-  regression: TrendingUp,
-  train: Brain,
-  evaluate: BarChart3,
-  export: Upload,
-  utility: Wrench,
-  demo: Box,
-};
-
-/** More specific icons keyed by node type */
-const NODE_TYPE_ICONS: Record<string, LucideIcon> = {
-  file_input: FileText,
-  csv_loader: FileText,
-  sql_input: Database,
-  clean: Zap,
-  feature_eng: ArrowLeftRight,
-  split: Shuffle,
-  xgb_train: CircleDot,
-  export_table: Upload,
-  export_model: Upload,
-};
-
-/** 2-3 letter abbreviations for node chips (replaces duplicate icons) */
-const NODE_ABBREVIATIONS: Record<string, string> = {
-  // Classification
-  random_forest_classifier: "RFC",
-  gradient_boosting_classifier: "GBC",
-  logistic_regression: "LOG",
-  svc_classifier: "SVC",
-  decision_tree_classifier: "DT",
-  knn_classifier: "KNN",
-  // Regression
-  linear_regression: "LIN",
-  random_forest_regressor: "RFR",
-  gradient_boosting_regressor: "GBR",
-  svr_train: "SVR",
-  // Train
-  xgb_train: "XGB",
-  // Evaluate
-  classification: "CL",
-  regression: "RG",
-  feature_importance: "FI",
-  // Export
-  export_table: "TBL",
-  export_model: "MDL",
+/** Custom SVG icon for every node type */
+const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   // Ingest
-  csv_reader: "CSV",
-  parquet_reader: "PQ",
+  csv_reader: CsvReaderIcon,
+  parquet_reader: ParquetReaderIcon,
   // Transform
-  clean: "CLN",
-  feature_eng: "FE",
-  split: "SPL",
-  compute_stats: "ST",
+  clean: CleanDataIcon,
+  feature_eng: FeatureEngineeringIcon,
+  split: TrainTestSplitIcon,
+  compute_stats: ComputeStatsIcon,
+  // Classification
+  random_forest_classifier: RandomForestClassifierIcon,
+  gradient_boosting_classifier: GradientBoostingClassifierIcon,
+  logistic_regression: LogisticRegressionIcon,
+  svc_classifier: SvcClassifierIcon,
+  decision_tree_classifier: DecisionTreeClassifierIcon,
+  knn_classifier: KnnClassifierIcon,
+  // Regression
+  linear_regression: LinearRegressionIcon,
+  random_forest_regressor: RandomForestRegressorIcon,
+  gradient_boosting_regressor: GradientBoostingRegressorIcon,
+  svr_train: SvrIcon,
+  // Train
+  xgb_train: XgboostIcon,
+  // Evaluate
+  classification: ClassificationMetricsIcon,
+  regression: RegressionMetricsIcon,
+  feature_importance: FeatureImportanceIcon,
+  // Export
+  export_table: ExportTableIcon,
+  export_model: ExportModelIcon,
   // Demo
-  run: "GEN",
-  summarize_data: "SUM",
+  run: GenerateDataIcon,
+  summarize_data: SummarizeDataIcon,
 };
 
 /** Stable category ordering */
@@ -127,12 +113,6 @@ export default function Toolbar({ onAddNode }: ToolbarProps) {
     );
   }, [nodes]);
 
-  /** Merged icon map: node-type-specific icons + category fallbacks */
-  const iconMap = useMemo(() => {
-    const map: Record<string, LucideIcon> = { ...CATEGORY_ICONS, ...NODE_TYPE_ICONS };
-    return map;
-  }, []);
-
   return (
     <div
       data-testid="toolbar"
@@ -156,8 +136,7 @@ export default function Toolbar({ onAddNode }: ToolbarProps) {
           category={category}
           nodes={categoryNodes}
           colors={CATEGORY_CHIP_COLORS[category] ?? DEFAULT_CHIP_COLORS}
-          iconMap={iconMap}
-          abbreviations={NODE_ABBREVIATIONS}
+          iconMap={NODE_TYPE_ICONS}
           defaultIcon={Box}
           onAddNode={onAddNode}
           isLast={idx === grouped.length - 1}
