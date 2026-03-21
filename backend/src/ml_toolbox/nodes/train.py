@@ -222,6 +222,115 @@ def knn_classifier(inputs: dict, params: dict) -> dict:
     return _train_and_save(estimator, X, y, _get_output_path)
 
 
+# ---------------------------------------------------------------------------
+# Individual regressor nodes
+# ---------------------------------------------------------------------------
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+    },
+    label="Linear Regression",
+    category="Train",
+)
+def linear_regression(inputs: dict, params: dict) -> dict:
+    """Train a LinearRegression model (no tunable hyperparameters)."""
+    from sklearn.linear_model import LinearRegression
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = LinearRegression()
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "n_estimators": Slider(min=10, max=500, step=10, default=100, description="Number of trees in the forest"),
+        "max_depth": Slider(min=1, max=50, step=1, default=10, description="Maximum depth of each tree"),
+        "min_samples_split": Slider(min=2, max=20, step=1, default=2, description="Minimum samples required to split an internal node"),
+    },
+    label="Random Forest Regressor",
+    category="Train",
+)
+def random_forest_regressor(inputs: dict, params: dict) -> dict:
+    """Train a RandomForestRegressor."""
+    from sklearn.ensemble import RandomForestRegressor as RFR
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = RFR(
+        n_estimators=int(params.get("n_estimators", 100)),
+        max_depth=int(params.get("max_depth", 10)),
+        min_samples_split=int(params.get("min_samples_split", 2)),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "n_estimators": Slider(min=10, max=500, step=10, default=100, description="Number of boosting stages"),
+        "max_depth": Slider(min=1, max=20, step=1, default=3, description="Maximum depth of each tree"),
+        "learning_rate": Slider(min=0.001, max=1, step=0.01, default=0.1, description="Step size shrinkage to prevent overfitting"),
+    },
+    label="Gradient Boosting Regressor",
+    category="Train",
+)
+def gradient_boosting_regressor(inputs: dict, params: dict) -> dict:
+    """Train a GradientBoostingRegressor."""
+    from sklearn.ensemble import GradientBoostingRegressor as GBR
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = GBR(
+        n_estimators=int(params.get("n_estimators", 100)),
+        max_depth=int(params.get("max_depth", 3)),
+        learning_rate=float(params.get("learning_rate", 0.1)),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "kernel": Select(
+            ["linear", "rbf", "poly", "sigmoid"],
+            default="rbf",
+            description="Kernel type for the SVR algorithm",
+        ),
+        "C": Slider(min=0.001, max=100, step=0.001, default=1.0, description="Regularization parameter"),
+        "epsilon": Slider(min=0.01, max=1, step=0.01, default=0.1, description="Epsilon in the epsilon-SVR model"),
+    },
+    label="SVR",
+    category="Train",
+)
+def svr_train(inputs: dict, params: dict) -> dict:
+    """Train a Support Vector Regressor (SVR)."""
+    from sklearn.svm import SVR
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = SVR(
+        kernel=str(params.get("kernel", "rbf")),
+        C=float(params.get("C", 1.0)),
+        epsilon=float(params.get("epsilon", 0.1)),
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+# ---------------------------------------------------------------------------
+# Original sklearn_train (kept for backward compat — separate cleanup ticket)
+# ---------------------------------------------------------------------------
+
+
 @node(
     inputs={"train": PortType.TABLE},
     outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
