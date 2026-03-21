@@ -100,6 +100,8 @@ export function relativeTime(iso: string): string {
 const PIPELINE_DOT_COLORS = [
   "var(--category-ingest)",
   "var(--category-transform)",
+  "var(--category-classification)",
+  "var(--category-regression)",
   "var(--category-train)",
   "var(--category-evaluate)",
   "var(--category-export)",

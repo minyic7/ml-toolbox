@@ -14,6 +14,8 @@ export const PORT_COLORS: Record<PortType, string> = {
 export const CATEGORY_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   transform: "var(--category-transform)",
+  classification: "var(--category-classification)",
+  regression: "var(--category-regression)",
   train: "var(--category-train)",
   evaluate: "var(--category-evaluate)",
   export: "var(--category-export)",
@@ -24,6 +26,8 @@ export const CATEGORY_COLORS: Record<string, string> = {
 export const CATEGORY_ACCENT_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   transform: "var(--category-transform)",
+  classification: "var(--category-classification)",
+  regression: "var(--category-regression)",
   train: "var(--category-train)",
   evaluate: "var(--category-evaluate)",
   export: "var(--category-export)",

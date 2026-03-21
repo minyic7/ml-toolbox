@@ -88,13 +88,29 @@ def test_old_sklearn_train_removed():
     assert "ml_toolbox.nodes.train.sklearn_train" not in NODE_REGISTRY
 
 
-@pytest.mark.parametrize("node_type,label", CLASSIFIER_NODES + REGRESSOR_NODES)
-def test_individual_nodes_registered(node_type: str, label: str):
-    """Each individual sklearn node should be registered with correct metadata."""
+@pytest.mark.parametrize("node_type,label", CLASSIFIER_NODES)
+def test_classifier_nodes_registered(node_type: str, label: str):
+    """Each individual sklearn classifier should be registered with correct metadata."""
     assert node_type in NODE_REGISTRY
     meta = NODE_REGISTRY[node_type]
     assert meta["label"] == label
-    assert meta["category"] == "Train"
+    assert meta["category"] == "Classification"
+    assert meta["inputs"] == [{"name": "train", "type": "TABLE"}]
+    assert meta["outputs"] == [
+        {"name": "model", "type": "MODEL"},
+        {"name": "metrics", "type": "METRICS"},
+    ]
+    param_names = {p["name"] for p in meta["params"]}
+    assert "target_column" in param_names
+
+
+@pytest.mark.parametrize("node_type,label", REGRESSOR_NODES)
+def test_regressor_nodes_registered(node_type: str, label: str):
+    """Each individual sklearn regressor should be registered with correct metadata."""
+    assert node_type in NODE_REGISTRY
+    meta = NODE_REGISTRY[node_type]
+    assert meta["label"] == label
+    assert meta["category"] == "Regression"
     assert meta["inputs"] == [{"name": "train", "type": "TABLE"}]
     assert meta["outputs"] == [
         {"name": "model", "type": "MODEL"},

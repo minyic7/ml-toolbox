@@ -137,6 +137,8 @@ describe("pipelineDotColor", () => {
     const expected = [
       "var(--category-ingest)",
       "var(--category-transform)",
+      "var(--category-classification)",
+      "var(--category-regression)",
       "var(--category-train)",
       "var(--category-evaluate)",
       "var(--category-export)",
