@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
+import { useOutput } from "../../hooks/useOutputs";
 import CodePaneHeader from "./CodePaneHeader";
 import CodePaneFooter from "./CodePaneFooter";
 import { CODEPANE_THEME_NAME, codepaneTheme } from "./codepaneTheme";
@@ -12,6 +14,7 @@ const Editor = lazy(() =>
 interface CodePaneProps {
   node: NodeInstance;
   definition: NodeDefinition;
+  pipelineId: string;
   onSave: (nodeId: string, code: string) => void;
   onClose: () => void;
 }
@@ -19,6 +22,7 @@ interface CodePaneProps {
 export default function CodePane({
   node,
   definition,
+  pipelineId,
   onSave,
   onClose,
 }: CodePaneProps) {
@@ -177,6 +181,25 @@ export default function CodePane({
 
   const displayName = node.name || definition.label || node.type;
 
+  // ── Logs section ───────────────────────────────────────────
+  const { data: output } = useOutput(pipelineId, node.id);
+  const [logsOpen, setLogsOpen] = useState(false);
+
+  const hasError = !!output?.error;
+  const hasLogs = !!output?.logs || hasError;
+  const logContent = [output?.logs, output?.error].filter(Boolean).join("\n\n");
+
+  // Auto-expand on error, collapse on success
+  const prevErrorRef = useRef(false);
+  useEffect(() => {
+    if (hasError && !prevErrorRef.current) {
+      setLogsOpen(true);
+    } else if (!hasError && prevErrorRef.current) {
+      setLogsOpen(false);
+    }
+    prevErrorRef.current = hasError;
+  }, [hasError]);
+
   return (
     <div
       ref={paneRef}
@@ -271,6 +294,52 @@ export default function CodePane({
           />
         </Suspense>
       </div>
+
+      {/* Logs section */}
+      {hasLogs && (
+        <div
+          style={{
+            borderTop: "1px solid var(--codepane-border)",
+            background: "#1A1625",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setLogsOpen((v) => !v)}
+            className="flex items-center gap-1.5 w-full px-3"
+            style={{
+              height: 28,
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontSize: 10,
+              color: hasError ? "#f87171" : "var(--codepane-icon-color)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {logsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            Logs
+          </button>
+          {logsOpen && (
+            <div
+              style={{
+                maxHeight: 150,
+                overflowY: "auto",
+                padding: "0 12px 8px",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                lineHeight: 1.6,
+                color: "#d4d4d4",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+              }}
+            >
+              {logContent}
+            </div>
+          )}
+        </div>
+      )}
 
       <CodePaneFooter unsaved={unsaved} />
     </div>
