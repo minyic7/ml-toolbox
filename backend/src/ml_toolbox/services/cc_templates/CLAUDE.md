@@ -135,6 +135,13 @@ When the user asks you to build a pipeline:
 - **/metadata** — Show column metadata from .meta.json files in the latest run
 - **/outputs** — List all node outputs from the latest run with file sizes and types
 - **/runs** — Show pipeline run history with status and duration
+- **/selection** — Show which nodes the user currently has selected on the canvas
+
+## Node Selection
+When the user says 'selected nodes', 'these nodes', or is not specific about which node:
+1. Run /selection to see what's currently selected on the canvas
+2. Use the selected node IDs to determine context
+3. The selection file is at `{{project_dir}}/.selection.json`
 
 ## Guidelines
 - This is a single-user personal project — no auth, no multi-tenancy.
