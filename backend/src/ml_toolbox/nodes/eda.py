@@ -33,6 +33,7 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
     label="Correlation Matrix",
     category="Eda",
     description="Compute pairwise correlation matrix for numeric columns.",
+    allowed_upstream=["Ingest", "Preprocessing"],
     guide="""## Correlation Matrix\n\nFind linear (Pearson) or monotonic (Spearman) relationships between numeric features.\n\n### What it does\n- Full pairwise correlation matrix for all numeric columns\n- Flags highly correlated pairs (|r| > 0.8) — collinearity risk\n- Ranks features by correlation to target (if specified)\n\n### When to act\n- **|r| > 0.8 between features**: consider dropping one — collinear features add noise and inflate variance in linear models\n- **|r| > 0.5 with target**: strong predictive signal — keep these features\n- **|r| < 0.05 with target**: weak signal — candidate for removal to reduce dimensionality\n\n### Pearson vs Spearman\n- **Pearson**: measures linear relationship. Sensitive to outliers.\n- **Spearman**: measures monotonic relationship. Robust to outliers and non-linear monotonic trends.\n- **Both**: compute both and compare — big differences hint at non-linear relationships.""",
 )
 def correlation_matrix(inputs: dict, params: dict) -> dict:
@@ -198,6 +199,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
     label="Distribution Profile",
     category="Eda",
     description="Profile all columns: dtype, stats, distribution shape, value counts.",
+    allowed_upstream=["Ingest", "Preprocessing"],
     guide=(
         "## Distribution Profile\n\n"
         "Analyze the statistical distribution of every column in your dataset.\n\n"
@@ -420,6 +422,7 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
     label="Missing Analysis",
     category="Eda",
     description="Analyze missing value patterns across all columns.",
+    allowed_upstream=["Ingest", "Preprocessing"],
     guide="""## Missing Analysis\n\nUnderstand where and how much data is missing before deciding on a strategy.\n\n### What it does\n- Per-column missing count and percentage\n- Overall dataset completeness\n- Missing severity classification (none / low <5% / medium 5-30% / high >30%)\n- Complete rows ratio\n\n### How to interpret\n- **Low missing (<5%)**: safe to impute with mean/median/mode\n- **Medium missing (5-30%)**: investigate if MAR or MNAR before imputing\n- **High missing (>30%)**: consider dropping the column or using a missing indicator flag\n- **MNAR (Missing Not At Random)**: the missingness itself carries information — add a binary flag column\n\n### Remember\nMissing analysis on train only. Apply the same imputation strategy (fitted on train) to val/test.""",
 )
 def missing_analysis(inputs: dict, params: dict) -> dict:
@@ -520,6 +523,7 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
     label="Outlier Detection",
     category="Eda",
     description="Detect outliers in numeric columns using IQR or z-score methods.",
+    allowed_upstream=["Ingest", "Preprocessing"],
     guide="""## Outlier Detection\n\nIdentify extreme values that may affect model training.\n\n### Methods\n- **IQR (Interquartile Range)**: outlier if value < Q1 - k*IQR or > Q3 + k*IQR. Default k=1.5. Robust to non-normal distributions.\n- **Z-score**: outlier if |z| > threshold. Assumes roughly normal distribution. Default threshold=3.0.\n\n### What to do with outliers\n- **Cap/Winsorize**: clip to fence values. Safe default.\n- **Log transform**: reduces impact of right-skewed outliers.\n- **Keep**: tree-based models (RF, XGBoost) handle outliers well.\n- **Remove**: only if you're sure they're data errors, not real signal.\n\n### Remember\nOutlier thresholds computed on train only. Apply the same caps/transforms to val/test.""",
 )
 def outlier_detection(inputs: dict, params: dict) -> dict:

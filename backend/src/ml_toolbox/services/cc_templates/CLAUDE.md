@@ -67,6 +67,22 @@ A `.meta.json` file describes column-level metadata for a parquet output. It liv
 | Eda | `ml_toolbox.nodes.eda.missing_analysis` | Missing Analysis |
 | Eda | `ml_toolbox.nodes.eda.outlier_detection` | Outlier Detection |
 
+## DAG Connection Rules
+Each node type only accepts connections from specific upstream categories.
+The API enforces this — invalid connections return 400.
+
+| Node | Allowed Upstream |
+|------|------------------|
+| csv_reader, parquet_reader | (root nodes, no upstream) |
+| random_holdout | Ingest |
+| distribution_profile | Ingest, Preprocessing |
+| missing_analysis | Ingest, Preprocessing |
+| correlation_matrix | Ingest, Preprocessing |
+| outlier_detection | Ingest, Preprocessing |
+| EDA outputs (METRICS) | (terminal, no downstream) |
+
+When creating a DAG, always check allowed_upstream before adding edges.
+
 ## Creating a Pipeline DAG
 When the user asks you to build a pipeline:
 1. First read .meta.json from the Reader node's output to understand the data
