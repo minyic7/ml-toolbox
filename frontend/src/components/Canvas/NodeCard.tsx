@@ -7,6 +7,7 @@ import type { PortType } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
 import PortDot from "./PortDot";
 import NodeActionBar from "./NodeActionBar";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -86,10 +87,12 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
     status,
     inputs,
     outputs,
+    isKnownType,
     onTabClick,
     onRunFrom,
     onDeleteNode,
   } = data;
+  const isDeprecated = !isKnownType;
   const isError = status === "error";
   const isCached = status === "cached";
   const isRunning = status === "running";
@@ -120,9 +123,9 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         background: "var(--node-bg)",
         borderRadius: "0 8px 8px 0",
         borderLeft: `4px solid ${accentColor}`,
-        borderRight: `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
-        borderTop: `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
-        borderBottom: `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
+        borderRight: isDeprecated ? "2px solid var(--warning-amber)" : `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
+        borderTop: isDeprecated ? "2px solid var(--warning-amber)" : `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
+        borderBottom: isDeprecated ? "2px solid var(--warning-amber)" : `${borderDef.width} ${borderDef.style} ${borderDef.color}`,
         boxShadow: borderDef.shadow
           ? borderDef.shadow
           : hovered
@@ -364,6 +367,30 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
           }}
         >
           using cached output
+        </div>
+      )}
+
+      {/* Deprecated node warning strip */}
+      {isDeprecated && (
+        <div
+          title="This node type is no longer available. Delete it and replace with an updated node."
+          style={{
+            padding: "4px 10px",
+            fontSize: 10,
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 500,
+            color: "var(--warning-amber)",
+            background: "color-mix(in srgb, var(--warning-amber) 10%, transparent)",
+            borderTop: "1px solid color-mix(in srgb, var(--warning-amber) 30%, transparent)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <AlertTriangle size={12} style={{ flexShrink: 0 }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Unknown node type
+          </span>
         </div>
       )}
 
