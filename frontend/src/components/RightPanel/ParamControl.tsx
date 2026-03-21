@@ -174,6 +174,27 @@ function ColumnSelect({
             />
           </div>
           <div className="overflow-y-auto p-1" style={{ maxHeight: 160 }}>
+            {!search && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(paramName, "");
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[var(--bg-hover)]"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <Check
+                  size={12}
+                  className="shrink-0"
+                  style={{
+                    opacity: value === "" ? 1 : 0,
+                    color: "var(--accent-primary)",
+                  }}
+                />
+                (none)
+              </button>
+            )}
             {filtered.length === 0 ? (
               <div
                 className="px-2 py-1.5 text-xs"
@@ -226,12 +247,12 @@ export function ParamControl({ param, value, onChange, disabled, pipelineId, edg
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Find upstream TABLE node for target_column params
+  // Find upstream TABLE node for *_column params (target_column, stratify_column, etc.)
   // TODO: future improvement — auto-clear value when upstream schema changes (stale selection)
-  const isTargetColumn = param.name === "target_column" && param.type === "text";
+  const isColumnParam = param.type === "text" && param.name.endsWith("_column");
   const upstreamNodeId = useMemo(
-    () => (isTargetColumn && nodeId && edges ? findUpstreamTableNodeId(nodeId, edges, nodeInputs) : undefined),
-    [isTargetColumn, nodeId, edges, nodeInputs],
+    () => (isColumnParam && nodeId && edges ? findUpstreamTableNodeId(nodeId, edges, nodeInputs) : undefined),
+    [isColumnParam, nodeId, edges, nodeInputs],
   );
   const { data: upstreamOutput } = useOutput(
     pipelineId ?? "",
@@ -340,7 +361,7 @@ export function ParamControl({ param, value, onChange, disabled, pipelineId, edg
       const isPathParam = param.name === "path";
 
       // Render column dropdown for target_column when upstream columns are available
-      if (isTargetColumn && upstreamColumns.length > 0) {
+      if (isColumnParam && upstreamColumns.length > 0) {
         return (
           <div className="flex flex-col gap-1.5" style={disabledStyle}>
             <ParamLabel param={param} />
@@ -364,7 +385,7 @@ export function ParamControl({ param, value, onChange, disabled, pipelineId, edg
               value={textValue}
               disabled={disabled}
               placeholder={
-                isTargetColumn && upstreamColumns.length === 0
+                isColumnParam && upstreamColumns.length === 0
                   ? "Run upstream node first to see columns"
                   : (param.placeholder ?? "")
               }
