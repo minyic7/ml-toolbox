@@ -9,6 +9,23 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# ── Numeric dtype detection ───────────────────────────────────────────
+
+NUMERIC_DTYPE_STRINGS = {
+    "int8", "int16", "int32", "int64",
+    "uint8", "uint16", "uint32", "uint64",
+    "float16", "float32", "float64",
+    # Pandas nullable types (capital letter)
+    "Int8", "Int16", "Int32", "Int64",
+    "UInt8", "UInt16", "UInt32", "UInt64",
+    "Float32", "Float64",
+}
+
+
+def _is_numeric_dtype(series: pd.Series) -> bool:  # type: ignore[type-arg]
+    """Check if a series has a numeric dtype, including pandas nullable types."""
+    return str(series.dtype) in NUMERIC_DTYPE_STRINGS or pd.api.types.is_numeric_dtype(series)
+
 
 def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Profile each column in *df* and return heuristic classification guesses.
@@ -36,7 +53,7 @@ def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
         }
 
         # Numeric range stats
-        if pd.api.types.is_numeric_dtype(series):
+        if _is_numeric_dtype(series):
             non_null = series.dropna()
             if len(non_null) > 0:
                 profile["min"] = _safe_scalar(non_null.min())
@@ -46,7 +63,20 @@ def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
         if pd.api.types.is_integer_dtype(series) and unique_count <= 20:
             profile["likely_encoded"] = True
 
-        profile["heuristic_guess"] = _classify(col, profile)
+        # Unknown/unsupported dtypes (bytes, nested structs, etc.)
+        if (
+            not _is_numeric_dtype(series)
+            and series.dtype != object
+            and str(series.dtype) not in ("bool", "category")
+            and "datetime" not in dtype_str
+        ):
+            profile["heuristic_guess"] = {
+                "semantic_type": "unknown",
+                "role": "ignore",
+                "confidence": 0.0,
+            }
+        else:
+            profile["heuristic_guess"] = _classify(col, profile)
         profiles.append(profile)
 
     return profiles
@@ -85,8 +115,8 @@ def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
             return {"semantic_type": "identifier", "role": "identifier", "confidence": 0.75}
         return {"semantic_type": "categorical", "role": "feature", "confidence": 0.80}
 
-    # 5. Numeric columns
-    if "int" in dtype or "float" in dtype:
+    # 5. Numeric columns (including nullable Int64, Float64, UInt32, etc.)
+    if dtype in NUMERIC_DTYPE_STRINGS or "int" in dtype or "float" in dtype:
         if unique_count <= 15:
             return {"semantic_type": "categorical", "role": "feature", "confidence": 0.70}
         return {"semantic_type": "continuous", "role": "feature", "confidence": 0.80}
@@ -160,3 +190,57 @@ def _safe_scalar(val: Any) -> Any:
         return val.item()
     except (AttributeError, ValueError):
         return val
+
+
+# ── Column casting ────────────────────────────────────────────────────
+
+
+def cast_by_metadata(
+    df: pd.DataFrame, metadata: dict[str, Any],
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Cast columns based on inferred semantic types.
+
+    Returns ``(df, results)`` where *results* maps column names to a dict
+    with ``status``, optional ``to``, ``success_rate``, ``reason``, and
+    ``kept_dtype`` fields.
+    """
+    columns_meta = metadata.get("columns", {})
+    results: dict[str, Any] = {}
+
+    for col_name, meta in columns_meta.items():
+        if col_name not in df.columns:
+            continue
+        if df[col_name].dtype != object:  # already typed, skip
+            results[col_name] = {"status": "skipped", "reason": "already typed"}
+            continue
+
+        sem_type = meta.get("semantic_type", "")
+
+        if sem_type in ("continuous", "binary"):
+            numeric = pd.to_numeric(df[col_name], errors="coerce")
+            col_series = pd.Series(df[col_name])
+            numeric_series = pd.Series(numeric)
+            non_null = int(col_series.notna().sum())
+            success_rate = float(numeric_series.notna().sum()) / max(non_null, 1)
+
+            if success_rate >= 0.9:
+                df[col_name] = numeric
+                results[col_name] = {
+                    "status": "cast",
+                    "to": "numeric",
+                    "success_rate": round(success_rate, 4),
+                }
+            else:
+                results[col_name] = {
+                    "status": "failed",
+                    "reason": f"Only {success_rate:.0%} of values are numeric",
+                    "kept_dtype": str(df[col_name].dtype),
+                }
+        else:
+            # categorical, ordinal, datetime, id, text → keep as string
+            results[col_name] = {
+                "status": "skipped",
+                "reason": f"semantic_type={sem_type}, keep as string",
+            }
+
+    return df, results
