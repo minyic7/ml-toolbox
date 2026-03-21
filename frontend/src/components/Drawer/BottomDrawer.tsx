@@ -14,8 +14,9 @@ interface BottomDrawerProps {
   onRunFrom: (nodeId: string) => void;
   onCodeClick: () => void;
   onOutputClick: () => void;
+  onInfoClick: () => void;
   rightPanelOpen: boolean;
-  rightPanelMode: "code" | "output";
+  rightPanelMode: "code" | "output" | "info";
 }
 
 const DRAWER_HEADER_HEIGHT = 38;
@@ -31,6 +32,7 @@ export default function BottomDrawer({
   onRunFrom,
   onCodeClick,
   onOutputClick,
+  onInfoClick,
   rightPanelOpen,
   rightPanelMode,
 }: BottomDrawerProps) {
@@ -69,6 +71,7 @@ export default function BottomDrawer({
             onClose={onClose}
             onCodeClick={onCodeClick}
             onOutputClick={onOutputClick}
+            onInfoClick={onInfoClick}
             rightPanelOpen={rightPanelOpen}
             rightPanelMode={rightPanelMode}
           />

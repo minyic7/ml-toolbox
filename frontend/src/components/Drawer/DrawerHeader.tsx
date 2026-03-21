@@ -1,6 +1,6 @@
 import type { NodeInstance, NodeDefinition, NodeStatus } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
-import { X, Code2, Table } from "lucide-react";
+import { X, Code2, Table, BookOpen } from "lucide-react";
 
 const STATUS_DOT_COLORS: Record<NodeStatus, string> = {
   idle: "var(--status-idle)",
@@ -19,8 +19,9 @@ interface DrawerHeaderProps {
   onClose: () => void;
   onCodeClick: () => void;
   onOutputClick: () => void;
+  onInfoClick: () => void;
   rightPanelOpen: boolean;
-  rightPanelMode: "code" | "output";
+  rightPanelMode: "code" | "output" | "info";
 }
 
 export default function DrawerHeader({
@@ -29,6 +30,7 @@ export default function DrawerHeader({
   onClose,
   onCodeClick,
   onOutputClick,
+  onInfoClick,
   rightPanelOpen,
   rightPanelMode,
 }: DrawerHeaderProps) {
@@ -41,6 +43,7 @@ export default function DrawerHeader({
 
   const codeActive = rightPanelOpen && rightPanelMode === "code";
   const outputActive = rightPanelOpen && rightPanelMode === "output";
+  const infoActive = rightPanelOpen && rightPanelMode === "info";
 
   return (
     <div
@@ -110,6 +113,39 @@ export default function DrawerHeader({
       >
         Params
       </span>
+
+      {/* Info icon button */}
+      {definition.guide && (
+        <button
+          onClick={onInfoClick}
+          aria-label="Toggle info panel"
+          style={{
+            width: 28,
+            height: 28,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid var(--border-default)",
+            borderRadius: 4,
+            background: infoActive ? "var(--ghost-hover-bg)" : "transparent",
+            cursor: "pointer",
+            flexShrink: 0,
+            color: infoActive ? "var(--accent-primary)" : "var(--text-muted)",
+          }}
+          onMouseEnter={(e) => {
+            if (!infoActive) {
+              (e.currentTarget as HTMLElement).style.background = "var(--ghost-hover-bg)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!infoActive) {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            }
+          }}
+        >
+          <BookOpen size={14} />
+        </button>
+      )}
 
       {/* Code icon button */}
       <button
