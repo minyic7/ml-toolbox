@@ -105,18 +105,18 @@ export default function PipelineTerminal({
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
-    if (isInScrollMode) {
+    const next = !scrollModeRef.current;
+    scrollModeRef.current = next;
+    setIsInScrollMode(next);
+
+    if (next) {
+      // Enter copy-mode: Ctrl-B + [
+      ws.send(new TextEncoder().encode("\x02["));
+    } else {
       // Exit copy-mode
       ws.send(new TextEncoder().encode("q"));
-      setIsInScrollMode(false);
-
-    } else {
-      // Enter copy-mode: Ctrl-A + [
-      ws.send(new TextEncoder().encode("\x01["));
-      setIsInScrollMode(true);
-
     }
-  }, [isInScrollMode]);
+  }, []);
 
   // ── WebSocket connection ─────────────────────────────────────
   const connectWs = useCallback(
@@ -251,7 +251,7 @@ export default function PipelineTerminal({
 
       // Enter tmux copy-mode on first wheel-up
       if (e.deltaY < 0 && !scrollModeRef.current) {
-        ws.send(new TextEncoder().encode("\x01[")); // Ctrl-A + [
+        ws.send(new TextEncoder().encode("\x02[")); // Ctrl-B + [
         setIsInScrollMode(true);
   
       }
