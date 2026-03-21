@@ -15,6 +15,7 @@ def node(
     category: str | None = None,
     description: str | None = None,
     guide: str | None = None,
+    allowed_upstream: list[str] | None = None,
 ):
     """Decorator that registers a node function into the global NODE_REGISTRY."""
 
@@ -60,6 +61,7 @@ def node(
             "outputs": [{"name": k, "type": v.value} for k, v in outputs.items()],
             "params": serialized_params,
             "default_code": fn_source,
+            "allowed_upstream": allowed_upstream or [],
         }
 
         return fn

@@ -363,7 +363,24 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
             detail=f"Port type mismatch: {source_port['type']} != {target_port['type']}",
         )
 
-    # 4. Check for cycles
+    # 4. Check allowed_upstream constraint
+    source_type = source_node.get("type", "")
+    target_type = target_node.get("type", "")
+    source_template = NODE_REGISTRY.get(source_type, {})
+    target_template = NODE_REGISTRY.get(target_type, {})
+    source_category = source_template.get("category", "")
+    allowed = target_template.get("allowed_upstream", [])
+    if allowed and source_category not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid connection: {source_category} nodes cannot connect to "
+                f"{target_template.get('label', target_type)}. "
+                f"Allowed upstream: {', '.join(allowed)}"
+            ),
+        )
+
+    # 5. Check for cycles
     if would_create_cycle(data, body.source, body.target):
         raise HTTPException(status_code=400, detail="Edge would create a cycle")
 
