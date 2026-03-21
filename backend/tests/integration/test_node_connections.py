@@ -208,7 +208,7 @@ class TestNodeConnections:
 
         gen = _add_node(client, pid, "ml_toolbox.nodes.demo.run", x=0)
         split = _add_node(client, pid, "ml_toolbox.nodes.transform.split", x=200)
-        train = _add_node(client, pid, "ml_toolbox.nodes.train.sklearn_train", x=400)
+        train = _add_node(client, pid, "ml_toolbox.nodes.train.random_forest_classifier", x=400)
         evaluate = _add_node(
             client, pid, "ml_toolbox.nodes.evaluate.classification", x=600
         )
@@ -277,7 +277,7 @@ class TestNodeConnections:
         )
         split = _add_node(client, pid, "ml_toolbox.nodes.transform.split", x=600)
         train = _add_node(
-            client, pid, "ml_toolbox.nodes.train.sklearn_train", x=800
+            client, pid, "ml_toolbox.nodes.train.random_forest_classifier", x=800
         )
 
         _set_params(client, pid, train["id"], {"target_column": "category"})
@@ -403,29 +403,23 @@ class TestNodeConnections:
         gen = _add_node(client, pid, "ml_toolbox.nodes.demo.run", x=0)
         split = _add_node(client, pid, "ml_toolbox.nodes.transform.split", x=200)
         train_a = _add_node(
-            client, pid, "ml_toolbox.nodes.train.sklearn_train", x=400, y=0
+            client, pid, "ml_toolbox.nodes.train.random_forest_classifier", x=400, y=0
         )
         train_b = _add_node(
-            client, pid, "ml_toolbox.nodes.train.sklearn_train", x=400, y=200
+            client, pid, "ml_toolbox.nodes.train.logistic_regression", x=400, y=200
         )
 
         _set_params(
             client,
             pid,
             train_a["id"],
-            {
-                "target_column": "category",
-                "estimator": "RandomForestClassifier",
-            },
+            {"target_column": "category"},
         )
         _set_params(
             client,
             pid,
             train_b["id"],
-            {
-                "target_column": "category",
-                "estimator": "LogisticRegression",
-            },
+            {"target_column": "category"},
         )
 
         _connect(client, pid, gen["id"], "df", split["id"], "df")
