@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import re
 from datetime import datetime
 import threading
 import uuid
@@ -785,6 +786,32 @@ async def get_output(
     return _output_metadata(run_dir, node_id)
 
 
+def _resolve_output_file(
+    run_dir: Path, node_id: str, port: str | None
+) -> Path:
+    """Find the output file for a node, optionally filtered by port name.
+
+    Raises HTTPException(400) if port contains invalid characters,
+    or HTTPException(404) if no matching file is found.
+    """
+    if port:
+        if not re.fullmatch(r"[a-zA-Z0-9_-]+", port):
+            raise HTTPException(
+                status_code=400, detail="Invalid port name"
+            )
+        candidates = list(run_dir.glob(f"{node_id}_{port}.*"))
+        candidates = [c for c in candidates if not _is_internal_file(c)]
+        if not candidates:
+            raise HTTPException(
+                status_code=404, detail=f"Output port '{port}' not found"
+            )
+        return candidates[0]
+    output_file = _find_output_file(run_dir, node_id)
+    if output_file is None:
+        raise HTTPException(status_code=404, detail="Output not found")
+    return output_file
+
+
 @router.get("/{pipeline_id}/outputs/{node_id}/download")
 async def download_output(
     pipeline_id: str,
@@ -795,18 +822,7 @@ async def download_output(
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     resolved_run_id, run_dir = _resolve_run_dir(pipeline_id, run_id)
-    if port:
-        candidates = list(run_dir.glob(f"{node_id}_{port}.*"))
-        candidates = [c for c in candidates if not _is_internal_file(c)]
-        if not candidates:
-            raise HTTPException(
-                status_code=404, detail=f"Output port '{port}' not found"
-            )
-        output_file: Path | None = candidates[0]
-    else:
-        output_file = _find_output_file(run_dir, node_id)
-    if output_file is None:
-        raise HTTPException(status_code=404, detail="Output not found")
+    output_file = _resolve_output_file(run_dir, node_id, port)
 
     if format == "csv" and output_file.suffix == ".parquet":
         return _parquet_to_csv_response(output_file)
@@ -842,18 +858,7 @@ async def download_run_output(
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
-    if port:
-        candidates = list(run_dir.glob(f"{node_id}_{port}.*"))
-        candidates = [c for c in candidates if not _is_internal_file(c)]
-        if not candidates:
-            raise HTTPException(
-                status_code=404, detail=f"Output port '{port}' not found"
-            )
-        output_file: Path | None = candidates[0]
-    else:
-        output_file = _find_output_file(run_dir, node_id)
-    if output_file is None:
-        raise HTTPException(status_code=404, detail="Output not found")
+    output_file = _resolve_output_file(run_dir, node_id, port)
 
     if format == "csv" and output_file.suffix == ".parquet":
         return _parquet_to_csv_response(output_file)
