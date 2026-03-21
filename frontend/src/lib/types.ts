@@ -49,6 +49,7 @@ export interface NodeDefinition {
   outputs: PortDefinition[];
   params: ParamDefinition[];
   default_code: string;
+  allowed_upstream: string[];
 }
 
 // ── Pipeline types ──────────────────────────────────────────────────
