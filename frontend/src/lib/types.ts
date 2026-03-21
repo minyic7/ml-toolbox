@@ -44,6 +44,7 @@ export interface NodeDefinition {
   label: string;
   category: string;
   description: string;
+  guide: string;
   inputs: PortDefinition[];
   outputs: PortDefinition[];
   params: ParamDefinition[];
