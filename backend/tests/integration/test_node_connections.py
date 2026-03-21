@@ -442,79 +442,30 @@ class TestNodeConnections:
         # Outputs should be distinct files (different node IDs)
         assert train_a["id"] != train_b["id"]
 
-    def test_f_type_mismatch_rejected(self, client: TestClient):
-        """Type mismatch: TABLE output → MODEL input → rejected at API level.
+    def test_f_invalid_port_rejected(self, client: TestClient):
+        """Invalid port: connecting to a non-existent port → rejected at API level.
 
-        POST /edges with mismatched port types should return 400.
+        POST /edges with a port that doesn't exist on the target should return 400.
         Pipeline state must remain unchanged.
         """
-        pid = _create_pipeline(client, "Test F: Type mismatch")
+        pid = _create_pipeline(client, "Test F: Invalid port")
 
-        # demo.run outputs df (TABLE)
-        gen = _add_node(client, pid, "ml_toolbox.nodes.demo.run", x=0)
-        # classification has input model (MODEL) + test (TABLE)
-        evaluate = _add_node(
-            client, pid, "ml_toolbox.nodes.evaluate.classification", x=200
-        )
+        csv_a = _add_node(client, pid, "ml_toolbox.nodes.ingest.csv_reader", x=0)
+        csv_b = _add_node(client, pid, "ml_toolbox.nodes.ingest.csv_reader", x=200)
 
-        # TABLE → MODEL should be rejected
+        # csv_reader has no input ports — connecting to a nonexistent port should fail
         resp = client.post(
             f"/api/pipelines/{pid}/edges",
             json={
-                "source": gen["id"],
-                "source_port": "df",  # TABLE
-                "target": evaluate["id"],
-                "target_port": "model",  # MODEL
+                "source": csv_a["id"],
+                "source_port": "df",
+                "target": csv_b["id"],
+                "target_port": "nonexistent",
             },
         )
         assert resp.status_code == 400
-        assert "mismatch" in resp.json()["detail"].lower()
 
         # Verify pipeline has no edges
         resp = client.get(f"/api/pipelines/{pid}")
         assert resp.status_code == 200
         assert len(resp.json()["edges"]) == 0
-
-        # Valid connection (TABLE → TABLE) should still work
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={
-                "source": gen["id"],
-                "source_port": "df",  # TABLE
-                "target": evaluate["id"],
-                "target_port": "test",  # TABLE
-            },
-        )
-        assert resp.status_code == 201
-
-    def test_g_cycle_detection(self, client: TestClient):
-        """Cycle: A → B → A → rejected at API level.
-
-        POST /edges that would create a cycle should return 400.
-        No partial state should be left in pipeline.
-        """
-        pid = _create_pipeline(client, "Test G: Cycle detection")
-
-        node_a = _add_node(client, pid, "ml_toolbox.nodes.transform.clean", x=0)
-        node_b = _add_node(client, pid, "ml_toolbox.nodes.transform.clean", x=200)
-
-        # A → B (valid)
-        _connect(client, pid, node_a["id"], "df", node_b["id"], "df")
-
-        # B → A would create cycle — must be rejected
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={
-                "source": node_b["id"],
-                "source_port": "df",
-                "target": node_a["id"],
-                "target_port": "df",
-            },
-        )
-        assert resp.status_code == 400
-        assert "cycle" in resp.json()["detail"].lower()
-
-        # Verify only one edge exists (the valid one)
-        resp = client.get(f"/api/pipelines/{pid}")
-        assert resp.status_code == 200
-        assert len(resp.json()["edges"]) == 1

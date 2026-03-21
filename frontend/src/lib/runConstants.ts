@@ -99,13 +99,7 @@ export function relativeTime(iso: string): string {
 /* 8. Pipeline dot color helper */
 const PIPELINE_DOT_COLORS = [
   "var(--category-ingest)",
-  "var(--category-transform)",
-  "var(--category-classification)",
-  "var(--category-regression)",
-  "var(--category-train)",
-  "var(--category-evaluate)",
-  "var(--category-export)",
-  "var(--category-demo)",
+  "var(--category-preprocessing)",
 ];
 export function pipelineDotColor(pipelineId: string): string {
   let hash = 0;

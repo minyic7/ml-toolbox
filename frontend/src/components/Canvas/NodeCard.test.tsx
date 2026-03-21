@@ -146,9 +146,9 @@ describe("NodeCard", () => {
 
   describe("left accent border", () => {
     it("uses category accent CSS variable for known category", () => {
-      const { container } = renderCard({ category: "train" });
+      const { container } = renderCard({ category: "ingest" });
       const card = container.querySelector(".node-card") as HTMLElement;
-      expect(card.style.borderLeft).toContain("var(--category-train)");
+      expect(card.style.borderLeft).toContain("var(--category-ingest)");
     });
 
     it("falls back to --border-default for unknown category", () => {
