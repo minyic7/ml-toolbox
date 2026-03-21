@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { NodeInstance, NodeDefinition, NodeStatus } from "../../lib/types";
 import { useExecutionStore } from "../../store/executionStore";
 import { X, Code2, Table, BookOpen } from "lucide-react";
@@ -95,6 +96,9 @@ export default function DrawerHeader({
       >
         {nodeType}
       </span>
+
+      {/* Short ID — click to copy full ID */}
+      <ShortId nodeId={node.id} />
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
@@ -236,5 +240,34 @@ export default function DrawerHeader({
         <X size={14} />
       </button>
     </div>
+  );
+}
+
+function ShortId({ nodeId }: { nodeId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = () => {
+    navigator.clipboard.writeText(nodeId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <span
+      style={{
+        fontSize: 9,
+        fontFamily: "'JetBrains Mono', monospace",
+        color: copied ? "var(--success-green)" : "var(--text-muted)",
+        cursor: "pointer",
+        opacity: 0.7,
+        whiteSpace: "nowrap",
+        transition: "color 150ms ease",
+      }}
+      onClick={handleClick}
+      title={`${nodeId}\nClick to copy`}
+    >
+      {copied ? "copied!" : nodeId.slice(0, 8)}
+    </span>
   );
 }

@@ -273,9 +273,24 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
           fontSize: 9,
           fontWeight: 500,
           color: "var(--text-muted)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        {category} &middot; {nodeType.includes("/") ? nodeType.split("/").pop() : nodeType}
+        <span>{category} &middot; {nodeType.includes("/") ? nodeType.split("/").pop() : nodeType}</span>
+        <span
+          style={{
+            fontSize: 9,
+            fontFamily: "'JetBrains Mono', monospace",
+            color: "var(--text-muted)",
+            opacity: 0.5,
+            userSelect: "all",
+          }}
+          title={id}
+        >
+          {id.slice(0, 8)}
+        </span>
       </div>
 
       {/* Port columns — inputs left, outputs right, separated by divider */}
