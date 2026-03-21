@@ -195,6 +195,35 @@ function OutputContent({
     return (
       <div style={{ padding: "8px 12px" }}>
         <ErrorTraceback error={output.error ?? "Unknown error"} />
+        {output.logs?.trim() && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 9,
+              fontWeight: 700,
+              textTransform: "uppercase" as const,
+              letterSpacing: "0.05em",
+              color: "var(--text-muted)",
+              marginBottom: 4,
+            }}>
+              Container logs
+            </div>
+            <pre style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              color: "#E2E0F0",
+              whiteSpace: "pre-wrap",
+              margin: 0,
+              padding: 8,
+              borderRadius: 6,
+              background: "#1A1625",
+              maxHeight: 200,
+              overflowY: "auto",
+            }}>
+              {output.logs}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }

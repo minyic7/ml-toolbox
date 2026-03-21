@@ -699,7 +699,30 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
             for f in run_dir.glob(f"{node_id}.*")
             if not _is_internal_file(f)
         ]
+
+    # Check for error and container logs regardless of output files
+    error_path = run_dir / f"{node_id}_manifest_error.json"
+    logs_file = run_dir / f"{node_id}_logs.txt"
+
     if not output_files:
+        # No output files — return error/logs metadata if available
+        if error_path.exists() or logs_file.exists():
+            meta: dict[str, Any] = {
+                "node_id": node_id,
+                "type": "ERROR",
+                "file": "",
+                "size": 0,
+                "preview": None,
+            }
+            if error_path.exists():
+                try:
+                    err = json.loads(error_path.read_text())
+                    meta["error"] = err.get("error")
+                except Exception:
+                    pass
+            if logs_file.exists():
+                meta["logs"] = logs_file.read_text()
+            return meta
         raise HTTPException(status_code=404, detail="Output not found")
 
     primary = output_files[0]
@@ -711,14 +734,15 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
     if len(output_files) > 1:
         meta["outputs"] = [_file_metadata(f) for f in output_files]
 
-    # Check for error
-    error_path = run_dir / f"{node_id}_manifest_error.json"
     if error_path.exists():
         try:
             err = json.loads(error_path.read_text())
             meta["error"] = err.get("error")
         except Exception:
             pass
+
+    if logs_file.exists():
+        meta["logs"] = logs_file.read_text()
 
     return meta
 
