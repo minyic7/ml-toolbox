@@ -52,7 +52,7 @@ def _validate_and_split(inputs: dict, params: dict):  # type: ignore[no-untyped-
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
     return X, y
 
 
@@ -88,7 +88,7 @@ def random_forest_classifier(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = RFC(
         n_estimators=int(params.get("n_estimators", 100)),
@@ -144,7 +144,7 @@ def gradient_boosting_classifier(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = GBC(
         n_estimators=int(params.get("n_estimators", 100)),
@@ -199,7 +199,7 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = LR(
         C=float(params.get("C", 1.0)),
@@ -253,7 +253,7 @@ def svc_classifier(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = SVC(
         kernel=str(params.get("kernel", "rbf")),
@@ -308,7 +308,7 @@ def decision_tree_classifier(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = DTC(
         max_depth=int(params.get("max_depth", 10)),
@@ -363,7 +363,7 @@ def knn_classifier(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = KNC(
         n_neighbors=int(params.get("n_neighbors", 5)),
@@ -419,7 +419,7 @@ def linear_regression(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = LinearRegression()
     estimator.fit(X, y)
@@ -470,7 +470,7 @@ def random_forest_regressor(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = RFR(
         n_estimators=int(params.get("n_estimators", 100)),
@@ -526,7 +526,7 @@ def gradient_boosting_regressor(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = GBR(
         n_estimators=int(params.get("n_estimators", 100)),
@@ -586,7 +586,7 @@ def svr_train(inputs: dict, params: dict) -> dict:
         raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
     y = df[target_column]
     X = df.drop(columns=[target_column])
-    X = X.select_dtypes(include="number")
+    X = pd.get_dummies(X)
 
     estimator = SVR(
         kernel=str(params.get("kernel", "rbf")),
