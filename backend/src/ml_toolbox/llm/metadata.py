@@ -20,7 +20,7 @@ def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
     profiles: list[dict[str, Any]] = []
 
     for col in df.columns:
-        series = df[col]
+        series = pd.Series(df[col])
         dtype_str = str(series.dtype)
         unique_count = int(series.nunique())
         unique_ratio = unique_count / row_count if row_count > 0 else 0.0
