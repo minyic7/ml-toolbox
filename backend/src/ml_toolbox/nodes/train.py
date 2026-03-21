@@ -28,11 +28,13 @@ def _train_and_save(estimator, X, y, _get_output_path):  # type: ignore[no-untyp
     metrics: dict[str, object] = {"train_score": train_score}
     if hasattr(estimator, "classes_"):
         metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
-    if hasattr(estimator, "feature_importances_"):
-        metrics["feature_importances"] = estimator.feature_importances_.tolist()
-    elif hasattr(estimator, "coef_"):
-        coef = estimator.coef_
-        metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
     model_path = _get_output_path("model", ".joblib")
     joblib.dump(estimator, model_path)
     metrics_path = _get_output_path("metrics", ".json")
@@ -72,16 +74,45 @@ def _validate_and_split(inputs: dict, params: dict):  # type: ignore[no-untyped-
 )
 def random_forest_classifier(inputs: dict, params: dict) -> dict:
     """Train a Random Forest classifier."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.ensemble import RandomForestClassifier as RFC
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = RFC(
         n_estimators=int(params.get("n_estimators", 100)),
         max_depth=int(params.get("max_depth", 10)),
         min_samples_split=int(params.get("min_samples_split", 2)),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -98,16 +129,45 @@ def random_forest_classifier(inputs: dict, params: dict) -> dict:
 )
 def gradient_boosting_classifier(inputs: dict, params: dict) -> dict:
     """Train a Gradient Boosting classifier."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.ensemble import GradientBoostingClassifier as GBC
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = GBC(
         n_estimators=int(params.get("n_estimators", 100)),
         max_depth=int(params.get("max_depth", 3)),
         learning_rate=float(params.get("learning_rate", 0.1)),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -123,15 +183,44 @@ def gradient_boosting_classifier(inputs: dict, params: dict) -> dict:
 )
 def logistic_regression(inputs: dict, params: dict) -> dict:
     """Train a Logistic Regression classifier."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.linear_model import LogisticRegression as LR
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = LR(
         C=float(params.get("C", 1.0)),
         max_iter=int(params.get("max_iter", 1000)),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -147,15 +236,44 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
 )
 def svc_classifier(inputs: dict, params: dict) -> dict:
     """Train a Support Vector Classifier."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.svm import SVC
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = SVC(
         kernel=str(params.get("kernel", "rbf")),
         C=float(params.get("C", 1.0)),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -172,16 +290,45 @@ def svc_classifier(inputs: dict, params: dict) -> dict:
 )
 def decision_tree_classifier(inputs: dict, params: dict) -> dict:
     """Train a Decision Tree classifier."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.tree import DecisionTreeClassifier as DTC
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = DTC(
         max_depth=int(params.get("max_depth", 10)),
         min_samples_split=int(params.get("min_samples_split", 2)),
         criterion=str(params.get("criterion", "gini")),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -197,14 +344,43 @@ def decision_tree_classifier(inputs: dict, params: dict) -> dict:
 )
 def knn_classifier(inputs: dict, params: dict) -> dict:
     """Train a K-Nearest Neighbors classifier."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.neighbors import KNeighborsClassifier as KNC
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = KNC(
         n_neighbors=int(params.get("n_neighbors", 5)),
         weights=str(params.get("weights", "uniform")),
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 # ---------------------------------------------------------------------------
@@ -223,11 +399,40 @@ def knn_classifier(inputs: dict, params: dict) -> dict:
 )
 def linear_regression(inputs: dict, params: dict) -> dict:
     """Train a LinearRegression model (no tunable hyperparameters)."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.linear_model import LinearRegression
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = LinearRegression()
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -244,16 +449,45 @@ def linear_regression(inputs: dict, params: dict) -> dict:
 )
 def random_forest_regressor(inputs: dict, params: dict) -> dict:
     """Train a RandomForestRegressor."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.ensemble import RandomForestRegressor as RFR
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = RFR(
         n_estimators=int(params.get("n_estimators", 100)),
         max_depth=int(params.get("max_depth", 10)),
         min_samples_split=int(params.get("min_samples_split", 2)),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -270,16 +504,45 @@ def random_forest_regressor(inputs: dict, params: dict) -> dict:
 )
 def gradient_boosting_regressor(inputs: dict, params: dict) -> dict:
     """Train a GradientBoostingRegressor."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.ensemble import GradientBoostingRegressor as GBR
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = GBR(
         n_estimators=int(params.get("n_estimators", 100)),
         max_depth=int(params.get("max_depth", 3)),
         learning_rate=float(params.get("learning_rate", 0.1)),
         random_state=42,
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 @node(
@@ -300,15 +563,44 @@ def gradient_boosting_regressor(inputs: dict, params: dict) -> dict:
 )
 def svr_train(inputs: dict, params: dict) -> dict:
     """Train a Support Vector Regressor (SVR)."""
+    import json
+
+    import joblib
+    import numpy as np
+    import pandas as pd
     from sklearn.svm import SVR
 
-    X, y = _validate_and_split(inputs, params)
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+
     estimator = SVR(
         kernel=str(params.get("kernel", "rbf")),
         C=float(params.get("C", 1.0)),
         epsilon=float(params.get("epsilon", 0.1)),
     )
-    return _train_and_save(estimator, X, y, _get_output_path)
+    estimator.fit(X, y)
+
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    fi = getattr(estimator, "feature_importances_", None)
+    if fi is not None:
+        metrics["feature_importances"] = fi.tolist()
+    else:
+        coef = getattr(estimator, "coef_", None)
+        if coef is not None:
+            metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
 
 
 
