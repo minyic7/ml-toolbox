@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X, BookOpen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { NodeInstance, NodeDefinition } from "../../lib/types";
 
 interface InfoPanelProps {
@@ -162,7 +163,7 @@ export default function InfoPanel({ node, definition, onClose }: InfoPanelProps)
       >
         {guide ? (
           <div className="info-prose">
-            <ReactMarkdown>{guide}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{guide}</ReactMarkdown>
           </div>
         ) : (
           <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
