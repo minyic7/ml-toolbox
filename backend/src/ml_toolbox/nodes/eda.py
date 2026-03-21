@@ -151,8 +151,8 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         return result
 
     if method == "both":
-        corr_pearson = numeric_df.corr(method="pearson")
-        corr_spearman = numeric_df.corr(method="spearman")
+        corr_pearson = numeric_df.corr(method="pearson")  # pyright: ignore[reportCallIssue]
+        corr_spearman = numeric_df.corr(method="spearman")  # pyright: ignore[reportCallIssue]
         report_pearson = _compute(corr_pearson, "pearson")
         report_spearman = _compute(corr_spearman, "spearman")
 
@@ -168,7 +168,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         if "target_correlations" in report_pearson:
             report["target_correlations"] = report_pearson["target_correlations"]
     else:
-        corr_df = numeric_df.corr(method=method)
+        corr_df = numeric_df.corr(method=method)  # pyright: ignore[reportCallIssue]
         report = _compute(corr_df, method)
 
     out = _get_output_path("report", ext=".json")
@@ -259,7 +259,7 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
         role = "target" if col == target_column else "feature"
 
         if col in numeric_cols:
-            series = df[col].dropna()
+            series = pd.Series(df[col]).dropna()
             count = int(cast(int, series.count()))
             stats: dict = {
                 "count": count,
@@ -306,9 +306,10 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
                 })
         else:
             # Categorical column
-            value_counts = df[col].value_counts()
-            count = int(cast(int, df[col].count()))
-            cardinality = int(cast(int, df[col].nunique()))
+            col_series = pd.Series(df[col])
+            value_counts = col_series.value_counts()
+            count = int(cast(int, col_series.count()))
+            cardinality = int(cast(int, col_series.nunique()))
             top_values = []
             for val, cnt in value_counts.head(10).items():
                 top_values.append({
@@ -355,9 +356,10 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
     # Target section
     if target_column and target_column in df.columns:
         target_dtype = str(df[target_column].dtype)
-        if target_column in categorical_cols or int(cast(int, df[target_column].nunique())) <= 20:
+        target_series = pd.Series(df[target_column])
+        if target_column in categorical_cols or int(cast(int, target_series.nunique())) <= 20:
             # Classification-style: class balance
-            vc = df[target_column].value_counts()
+            vc = target_series.value_counts()
             class_balance = []
             for val, cnt in vc.items():
                 class_balance.append({
@@ -386,7 +388,7 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
                     })
         else:
             # Regression-style: distribution stats
-            series = df[target_column].dropna()
+            series = target_series.dropna()
             report["target"] = {
                 "name": target_column,
                 "dtype": target_dtype,
