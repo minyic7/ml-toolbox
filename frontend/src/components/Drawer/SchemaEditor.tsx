@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMetadata, updateMetadata } from "../../lib/api";
-import { AlertTriangle, ChevronRight, ChevronDown, Sparkles, Check } from "lucide-react";
+import { AlertTriangle, ChevronRight, ChevronDown, Check } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -48,13 +48,11 @@ const ROLES = ["feature", "target", "identifier", "ignore"] as const;
 interface SchemaEditorProps {
   pipelineId: string;
   nodeId: string;
-  onOpenTerminal?: (nodeId: string) => void;
 }
 
 export default function SchemaEditor({
   pipelineId,
   nodeId,
-  onOpenTerminal,
 }: SchemaEditorProps) {
   const qc = useQueryClient();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -158,12 +156,11 @@ export default function SchemaEditor({
               letterSpacing: "0.05em",
             }}
           >
-            <th style={{ ...thStyle, width: "22%" }}>Column</th>
-            <th style={{ ...thStyle, width: "12%" }}>Dtype</th>
-            <th style={{ ...thStyle, width: "24%" }}>Semantic Type</th>
-            <th style={{ ...thStyle, width: "20%" }}>Role</th>
-            <th style={{ ...thStyle, width: "12%" }}>Reasoning</th>
-            <th style={{ ...thStyle, width: "10%", textAlign: "center" }}></th>
+            <th style={{ ...thStyle, width: "24%" }}>Column</th>
+            <th style={{ ...thStyle, width: "14%" }}>Dtype</th>
+            <th style={{ ...thStyle, width: "26%" }}>Semantic Type</th>
+            <th style={{ ...thStyle, width: "22%" }}>Role</th>
+            <th style={{ ...thStyle, width: "14%" }}>Reasoning</th>
           </tr>
         </thead>
         <tbody>
@@ -188,9 +185,6 @@ export default function SchemaEditor({
                   handleChange(colName, "semantic_type", v)
                 }
                 onRoleChange={(v) => handleChange(colName, "role", v)}
-                onCCClick={
-                  onOpenTerminal ? () => onOpenTerminal(nodeId) : undefined
-                }
               />
             );
           })}
@@ -223,7 +217,6 @@ interface ColumnRowProps {
   onToggleExpand: () => void;
   onSemanticChange: (v: string) => void;
   onRoleChange: (v: string) => void;
-  onCCClick?: () => void;
 }
 
 function ColumnRow({
@@ -235,7 +228,6 @@ function ColumnRow({
   onToggleExpand,
   onSemanticChange,
   onRoleChange,
-  onCCClick,
 }: ColumnRowProps) {
   const hasReasoning =
     col.reasoning || col.decision || col.evidence?.length;
@@ -347,44 +339,13 @@ function ColumnRow({
           )}
         </td>
 
-        {/* CC button */}
-        <td style={{ ...tdStyle, textAlign: "center" }}>
-          {onCCClick && (
-            <button
-              onClick={onCCClick}
-              title="Ask Pipeline CC about this column"
-              style={{
-                background: "none",
-                border: "1px solid var(--border-default)",
-                borderRadius: 4,
-                cursor: "pointer",
-                color: "var(--text-muted)",
-                width: 24,
-                height: 24,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background =
-                  "var(--ghost-hover-bg)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "transparent";
-              }}
-            >
-              <Sparkles size={12} />
-            </button>
-          )}
-        </td>
       </tr>
 
       {/* Expanded reasoning sub-row */}
       {isExpanded && hasReasoning && (
         <tr>
           <td
-            colSpan={6}
+            colSpan={5}
             style={{
               padding: "8px 16px 10px",
               background: "var(--ghost-hover-bg)",

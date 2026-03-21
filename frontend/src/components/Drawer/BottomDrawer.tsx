@@ -16,7 +16,6 @@ interface BottomDrawerProps {
   onCodeClick: () => void;
   onOutputClick: () => void;
   onInfoClick: () => void;
-  onOpenTerminal?: (nodeId: string) => void;
   rightPanelOpen: boolean;
   rightPanelMode: "code" | "output" | "info" | "terminal";
 }
@@ -35,7 +34,6 @@ export default function BottomDrawer({
   onCodeClick,
   onOutputClick,
   onInfoClick,
-  onOpenTerminal,
   rightPanelOpen,
   rightPanelMode,
 }: BottomDrawerProps) {
@@ -118,7 +116,6 @@ export default function BottomDrawer({
                 <SchemaEditor
                   pipelineId={pipelineId}
                   nodeId={node.id}
-                  onOpenTerminal={onOpenTerminal}
                 />
               </div>
             )}

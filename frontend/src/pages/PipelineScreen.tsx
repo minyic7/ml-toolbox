@@ -425,20 +425,6 @@ export default function PipelineScreen() {
     }
   }, [rightPanelOpen, rightPanelMode]);
 
-  const handleOpenTerminal = useCallback((nodeId: string) => {
-    setRightPanelMode("terminal");
-    setRightPanelOpen(true);
-    // Send configure-node command to the CC session
-    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-    fetch(`${basePath}/api/cc/pipelines/${pipelineId}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `/configure-node ${nodeId}` }),
-    }).catch(() => {
-      // Best-effort — terminal will still open even if the POST fails
-    });
-  }, [pipelineId]);
-
   const handleTerminalToggle = useCallback(() => {
     if (rightPanelOpen && rightPanelMode === "terminal") {
       setRightPanelOpen(false);
@@ -692,7 +678,6 @@ export default function PipelineScreen() {
               onRenameNode={handleRenameFromContextMenu}
               onDuplicateNode={handleDuplicateNode}
               onPasteNodes={handlePasteNodes}
-              onOpenTerminal={handleOpenTerminal}
               viewportCenterRef={viewportCenterRef}
             />
             </ErrorBoundary>
@@ -710,7 +695,6 @@ export default function PipelineScreen() {
               onCodeClick={handleCodeToggle}
               onOutputClick={handleOutputToggle}
               onInfoClick={handleInfoToggle}
-              onOpenTerminal={handleOpenTerminal}
               rightPanelOpen={rightPanelOpen}
               rightPanelMode={rightPanelMode}
             />
