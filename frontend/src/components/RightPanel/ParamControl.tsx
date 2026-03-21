@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Info, Upload, ChevronDown, Check } from "lucide-react";
 import { toast } from "sonner";
-import type { ParamDefinition, Edge } from "../../lib/types";
+import type { ParamDefinition, Edge, PortDefinition } from "../../lib/types";
 import { uploadFile } from "../../lib/api";
 import { useOutput } from "../../hooks/useOutputs";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ interface ParamControlProps {
   pipelineId?: string;
   edges?: Edge[];
   nodeId?: string;
+  nodeInputs?: PortDefinition[];
 }
 
 function ParamLabel({ param }: { param: ParamDefinition }) {
@@ -53,10 +54,23 @@ function ParamLabel({ param }: { param: ParamDefinition }) {
 function findUpstreamTableNodeId(
   nodeId: string,
   edges: Edge[],
+  nodeInputs?: PortDefinition[],
 ): string | undefined {
-  // Look for edges targeting this node on a TABLE input port (commonly "train", "test", "df")
-  const incomingEdge = edges.find((e) => e.target === nodeId);
-  return incomingEdge?.source;
+  // Find TABLE input port names from the node definition
+  const tablePortNames = (nodeInputs ?? [])
+    .filter((p) => p.type === "TABLE")
+    .map((p) => p.name);
+
+  // If we know TABLE ports, filter edges to only those ports
+  if (tablePortNames.length > 0) {
+    const tableEdge = edges.find(
+      (e) => e.target === nodeId && tablePortNames.includes(e.target_port),
+    );
+    return tableEdge?.source;
+  }
+
+  // Fallback: any incoming edge (when node definition isn't available)
+  return edges.find((e) => e.target === nodeId)?.source;
 }
 
 /** Column dropdown for target_column params with upstream column discovery. */
@@ -195,17 +209,18 @@ function ColumnSelect({
   );
 }
 
-export function ParamControl({ param, value, onChange, disabled, pipelineId, edges, nodeId }: ParamControlProps) {
+export function ParamControl({ param, value, onChange, disabled, pipelineId, edges, nodeId, nodeInputs }: ParamControlProps) {
   const [textValue, setTextValue] = useState(String(value ?? param.default ?? ""));
   const [textError, setTextError] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Find upstream TABLE node for target_column params
+  // TODO: future improvement — auto-clear value when upstream schema changes (stale selection)
   const isTargetColumn = param.name === "target_column" && param.type === "text";
   const upstreamNodeId = useMemo(
-    () => (isTargetColumn && nodeId && edges ? findUpstreamTableNodeId(nodeId, edges) : undefined),
-    [isTargetColumn, nodeId, edges],
+    () => (isTargetColumn && nodeId && edges ? findUpstreamTableNodeId(nodeId, edges, nodeInputs) : undefined),
+    [isTargetColumn, nodeId, edges, nodeInputs],
   );
   const { data: upstreamOutput } = useOutput(
     pipelineId ?? "",

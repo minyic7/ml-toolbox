@@ -87,6 +87,7 @@ export default function BottomDrawer({
               pipelineId={pipelineId}
               edges={edges}
               nodeId={node.id}
+              nodeInputs={definition.inputs}
             />
           </div>
           <div
