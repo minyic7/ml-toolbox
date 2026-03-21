@@ -377,10 +377,10 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
     # Build per-column entries (only columns with missing > 0), sorted by missing_pct desc
     columns = []
     for col in df.columns:
-        mc = int(missing_counts[col])
+        mc = int(missing_counts[col].item())
         if mc == 0:
             continue
-        mp = round(float(missing_pcts[col]), 4)
+        mp = round(float(missing_pcts[col].item()), 4)
         if mp > 0.30:
             severity = "high"
         elif mp >= 0.05:
