@@ -1,7 +1,7 @@
 ---
 name: explain-output
 description: Interpret an EDA node's output report and give actionable recommendations
-args: "{node_id}"
+argument-hint: "[node_id]"
 ---
 
 # Explain Output
