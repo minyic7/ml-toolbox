@@ -681,6 +681,7 @@ export default function PipelineScreen() {
             <CodePane
               node={selectedNode}
               definition={selectedDefinition}
+              pipelineId={pipelineId}
               onSave={handleCodeSave}
               onClose={handleRightPanelClose}
             />
