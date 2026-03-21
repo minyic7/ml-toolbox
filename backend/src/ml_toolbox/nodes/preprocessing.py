@@ -23,8 +23,9 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
                            description="Fraction of data reserved for the test set"),
         "val_size": Slider(min=0.0, max=0.4, step=0.05, default=0.1,
                           description="Fraction of data reserved for the validation set (0 = no validation split)"),
-        "random_seed": Slider(min=0, max=100, step=1, default=42,
-                             description="Random seed for reproducible splits"),
+        "random_seed": Text(default="42",
+                           description="Random seed for reproducible splits (any integer)",
+                           placeholder="42"),
         "stratify_column": Text(default="",
                                description="Column to stratify by (preserves class ratios across all splits)",
                                placeholder="target"),
@@ -84,7 +85,7 @@ def random_holdout(inputs: dict, params: dict) -> dict:
 
     test_size = float(params.get("test_size", 0.2))
     val_size = float(params.get("val_size", 0.1))
-    random_seed = int(params.get("random_seed", 42))
+    random_seed = int(params.get("random_seed", "42"))
     stratify_col = params.get("stratify_column", "")
     shuffle = params.get("shuffle", True)
 
