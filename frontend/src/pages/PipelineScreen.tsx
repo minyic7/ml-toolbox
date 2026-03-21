@@ -646,6 +646,7 @@ export default function PipelineScreen() {
               pipelineId={pipelineId}
               node={drawerOpen ? selectedNode : null}
               definition={selectedDefinition}
+              edges={pipeline?.edges ?? []}
               onParamChange={handleParamChange}
               paramSaving={patchNodeMutation.isPending}
               onClose={handleClosePanel}
