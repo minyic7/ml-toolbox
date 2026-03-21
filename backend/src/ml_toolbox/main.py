@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ml_toolbox.config import DATA_DIR
-from ml_toolbox.routers import nodes, pipelines, runs, uploads, ws
+from ml_toolbox.routers import cc, nodes, pipelines, runs, uploads, ws
 from ml_toolbox.routers.ws import set_main_loop
 
 
@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(cc.router)
 app.include_router(nodes.router)
 app.include_router(pipelines.router)
 app.include_router(runs.router)
