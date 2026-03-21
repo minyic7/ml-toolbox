@@ -1,3 +1,5 @@
+"""EDA (Exploratory Data Analysis) nodes."""
+
 import json
 from pathlib import Path
 
@@ -138,4 +140,209 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
 
     out = _get_output_path("report")
     out.write_text(json.dumps(report))
+    return {"report": str(out)}
+
+
+@node(
+    inputs={"df": PortType.TABLE},
+    outputs={"report": PortType.METRICS},
+    params={
+        "target_column": Text(
+            default="",
+            description="Target column for special analysis (class balance / distribution)",
+            placeholder="target",
+        ),
+    },
+    label="Distribution Profile",
+    category="Eda",
+    description="Profile all columns: dtype, stats, distribution shape, value counts.",
+    guide=(
+        "## Distribution Profile\n\n"
+        "Analyze the statistical distribution of every column in your dataset.\n\n"
+        "### What it does\n"
+        "- **Numeric columns**: count, mean, median, std, min, max, skewness, kurtosis, "
+        "percentiles (Q25/Q50/Q75)\n"
+        "- **Categorical columns**: cardinality (unique count), top N values with counts "
+        "and percentages\n"
+        "- **Target column** (if specified): class balance for classification, or "
+        "distribution stats for regression\n\n"
+        "### Why it matters\n"
+        "- **Skewed distributions** may need log/sqrt transforms for linear models\n"
+        "- **High cardinality** categoricals may need encoding strategies (target encoding "
+        "vs one-hot)\n"
+        "- **Class imbalance** in the target affects model training — may need SMOTE or "
+        "class weights\n\n"
+        "### Remember\n"
+        "All statistics come from **train only**. Never peek at val/test distributions."
+    ),
+)
+def distribution_profile(inputs: dict, params: dict) -> dict:
+    """Profile all columns: dtype, stats, distribution shape, value counts."""
+    from typing import Any, cast
+
+    import numpy as np
+    import pandas as pd
+
+    def _scalar(v: Any) -> float:
+        """Extract a scalar float from a pandas aggregate result."""
+        return float(v)
+
+    df = pd.read_parquet(inputs["df"])
+
+    target_column = params.get("target_column", "")
+    total_rows = len(df)
+    total_columns = len(df.columns)
+
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    categorical_cols = df.select_dtypes(exclude="number").columns.tolist()
+
+    columns_report: list[dict] = []
+    warnings: list[dict] = []
+
+    for col in df.columns:
+        role = "target" if col == target_column else "feature"
+
+        if col in numeric_cols:
+            series = df[col].dropna()
+            count = int(cast(int, series.count()))
+            stats: dict = {
+                "count": count,
+                "mean": round(_scalar(series.mean()), 4),
+                "median": round(_scalar(series.median()), 4),
+                "std": round(_scalar(series.std()), 4),
+                "min": round(_scalar(series.min()), 4),
+                "max": round(_scalar(series.max()), 4),
+                "skewness": round(_scalar(series.skew()), 4),
+                "kurtosis": round(_scalar(series.kurtosis()), 4),
+                "q25": round(_scalar(series.quantile(0.25)), 4),
+                "q50": round(_scalar(series.quantile(0.50)), 4),
+                "q75": round(_scalar(series.quantile(0.75)), 4),
+            }
+
+            counts_arr, bin_edges_arr = np.histogram(series, bins=10)
+            histogram = {
+                "bin_edges": [round(float(e), 4) for e in bin_edges_arr],
+                "counts": [int(c) for c in counts_arr],
+            }
+
+            entry: dict = {
+                "name": col,
+                "dtype": str(df[col].dtype),
+                "role": role,
+                "stats": stats,
+                "histogram": histogram,
+            }
+            columns_report.append(entry)
+
+            # Skewness warning
+            skew_val = stats["skewness"]
+            abs_skew = abs(skew_val)
+            if abs_skew >= 0.5:
+                direction = "right" if skew_val > 0 else "left"
+                severity = "strong" if abs_skew >= 1.0 else "moderate"
+                warnings.append({
+                    "column": col,
+                    "type": "skewed",
+                    "message": (
+                        f"Skewness {skew_val} — {severity} {direction} skew, "
+                        f"consider log transform for linear models"
+                    ),
+                })
+        else:
+            # Categorical column
+            value_counts = df[col].value_counts()
+            count = int(cast(int, df[col].count()))
+            cardinality = int(cast(int, df[col].nunique()))
+            top_values = []
+            for val, cnt in value_counts.head(10).items():
+                top_values.append({
+                    "value": val,
+                    "count": int(cnt),
+                    "pct": round(int(cnt) / total_rows, 4) if total_rows > 0 else 0,
+                })
+
+            entry = {
+                "name": col,
+                "dtype": str(df[col].dtype),
+                "role": role,
+                "stats": {
+                    "count": count,
+                    "cardinality": cardinality,
+                    "top_values": top_values,
+                },
+            }
+            columns_report.append(entry)
+
+            # High cardinality warning
+            if cardinality > 20:
+                warnings.append({
+                    "column": col,
+                    "type": "high_cardinality",
+                    "message": (
+                        f"{cardinality} unique values — consider target encoding "
+                        f"instead of one-hot"
+                    ),
+                })
+
+    report: dict = {
+        "report_type": "distribution_profile",
+        "summary": {
+            "total_rows": total_rows,
+            "total_columns": total_columns,
+            "numeric_count": len(numeric_cols),
+            "categorical_count": len(categorical_cols),
+        },
+        "columns": columns_report,
+        "warnings": warnings,
+    }
+
+    # Target section
+    if target_column and target_column in df.columns:
+        target_dtype = str(df[target_column].dtype)
+        if target_column in categorical_cols or int(cast(int, df[target_column].nunique())) <= 20:
+            # Classification-style: class balance
+            vc = df[target_column].value_counts()
+            class_balance = []
+            for val, cnt in vc.items():
+                class_balance.append({
+                    "value": val,
+                    "count": int(cnt),
+                    "pct": round(int(cnt) / total_rows, 4) if total_rows > 0 else 0,
+                })
+            report["target"] = {
+                "name": target_column,
+                "dtype": target_dtype,
+                "class_balance": class_balance,
+            }
+
+            # Class imbalance warning
+            if len(class_balance) >= 2:
+                pcts = [cb["pct"] for cb in class_balance]
+                ratio = max(pcts) / min(pcts) if min(pcts) > 0 else float("inf")
+                if ratio > 3:
+                    warnings.append({
+                        "column": target_column,
+                        "type": "class_imbalance",
+                        "message": (
+                            f"Class ratio {ratio:.1f}:1 — consider SMOTE or "
+                            f"class weights"
+                        ),
+                    })
+        else:
+            # Regression-style: distribution stats
+            series = df[target_column].dropna()
+            report["target"] = {
+                "name": target_column,
+                "dtype": target_dtype,
+                "distribution": {
+                    "mean": round(_scalar(series.mean()), 4),
+                    "median": round(_scalar(series.median()), 4),
+                    "std": round(_scalar(series.std()), 4),
+                    "min": round(_scalar(series.min()), 4),
+                    "max": round(_scalar(series.max()), 4),
+                },
+            }
+
+    out = _get_output_path("report", ext=".json")
+    out.write_text(json.dumps(report, indent=2))
     return {"report": str(out)}
