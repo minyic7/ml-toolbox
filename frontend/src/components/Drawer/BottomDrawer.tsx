@@ -1,5 +1,5 @@
 import { useExecutionStore } from "../../store/executionStore";
-import type { NodeInstance, NodeDefinition } from "../../lib/types";
+import type { NodeInstance, NodeDefinition, Edge } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
 
@@ -7,6 +7,7 @@ interface BottomDrawerProps {
   pipelineId: string;
   node: NodeInstance | null;
   definition: NodeDefinition | null;
+  edges: Edge[];
   onParamChange: (nodeId: string, name: string, value: unknown) => void;
   paramSaving?: boolean;
   onClose: () => void;
@@ -20,8 +21,10 @@ interface BottomDrawerProps {
 const DRAWER_HEADER_HEIGHT = 38;
 
 export default function BottomDrawer({
+  pipelineId,
   node,
   definition,
+  edges,
   onParamChange,
   paramSaving,
   onClose,
@@ -81,6 +84,9 @@ export default function BottomDrawer({
               values={buildParamValues(node)}
               onChange={(name, value) => onParamChange(node.id, name, value)}
               disabled={paramSaving}
+              pipelineId={pipelineId}
+              edges={edges}
+              nodeId={node.id}
             />
           </div>
           <div
