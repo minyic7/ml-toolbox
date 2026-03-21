@@ -81,11 +81,19 @@ export default function PipelineScreen() {
       setRightPanelMode("output");
       setRightPanelOpen(true);
     } else if (status === "error") {
-      // Non-selected node errored — auto-select it and show output
-      setSelectedNodeId(lastDoneNodeId);
-      setDrawerOpen(true);
-      setRightPanelMode("output");
-      setRightPanelOpen(true);
+      // Non-selected node errored — show toast with action to navigate
+      const errorNodeId = lastDoneNodeId;
+      toast.error("Node failed", {
+        action: {
+          label: "View Error",
+          onClick: () => {
+            setSelectedNodeId(errorNodeId);
+            setDrawerOpen(true);
+            setRightPanelMode("output");
+            setRightPanelOpen(true);
+          },
+        },
+      });
     }
     setLastDoneNodeId(null);
   }, [lastDoneNodeId, selectedNodeId, setLastDoneNodeId, nodeStatuses]);

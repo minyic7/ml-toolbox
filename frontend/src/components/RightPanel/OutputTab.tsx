@@ -211,13 +211,14 @@ function OutputContent({
             <pre style={{
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: 10,
-              color: "var(--text-secondary)",
+              color: "#E2E0F0",
               whiteSpace: "pre-wrap",
               margin: 0,
               padding: 8,
               borderRadius: 6,
-              border: "1px solid var(--border-default)",
-              background: "var(--node-bg)",
+              background: "#1A1625",
+              maxHeight: 200,
+              overflowY: "auto",
             }}>
               {output.logs}
             </pre>
