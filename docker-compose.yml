@@ -16,6 +16,7 @@ services:
     volumes:
       - ml_data:/root/.ml-toolbox
       - /var/run/docker.sock:/var/run/docker.sock
+      - claude_auth:/root/.claude
     environment:
       - ML_TOOLBOX_DATA_DIR=/root/.ml-toolbox
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -27,5 +28,6 @@ services:
 
 volumes:
   ml_data:
+  claude_auth:
   caddy_data:
   caddy_config:
