@@ -291,6 +291,32 @@ export function getRunOutput(
   );
 }
 
+// ── Metadata ─────────────────────────────────────────────────────
+
+export function getMetadata(
+  pipelineId: string,
+  nodeId: string,
+  runId?: string,
+) {
+  const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  return request<{ metadata: Record<string, unknown> | null }>(
+    `/api/pipelines/${pipelineId}/outputs/${nodeId}/metadata${params}`,
+  );
+}
+
+export function updateMetadata(
+  pipelineId: string,
+  nodeId: string,
+  body: Record<string, unknown>,
+  runId?: string,
+) {
+  const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  return request<{ status: string }>(
+    `/api/pipelines/${pipelineId}/outputs/${nodeId}/metadata${params}`,
+    { method: "PUT", ...json(body) },
+  );
+}
+
 export function getRunOutputDownloadUrl(
   pipelineId: string,
   runId: string,
