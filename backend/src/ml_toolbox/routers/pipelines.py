@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import re
 from datetime import datetime
 import threading
 import uuid
@@ -732,7 +733,16 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
     }
 
     if len(output_files) > 1:
-        meta["outputs"] = [_file_metadata(f) for f in output_files]
+        outputs_list = []
+        for f in output_files:
+            fmeta = _file_metadata(f)
+            # Extract port name: remove node_id prefix from stem
+            port_name = f.stem
+            if port_name.startswith(node_id + "_"):
+                port_name = port_name[len(node_id) + 1 :]
+            fmeta["port"] = port_name
+            outputs_list.append(fmeta)
+        meta["outputs"] = outputs_list
 
     if error_path.exists():
         try:
@@ -776,18 +786,43 @@ async def get_output(
     return _output_metadata(run_dir, node_id)
 
 
+def _resolve_output_file(
+    run_dir: Path, node_id: str, port: str | None
+) -> Path:
+    """Find the output file for a node, optionally filtered by port name.
+
+    Raises HTTPException(400) if port contains invalid characters,
+    or HTTPException(404) if no matching file is found.
+    """
+    if port:
+        if not re.fullmatch(r"[a-zA-Z0-9_-]+", port):
+            raise HTTPException(
+                status_code=400, detail="Invalid port name"
+            )
+        candidates = list(run_dir.glob(f"{node_id}_{port}.*"))
+        candidates = [c for c in candidates if not _is_internal_file(c)]
+        if not candidates:
+            raise HTTPException(
+                status_code=404, detail=f"Output port '{port}' not found"
+            )
+        return candidates[0]
+    output_file = _find_output_file(run_dir, node_id)
+    if output_file is None:
+        raise HTTPException(status_code=404, detail="Output not found")
+    return output_file
+
+
 @router.get("/{pipeline_id}/outputs/{node_id}/download")
 async def download_output(
     pipeline_id: str,
     node_id: str,
     run_id: str | None = Query(default=None),
     format: str | None = Query(default=None),
+    port: str | None = Query(default=None),
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     resolved_run_id, run_dir = _resolve_run_dir(pipeline_id, run_id)
-    output_file = _find_output_file(run_dir, node_id)
-    if output_file is None:
-        raise HTTPException(status_code=404, detail="Output not found")
+    output_file = _resolve_output_file(run_dir, node_id, port)
 
     if format == "csv" and output_file.suffix == ".parquet":
         return _parquet_to_csv_response(output_file)
@@ -819,12 +854,11 @@ async def download_run_output(
     run_id: str,
     node_id: str,
     format: str | None = Query(default=None),
+    port: str | None = Query(default=None),
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
-    output_file = _find_output_file(run_dir, node_id)
-    if output_file is None:
-        raise HTTPException(status_code=404, detail="Output not found")
+    output_file = _resolve_output_file(run_dir, node_id, port)
 
     if format == "csv" and output_file.suffix == ".parquet":
         return _parquet_to_csv_response(output_file)
