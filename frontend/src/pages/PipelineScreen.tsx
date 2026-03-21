@@ -363,8 +363,10 @@ export default function PipelineScreen() {
       if (nodeId === selectedNodeId) return;
       setSelectedNodeId(nodeId);
       setDrawerOpen(true);
-      // Close right panel when selecting a different node
-      setRightPanelOpen(false);
+      // Only close right panel if NOT in terminal mode — terminal is pipeline-level
+      if (rightPanelMode !== 'terminal') {
+        setRightPanelOpen(false);
+      }
       const status = nodeStatuses[nodeId];
       if (status === "done" || status === "error" || status === "cached") {
         setRightPanelMode("output");
@@ -372,7 +374,7 @@ export default function PipelineScreen() {
       }
     }
     // Clicking blank canvas — keep drawer open with last selected node
-  }, [nodeStatuses, selectedNodeId]);
+  }, [nodeStatuses, selectedNodeId, rightPanelMode]);
 
   const handleTabClick = useCallback((nodeId: string, tab: string) => {
     setSelectedNodeId(nodeId);
