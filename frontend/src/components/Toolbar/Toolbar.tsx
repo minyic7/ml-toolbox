@@ -53,7 +53,6 @@ const NODE_TYPE_ICONS: Record<string, LucideIcon> = {
   clean: Zap,
   feature_eng: ArrowLeftRight,
   split: Shuffle,
-  sklearn_train: CircleDot,
   xgb_train: CircleDot,
   export_table: Upload,
   export_model: Upload,
