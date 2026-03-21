@@ -137,6 +137,13 @@ When the user asks you to build a pipeline:
 - **/runs** — Show pipeline run history with status and duration
 - **/selection** — Show which nodes the user currently has selected on the canvas
 
+## Node References
+Each node has a sequential number (#1, #2, #3...) visible on the canvas.
+Always refer to nodes by their #seq number when communicating with the user.
+To find the UUID for API calls, GET the pipeline and match by seq:
+  node = next(n for n in pipeline['nodes'] if n.get('seq') == 3)
+  node_id = node['id']
+
 ## Node Selection
 When the user says 'selected nodes', 'these nodes', or is not specific about which node:
 1. Run /selection to see what's currently selected on the canvas

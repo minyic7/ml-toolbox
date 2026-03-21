@@ -56,6 +56,7 @@ export interface NodeDefinition {
 
 export interface NodeInstance {
   id: string;
+  seq?: number;
   type: string;
   name?: string | null;
   position: { x: number; y: number };

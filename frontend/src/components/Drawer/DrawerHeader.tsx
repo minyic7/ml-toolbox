@@ -98,7 +98,7 @@ export default function DrawerHeader({
       </span>
 
       {/* Short ID — click to copy full ID */}
-      <ShortId nodeId={node.id} />
+      <ShortId nodeId={node.id} seq={node.seq} />
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
@@ -243,7 +243,7 @@ export default function DrawerHeader({
   );
 }
 
-function ShortId({ nodeId }: { nodeId: string }) {
+function ShortId({ nodeId, seq }: { nodeId: string; seq?: number }) {
   const [copied, setCopied] = useState(false);
 
   const handleClick = () => {
@@ -252,6 +252,8 @@ function ShortId({ nodeId }: { nodeId: string }) {
       setTimeout(() => setCopied(false), 1500);
     });
   };
+
+  const display = seq != null ? `#${seq}` : nodeId.slice(0, 8);
 
   return (
     <span
@@ -267,7 +269,7 @@ function ShortId({ nodeId }: { nodeId: string }) {
       onClick={handleClick}
       title={`${nodeId}\nClick to copy`}
     >
-      {copied ? "copied!" : nodeId.slice(0, 8)}
+      {copied ? "copied!" : display}
     </span>
   );
 }
