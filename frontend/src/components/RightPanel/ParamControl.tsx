@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Info, Upload, ChevronDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { ParamDefinition, Edge, PortDefinition } from "../../lib/types";
@@ -91,9 +92,9 @@ function ColumnSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [direction, setDirection] = useState<"down" | "up">("down");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const filtered = useMemo(
     () =>
@@ -103,83 +104,98 @@ function ColumnSelect({
     [columns, search],
   );
 
-  // Focus search input and compute direction when dropdown opens
+  // Compute position when dropdown opens
   useEffect(() => {
-    if (open) {
-      if (triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        setDirection(spaceBelow < 220 ? "up" : "down");
-      }
-      requestAnimationFrame(() => inputRef.current?.focus());
-    } else {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setTriggerRect(rect);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setDirection(spaceBelow < 340 ? "up" : "down");
+    }
+    if (!open) {
       setSearch("");
     }
   }, [open]);
 
   return (
     <div className="relative">
-      <button
+      <input
         ref={triggerRef}
-        type="button"
+        type="text"
         disabled={disabled}
-        onClick={() => setOpen(!open)}
-        className="flex h-8 w-full items-center justify-between rounded-md border px-3 text-sm"
+        value={open ? search : (value || "")}
+        placeholder="Search columns..."
+        onChange={(e) => {
+          setSearch(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setOpen(false);
+            triggerRef.current?.blur();
+          }
+          if (e.key === "Enter" && filtered.length > 0) {
+            onChange(paramName, filtered[0]);
+            setOpen(false);
+            triggerRef.current?.blur();
+          }
+        }}
+        className="flex h-8 w-full items-center rounded-md border px-3 text-sm"
         style={{
           borderColor: "var(--border-default)",
           background: "var(--bg-primary)",
+          color: !open && value ? "var(--text-primary)" : open ? "var(--text-primary)" : "var(--text-muted)",
           opacity: disabled ? 0.6 : 1,
         }}
-      >
-        <span
-          className="truncate"
-          style={{ color: value ? "var(--text-primary)" : "var(--text-muted)" }}
-        >
-          {value || "Select column..."}
-        </span>
-        <ChevronDown size={14} className="shrink-0 text-[var(--text-muted)]" />
-      </button>
+      />
+      <ChevronDown
+        size={14}
+        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]"
+      />
 
-      {open && (
+      {/* Overlay to close on outside click */}
+      {open && createPortal(
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 9998 }}
+          onClick={() => {
+            setOpen(false);
+            triggerRef.current?.blur();
+          }}
+        />,
+        document.body,
+      )}
+
+      {/* Dropdown list via portal */}
+      {open && triggerRect && createPortal(
         <div
           ref={listRef}
-          className="absolute z-50 w-full rounded-md border shadow-md"
           style={{
-            background: "var(--bg-primary)",
-            borderColor: "var(--border-default)",
-            maxHeight: 200,
-            display: "flex",
-            flexDirection: "column",
+            position: "fixed",
+            left: triggerRect.left,
+            width: triggerRect.width,
             ...(direction === "up"
-              ? { bottom: "100%", marginBottom: 4 }
-              : { top: "100%", marginTop: 4 }),
+              ? { bottom: window.innerHeight - triggerRect.top + 4 }
+              : { top: triggerRect.bottom + 4 }),
+            zIndex: 9999,
+            background: "var(--bg-primary)",
+            border: "1px solid var(--border-default)",
+            borderRadius: 8,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+            maxHeight: 320,
+            display: "flex",
+            flexDirection: "column" as const,
           }}
         >
-          <div className="p-1.5" style={{ borderBottom: "1px solid var(--border-default)" }}>
-            <input
-              ref={inputRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search columns..."
-              className="h-7 w-full rounded border-none bg-transparent px-2 text-xs outline-none"
-              style={{ color: "var(--text-primary)" }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setOpen(false);
-                if (e.key === "Enter" && filtered.length > 0) {
-                  onChange(paramName, filtered[0]);
-                  setOpen(false);
-                }
-              }}
-            />
-          </div>
-          <div className="overflow-y-auto p-1" style={{ maxHeight: 160 }}>
+          <div className="overflow-y-auto p-1" style={{ maxHeight: 280 }}>
             {!search && (
               <button
                 type="button"
                 onClick={() => {
                   onChange(paramName, "");
                   setOpen(false);
+                  triggerRef.current?.blur();
                 }}
                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[var(--bg-hover)]"
                 style={{ color: "var(--text-muted)" }}
@@ -210,6 +226,7 @@ function ColumnSelect({
                   onClick={() => {
                     onChange(paramName, col);
                     setOpen(false);
+                    triggerRef.current?.blur();
                   }}
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[var(--bg-hover)]"
                   style={{ color: "var(--text-primary)" }}
@@ -227,15 +244,8 @@ function ColumnSelect({
               ))
             )}
           </div>
-        </div>
-      )}
-
-      {/* Close on outside click */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
+        </div>,
+        document.body,
       )}
     </div>
   );
