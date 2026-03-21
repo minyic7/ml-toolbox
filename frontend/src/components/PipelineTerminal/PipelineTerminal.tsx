@@ -244,24 +244,19 @@ export default function PipelineTerminal({
     // Wheel handler for tmux scroll mode
     const el = termRef.current;
     const handleWheel = (e: WheelEvent) => {
+      if (!scrollModeRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
-      e.preventDefault();
-
-      // Enter tmux copy-mode on first wheel-up
-      if (e.deltaY < 0 && !scrollModeRef.current) {
-        ws.send(new TextEncoder().encode("\x02[")); // Ctrl-B + [
-        setIsInScrollMode(true);
-  
-      }
-
-      // Send arrow keys for scrolling
-      const lines = Math.max(1, Math.ceil(Math.abs(e.deltaY) / 40));
+      // Send arrow keys for scrolling in tmux copy-mode
+      const lines = Math.max(1, Math.ceil(Math.abs(e.deltaY) / 25));
       const key = e.deltaY < 0 ? "\x1b[A" : "\x1b[B";
-      for (let i = 0; i < lines; i++) {
-        ws.send(new TextEncoder().encode(key));
-      }
+      const keys = key.repeat(lines);
+      ws.send(new TextEncoder().encode(keys));
     };
     el.addEventListener("wheel", handleWheel, { passive: false });
 
