@@ -98,6 +98,24 @@ export interface PipelineSummary {
 
 // ── Output & Run ────────────────────────────────────────────────────
 
+export interface OutputPortPreview {
+  file: string;
+  type: string;
+  size: number;
+  port: string;
+  preview: {
+    columns?: string[];
+    rows?: unknown[][];
+    total_rows?: number;
+    shape?: number[];
+    dtype?: string;
+    values?: number[];
+    total_elements?: number;
+    format?: string;
+    file_size?: number;
+  } | null;
+}
+
 export interface OutputPreview {
   node_id: string;
   file: string;
@@ -118,6 +136,7 @@ export interface OutputPreview {
   } | null;
   error: string | null;
   logs?: string | null;
+  outputs?: OutputPortPreview[];
 }
 
 export interface RunInfo {

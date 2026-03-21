@@ -732,7 +732,16 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
     }
 
     if len(output_files) > 1:
-        meta["outputs"] = [_file_metadata(f) for f in output_files]
+        outputs_list = []
+        for f in output_files:
+            fmeta = _file_metadata(f)
+            # Extract port name: remove node_id prefix from stem
+            port_name = f.stem
+            if port_name.startswith(node_id + "_"):
+                port_name = port_name[len(node_id) + 1 :]
+            fmeta["port"] = port_name
+            outputs_list.append(fmeta)
+        meta["outputs"] = outputs_list
 
     if error_path.exists():
         try:
@@ -782,10 +791,20 @@ async def download_output(
     node_id: str,
     run_id: str | None = Query(default=None),
     format: str | None = Query(default=None),
+    port: str | None = Query(default=None),
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     resolved_run_id, run_dir = _resolve_run_dir(pipeline_id, run_id)
-    output_file = _find_output_file(run_dir, node_id)
+    if port:
+        candidates = list(run_dir.glob(f"{node_id}_{port}.*"))
+        candidates = [c for c in candidates if not _is_internal_file(c)]
+        if not candidates:
+            raise HTTPException(
+                status_code=404, detail=f"Output port '{port}' not found"
+            )
+        output_file: Path | None = candidates[0]
+    else:
+        output_file = _find_output_file(run_dir, node_id)
     if output_file is None:
         raise HTTPException(status_code=404, detail="Output not found")
 
@@ -819,10 +838,20 @@ async def download_run_output(
     run_id: str,
     node_id: str,
     format: str | None = Query(default=None),
+    port: str | None = Query(default=None),
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
-    output_file = _find_output_file(run_dir, node_id)
+    if port:
+        candidates = list(run_dir.glob(f"{node_id}_{port}.*"))
+        candidates = [c for c in candidates if not _is_internal_file(c)]
+        if not candidates:
+            raise HTTPException(
+                status_code=404, detail=f"Output port '{port}' not found"
+            )
+        output_file: Path | None = candidates[0]
+    else:
+        output_file = _find_output_file(run_dir, node_id)
     if output_file is None:
         raise HTTPException(status_code=404, detail="Output not found")
 
