@@ -64,7 +64,7 @@ def test_basic_split_default(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.2, "val_size": 0.1, "random_seed": 42, "stratify_column": "", "shuffle": True},
+            params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": True},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
@@ -85,7 +85,7 @@ def test_custom_test_size(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.3, "val_size": 0.1, "random_seed": 42, "stratify_column": "", "shuffle": True},
+            params={"test_size": 0.3, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": True},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
@@ -107,7 +107,7 @@ def test_stratify_column(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.2, "val_size": 0.1, "random_seed": 42, "stratify_column": "target", "shuffle": True},
+            params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "target", "shuffle": True},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
@@ -132,7 +132,7 @@ def test_shuffle_false_preserves_order(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.2, "val_size": 0.1, "random_seed": 42, "stratify_column": "", "shuffle": False},
+            params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": False},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
@@ -158,7 +158,7 @@ def test_train_val_test_counts_equal_original(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.2, "val_size": 0.1, "random_seed": 42, "stratify_column": "", "shuffle": True},
+            params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": True},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
@@ -176,7 +176,7 @@ def test_val_size_zero(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.2, "val_size": 0.0, "random_seed": 42, "stratify_column": "", "shuffle": True},
+            params={"test_size": 0.2, "val_size": 0.0, "random_seed": "42", "stratify_column": "", "shuffle": True},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
@@ -198,7 +198,7 @@ def test_custom_val_size(tmp_path: Path):
     with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
-            params={"test_size": 0.2, "val_size": 0.2, "random_seed": 42, "stratify_column": "", "shuffle": True},
+            params={"test_size": 0.2, "val_size": 0.2, "random_seed": "42", "stratify_column": "", "shuffle": True},
         )
 
     train_df = pl.read_parquet(Path(result["train"]))
