@@ -511,7 +511,7 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
     inputs={"df": PortType.TABLE},
     outputs={"report": PortType.METRICS},
     params={
-        "method": Select(["iqr", "zscore", "both"], default="iqr",
+        "method": Select(["iqr", "zscore", "both"], default="both",
                         description="Outlier detection method"),
         "iqr_multiplier": Slider(min=1.0, max=3.0, step=0.1, default=1.5,
                                 description="IQR fence multiplier (1.5 = standard, 3.0 = extreme only)"),
