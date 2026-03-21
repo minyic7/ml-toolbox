@@ -101,38 +101,6 @@ export default function PipelineTerminal({
     }
   }, []);
 
-  // ── Restart session ─────────────────────────────────────────
-  const [restarting, setRestarting] = useState(false);
-
-  const restartSession = useCallback(async () => {
-    setRestarting(true);
-    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-    try {
-      // Close existing WebSocket
-      wsRef.current?.close();
-      wsRef.current = null;
-
-      // Call backend restart endpoint
-      await fetch(`${basePath}/api/cc/pipelines/${pipelineId}/restart`, {
-        method: "POST",
-      });
-
-      // Clear terminal and reconnect
-      const terminal = terminalRef.current;
-      if (terminal) {
-        terminal.clear();
-        terminal.writeln("\x1b[2m Restarting Pipeline CC...\x1b[0m");
-        connectWs(terminal);
-      }
-    } catch {
-      terminalRef.current?.writeln(
-        "\r\n\x1b[31m Failed to restart session.\x1b[0m",
-      );
-    } finally {
-      setRestarting(false);
-    }
-  }, [pipelineId, connectWs]);
-
   // ── Scroll-to-bottom ────────────────────────────────────────
   const scrollToBottom = useCallback(() => {
     const ws = wsRef.current;
@@ -198,6 +166,35 @@ export default function PipelineTerminal({
     },
     [pipelineId, sendResize],
   );
+
+  // ── Restart session ─────────────────────────────────────────
+  const [restarting, setRestarting] = useState(false);
+
+  const restartSession = useCallback(async () => {
+    setRestarting(true);
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      wsRef.current?.close();
+      wsRef.current = null;
+
+      await fetch(`${basePath}/api/cc/pipelines/${pipelineId}/restart`, {
+        method: "POST",
+      });
+
+      const terminal = terminalRef.current;
+      if (terminal) {
+        terminal.clear();
+        terminal.writeln("\x1b[2m Restarting Pipeline CC...\x1b[0m");
+        connectWs(terminal);
+      }
+    } catch {
+      terminalRef.current?.writeln(
+        "\r\n\x1b[31m Failed to restart session.\x1b[0m",
+      );
+    } finally {
+      setRestarting(false);
+    }
+  }, [pipelineId, connectWs]);
 
   // ── Terminal initialization ──────────────────────────────────
   useEffect(() => {
