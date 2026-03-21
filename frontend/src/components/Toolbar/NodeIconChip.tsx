@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 
 interface CategoryColors {
   bg: string;
@@ -7,11 +7,13 @@ interface CategoryColors {
   dot: string;
 }
 
+/** Any component that accepts color + size — works for both Lucide and custom SVGs */
+export type NodeIcon = ComponentType<{ color?: string; size?: number }>;
+
 interface NodeIconChipProps {
-  icon: LucideIcon;
+  icon: NodeIcon;
   label: string;
   colors: CategoryColors;
-  text?: string;
   onClick: () => void;
 }
 
@@ -19,7 +21,6 @@ export default function NodeIconChip({
   icon: Icon,
   label,
   colors,
-  text,
   onClick,
 }: NodeIconChipProps) {
   return (
@@ -56,22 +57,7 @@ export default function NodeIconChip({
         e.currentTarget.style.transform = "scale(1)";
       }}
     >
-      {text ? (
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 800,
-            fontFamily: "'Inter', sans-serif",
-            letterSpacing: "-0.02em",
-            color: colors.icon,
-            userSelect: "none",
-          }}
-        >
-          {text}
-        </span>
-      ) : (
-        <Icon size={14} color={colors.icon} strokeWidth={2} />
-      )}
+      <Icon size={14} color={colors.icon} />
       {/* Badge dot */}
       <span
         style={{
