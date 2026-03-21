@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { TerminalSquare, X, Maximize2, Minimize2, ArrowDown } from "lucide-react";
+import { TerminalSquare, X, Maximize2, Minimize2, ArrowDown, RotateCw } from "lucide-react";
 
 interface PipelineTerminalProps {
   pipelineId: string;
@@ -100,6 +100,38 @@ export default function PipelineTerminal({
       ws.send(payload.buffer);
     }
   }, []);
+
+  // ── Restart session ─────────────────────────────────────────
+  const [restarting, setRestarting] = useState(false);
+
+  const restartSession = useCallback(async () => {
+    setRestarting(true);
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      // Close existing WebSocket
+      wsRef.current?.close();
+      wsRef.current = null;
+
+      // Call backend restart endpoint
+      await fetch(`${basePath}/api/cc/pipelines/${pipelineId}/restart`, {
+        method: "POST",
+      });
+
+      // Clear terminal and reconnect
+      const terminal = terminalRef.current;
+      if (terminal) {
+        terminal.clear();
+        terminal.writeln("\x1b[2m Restarting Pipeline CC...\x1b[0m");
+        connectWs(terminal);
+      }
+    } catch {
+      terminalRef.current?.writeln(
+        "\r\n\x1b[31m Failed to restart session.\x1b[0m",
+      );
+    } finally {
+      setRestarting(false);
+    }
+  }, [pipelineId, connectWs]);
 
   // ── Scroll-to-bottom ────────────────────────────────────────
   const scrollToBottom = useCallback(() => {
@@ -335,6 +367,85 @@ export default function PipelineTerminal({
 
         <div style={{ flex: 1 }} />
 
+        {/* Scroll to bottom */}
+        <button
+          onClick={scrollToBottom}
+          aria-label="Scroll to bottom"
+          title="Scroll to bottom"
+          style={{
+            width: 24,
+            height: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: isInScrollMode ? "1px solid #7aa2f7" : "1px solid #292e42",
+            borderRadius: 4,
+            background: isInScrollMode ? "rgba(122, 162, 247, 0.15)" : "transparent",
+            cursor: "pointer",
+            color: isInScrollMode ? "#7aa2f7" : "#565f89",
+            flexShrink: 0,
+            position: "relative",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isInScrollMode
+              ? "rgba(122, 162, 247, 0.25)"
+              : "#292e42";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isInScrollMode
+              ? "rgba(122, 162, 247, 0.15)"
+              : "transparent";
+          }}
+        >
+          <ArrowDown size={13} />
+          {hasNewContent && (
+            <span
+              style={{
+                position: "absolute",
+                top: 2,
+                right: 2,
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#f7768e",
+              }}
+            />
+          )}
+        </button>
+
+        {/* Restart button */}
+        <button
+          onClick={restartSession}
+          disabled={restarting}
+          aria-label="Restart session"
+          title="Restart session"
+          style={{
+            width: 24,
+            height: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid #292e42",
+            borderRadius: 4,
+            background: "transparent",
+            cursor: restarting ? "not-allowed" : "pointer",
+            color: "#565f89",
+            flexShrink: 0,
+            opacity: restarting ? 0.5 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (!restarting) e.currentTarget.style.background = "#292e42";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <RotateCw
+            size={13}
+            style={restarting ? { animation: "spin 1s linear infinite" } : undefined}
+          />
+        </button>
+
         {/* Fullscreen toggle */}
         <button
           onClick={() => setIsFullscreen(!isFullscreen)}
@@ -395,45 +506,6 @@ export default function PipelineTerminal({
       <div style={{ flex: 1, position: "relative" }}>
         <div ref={termRef} style={{ height: "100%", padding: "4px 0 0 4px" }} />
 
-        {/* Scroll-to-bottom floating button */}
-        {isInScrollMode && (
-          <button
-            onClick={scrollToBottom}
-            title="Scroll to bottom"
-            style={{
-              position: "absolute",
-              bottom: 16,
-              right: 16,
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              background: "rgba(122, 162, 247, 0.9)",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              zIndex: 10,
-              animation: hasNewContent ? "pulse 1.5s infinite" : undefined,
-            }}
-          >
-            <ArrowDown size={16} color="#1a1b26" />
-            {hasNewContent && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: -2,
-                  right: -2,
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "#f7768e",
-                }}
-              />
-            )}
-          </button>
-        )}
       </div>
     </div>
   );
