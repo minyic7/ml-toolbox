@@ -20,7 +20,7 @@ class PipelineCCManager:
         return f"ml-toolbox-cc-{pipeline_id[:12]}"
 
     def _work_dir(self, pipeline_id: str) -> Path:
-        return self.data_dir / "projects" / pipeline_id / "cc"
+        return self.data_dir / "projects" / pipeline_id
 
     def is_alive(self, pipeline_id: str) -> bool:
         name = self._session_name(pipeline_id)
