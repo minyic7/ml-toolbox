@@ -136,13 +136,7 @@ describe("pipelineDotColor", () => {
   it("returns a value from PIPELINE_DOT_COLORS", () => {
     const expected = [
       "var(--category-ingest)",
-      "var(--category-transform)",
-      "var(--category-classification)",
-      "var(--category-regression)",
-      "var(--category-train)",
-      "var(--category-evaluate)",
-      "var(--category-export)",
-      "var(--category-demo)",
+      "var(--category-preprocessing)",
     ];
     expect(expected).toContain(pipelineDotColor("some-pipeline-id"));
   });

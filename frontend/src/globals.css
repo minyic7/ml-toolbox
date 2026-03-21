@@ -85,13 +85,7 @@
 
   /* ── Category accent colors ────────────────────────── */
   --category-ingest: #1D9E75;
-  --category-transform: #7F77DD;
-  --category-classification: #378ADD;
-  --category-regression: #0EA5E9;
-  --category-train: #378ADD;
-  --category-evaluate: #EF9F27;
-  --category-export: #D85A30;
-  --category-demo: #888780;
+  --category-preprocessing: #F97316;
 
   /* ── shadcn/ui CSS variable mapping ──────────────────── */
   --background: var(--node-bg);

@@ -8,28 +8,6 @@ import NodeGroup from "./NodeGroup";
 import {
   CsvReaderIcon,
   ParquetReaderIcon,
-  CleanDataIcon,
-  FeatureEngineeringIcon,
-  TrainTestSplitIcon,
-  ComputeStatsIcon,
-  RandomForestClassifierIcon,
-  GradientBoostingClassifierIcon,
-  LogisticRegressionIcon,
-  SvcClassifierIcon,
-  DecisionTreeClassifierIcon,
-  KnnClassifierIcon,
-  LinearRegressionIcon,
-  RandomForestRegressorIcon,
-  GradientBoostingRegressorIcon,
-  SvrIcon,
-  XgboostIcon,
-  ClassificationMetricsIcon,
-  RegressionMetricsIcon,
-  FeatureImportanceIcon,
-  ExportTableIcon,
-  ExportModelIcon,
-  GenerateDataIcon,
-  SummarizeDataIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -38,55 +16,19 @@ const CATEGORY_CHIP_COLORS: Record<
   { bg: string; border: string; icon: string; dot: string }
 > = {
   ingest: { bg: "#EFF8F4", border: "#BBF7D0", icon: "#166534", dot: "#1D9E75" },
-  transform: { bg: "#F5F3FF", border: "#DDD6FE", icon: "#5B21B6", dot: "#7F77DD" },
-  classification: { bg: "#EFF6FF", border: "#BFDBFE", icon: "#1D4ED8", dot: "#378ADD" },
-  regression: { bg: "#E0F2FE", border: "#BAE6FD", icon: "#0369A1", dot: "#0EA5E9" },
-  train: { bg: "#EFF6FF", border: "#BFDBFE", icon: "#1D4ED8", dot: "#378ADD" },
-  evaluate: { bg: "#FFFBEB", border: "#FDE68A", icon: "#92400E", dot: "#EF9F27" },
-  export: { bg: "#FFF7ED", border: "#FED7AA", icon: "#9A3412", dot: "#D85A30" },
-  demo: { bg: "#F8F9FB", border: "#E2E8F0", icon: "#64748B", dot: "#888780" },
+  preprocessing: { bg: "#FFF7ED", border: "#FDBA74", icon: "#9A3412", dot: "#F97316" },
 };
 
-const DEFAULT_CHIP_COLORS = CATEGORY_CHIP_COLORS.demo;
+const DEFAULT_CHIP_COLORS = { bg: "#F8F9FB", border: "#E2E8F0", icon: "#64748B", dot: "#888780" };
 
 /** Custom SVG icon for every node type */
 const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
-  // Ingest
   csv_reader: CsvReaderIcon,
   parquet_reader: ParquetReaderIcon,
-  // Transform
-  clean: CleanDataIcon,
-  feature_eng: FeatureEngineeringIcon,
-  split: TrainTestSplitIcon,
-  compute_stats: ComputeStatsIcon,
-  // Classification
-  random_forest_classifier: RandomForestClassifierIcon,
-  gradient_boosting_classifier: GradientBoostingClassifierIcon,
-  logistic_regression: LogisticRegressionIcon,
-  svc_classifier: SvcClassifierIcon,
-  decision_tree_classifier: DecisionTreeClassifierIcon,
-  knn_classifier: KnnClassifierIcon,
-  // Regression
-  linear_regression: LinearRegressionIcon,
-  random_forest_regressor: RandomForestRegressorIcon,
-  gradient_boosting_regressor: GradientBoostingRegressorIcon,
-  svr_train: SvrIcon,
-  // Train
-  xgb_train: XgboostIcon,
-  // Evaluate
-  classification: ClassificationMetricsIcon,
-  regression: RegressionMetricsIcon,
-  feature_importance: FeatureImportanceIcon,
-  // Export
-  export_table: ExportTableIcon,
-  export_model: ExportModelIcon,
-  // Demo
-  run: GenerateDataIcon,
-  summarize_data: SummarizeDataIcon,
 };
 
 /** Stable category ordering */
-const CATEGORY_ORDER = ["ingest", "transform", "classification", "regression", "train", "evaluate", "export", "demo"];
+const CATEGORY_ORDER = ["ingest", "preprocessing"];
 
 interface ToolbarProps {
   onAddNode: (nodeType: string) => void;

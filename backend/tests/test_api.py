@@ -24,15 +24,14 @@ def _add_node(pid: str, node_type: str, x: float = 0, y: float = 0) -> dict:
 
 
 class TestNodesAPI:
-    def test_list_nodes_returns_demo_nodes(self):
+    def test_list_nodes_returns_ingest_nodes(self):
         resp = client.get("/api/nodes")
         assert resp.status_code == 200
         nodes = resp.json()
-        assert len(nodes) >= 3
+        assert len(nodes) == 2
         types = {n["type"] for n in nodes}
-        assert "ml_toolbox.nodes.demo.run" in types
-        assert "ml_toolbox.nodes.transform.clean" in types
-        assert "ml_toolbox.nodes.demo.summarize_data" in types
+        assert "ml_toolbox.nodes.ingest.csv_reader" in types
+        assert "ml_toolbox.nodes.ingest.parquet_reader" in types
 
     def test_list_nodes_entry_shape(self):
         resp = client.get("/api/nodes")
@@ -47,11 +46,11 @@ class TestNodesAPI:
         assert "default_code" in node
 
     def test_get_node_by_type(self):
-        resp = client.get("/api/nodes/ml_toolbox.nodes.demo.run")
+        resp = client.get("/api/nodes/ml_toolbox.nodes.ingest.csv_reader")
         assert resp.status_code == 200
         node = resp.json()
-        assert node["type"] == "ml_toolbox.nodes.demo.run"
-        assert node["label"] == "Generate Data"
+        assert node["type"] == "ml_toolbox.nodes.ingest.csv_reader"
+        assert node["label"] == "CSV Reader"
 
     def test_get_node_not_found(self):
         resp = client.get("/api/nodes/nonexistent.node")
@@ -212,11 +211,11 @@ class TestAddNode:
 
         resp = client.post(
             f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 10, "y": 20}},
+            json={"type": "ml_toolbox.nodes.ingest.csv_reader", "position": {"x": 10, "y": 20}},
         )
         assert resp.status_code == 201
         node = resp.json()
-        assert node["type"] == "ml_toolbox.nodes.demo.run"
+        assert node["type"] == "ml_toolbox.nodes.ingest.csv_reader"
         assert node["position"] == {"x": 10.0, "y": 20.0}
         assert "id" in node
         assert "code" in node
@@ -242,46 +241,23 @@ class TestAddNode:
 
 
 class TestDeleteNode:
-    def test_delete_node_removes_connected_edges(self):
+    def test_delete_node_removes_it(self):
         resp = client.post("/api/pipelines", json={"name": "Delete Node"})
         pid = resp.json()["id"]
 
-        # Add two nodes
         r1 = client.post(
             f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+            json={"type": "ml_toolbox.nodes.ingest.csv_reader", "position": {"x": 0, "y": 0}},
         )
         n1 = r1.json()["id"]
 
-        r2 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.transform.clean",
-                "position": {"x": 100, "y": 0},
-            },
-        )
-        n2 = r2.json()["id"]
-
-        # Connect them
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={
-                "source": n1,
-                "source_port": "df",
-                "target": n2,
-                "target_port": "df",
-            },
-        )
-        assert resp.status_code == 201
-
-        # Delete source node
+        # Delete the node
         resp = client.delete(f"/api/pipelines/{pid}/nodes/{n1}")
         assert resp.status_code == 204
 
-        # Verify node and edge gone
+        # Verify node gone
         pipeline = client.get(f"/api/pipelines/{pid}").json()
-        assert len(pipeline["nodes"]) == 1
-        assert len(pipeline["edges"]) == 0
+        assert len(pipeline["nodes"]) == 0
 
         client.delete(f"/api/pipelines/{pid}")
 
@@ -306,7 +282,7 @@ class TestPutPreservesNodeFields:
         # Add node — backend returns full node including code
         resp = client.post(
             f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+            json={"type": "ml_toolbox.nodes.ingest.csv_reader", "position": {"x": 0, "y": 0}},
         )
         full_node = resp.json()
         assert full_node["code"]  # code should be non-empty
@@ -324,7 +300,7 @@ class TestPutPreservesNodeFields:
                         "id": full_node["id"],
                         "type": full_node["type"],
                         "position": {"x": 100, "y": 50},
-                        "params": {"rows": 200},
+                        "params": {"path": "/tmp/data.csv"},
                     }
                 ],
                 "edges": [],
@@ -348,21 +324,21 @@ class TestUpdateNode:
 
         r = client.post(
             f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
+            json={"type": "ml_toolbox.nodes.ingest.csv_reader", "position": {"x": 0, "y": 0}},
         )
         node_id = r.json()["id"]
 
         # Update params
         resp = client.patch(
             f"/api/pipelines/{pid}/nodes/{node_id}",
-            json={"params": {"rows": 500}},
+            json={"params": {"path": "/tmp/test.csv"}},
         )
         assert resp.status_code == 200
         # Backend merges values into the ParamDefinition array
         params = resp.json()["params"]
         assert isinstance(params, list)
-        rows_param = next(p for p in params if p["name"] == "rows")
-        assert rows_param["default"] == 500
+        path_param = next(p for p in params if p["name"] == "path")
+        assert path_param["default"] == "/tmp/test.csv"
 
         # Update code
         resp = client.patch(
@@ -384,7 +360,7 @@ class TestUpdateNode:
         pipeline = client.get(f"/api/pipelines/{pid}").json()
         node = pipeline["nodes"][0]
         assert isinstance(node["params"], list)
-        assert next(p for p in node["params"] if p["name"] == "rows")["default"] == 500
+        assert next(p for p in node["params"] if p["name"] == "path")["default"] == "/tmp/test.csv"
         assert node["code"] == "print('hello')"
         assert node["position"] == {"x": 99.0, "y": 88.0}
 
@@ -404,144 +380,12 @@ class TestUpdateNode:
 
 
 # ── Edge Operations API ──────────────────────────────────────────
+# Note: edge creation/connection tests removed — only ingest nodes remain,
+# and they have no input ports so edges cannot be created via POST /edges.
+# These tests will be restored when preprocessing nodes are added.
 
 
 class TestAddEdge:
-    def _make_two_node_pipeline(self):
-        """Helper: create pipeline with run → clean_data nodes, return (pid, n1, n2)."""
-        resp = client.post("/api/pipelines", json={"name": "Edge Test"})
-        pid = resp.json()["id"]
-
-        r1 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
-        )
-        n1 = r1.json()["id"]
-
-        r2 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.transform.clean",
-                "position": {"x": 100, "y": 0},
-            },
-        )
-        n2 = r2.json()["id"]
-        return pid, n1, n2
-
-    def test_add_valid_edge(self):
-        pid, n1, n2 = self._make_two_node_pipeline()
-
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={
-                "source": n1,
-                "source_port": "df",
-                "target": n2,
-                "target_port": "df",
-            },
-        )
-        assert resp.status_code == 201
-        edge = resp.json()
-        assert edge["source"] == n1
-        assert edge["target"] == n2
-        assert edge["condition"] is None
-        assert "id" in edge
-
-        client.delete(f"/api/pipelines/{pid}")
-
-    def test_add_edge_type_mismatch(self):
-        """run outputs TABLE(df), summarize_data outputs METRICS(summary) — mismatch."""
-        resp = client.post("/api/pipelines", json={"name": "Mismatch"})
-        pid = resp.json()["id"]
-
-        # run: outputs TABLE(df)
-        r1 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
-        )
-        n1 = r1.json()["id"]
-
-        # summarize_data: outputs METRICS(summary), inputs TABLE(df)
-        r2 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.demo.summarize_data",
-                "position": {"x": 100, "y": 0},
-            },
-        )
-        n2 = r2.json()["id"]
-
-        # Try to connect summary(METRICS) output → df(TABLE) input — type mismatch
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={
-                "source": n2,
-                "source_port": "summary",
-                "target": r2.json()["id"],
-                "target_port": "df",
-            },
-        )
-        assert resp.status_code == 400
-        assert "type mismatch" in resp.json()["detail"].lower()
-
-        client.delete(f"/api/pipelines/{pid}")
-
-    def test_add_edge_creates_cycle(self):
-        """A→B→C, then C→A should fail."""
-        resp = client.post("/api/pipelines", json={"name": "Cycle"})
-        pid = resp.json()["id"]
-
-        # Create A (run) → B (clean) → C (clean) chain
-        ra = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
-        )
-        a = ra.json()["id"]
-
-        rb = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.transform.clean",
-                "position": {"x": 100, "y": 0},
-            },
-        )
-        b = rb.json()["id"]
-
-        rc = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.transform.clean",
-                "position": {"x": 200, "y": 0},
-            },
-        )
-        c = rc.json()["id"]
-
-        # A→B
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={"source": a, "source_port": "df", "target": b, "target_port": "df"},
-        )
-        assert resp.status_code == 201
-
-        # B→C
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={"source": b, "source_port": "df", "target": c, "target_port": "df"},
-        )
-        assert resp.status_code == 201
-
-        # C→A would create cycle (but C outputs TABLE, A has no inputs — so
-        # we need a different setup). Instead, try C→B which creates B→C→B.
-        # C outputs TABLE(df), B accepts TABLE(df).
-        resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={"source": c, "source_port": "df", "target": b, "target_port": "df"},
-        )
-        assert resp.status_code == 400
-        assert "cycle" in resp.json()["detail"].lower()
-
-        client.delete(f"/api/pipelines/{pid}")
-
     def test_add_edge_nonexistent_node(self):
         resp = client.post("/api/pipelines", json={"name": "Bad Edge"})
         pid = resp.json()["id"]
@@ -560,120 +404,22 @@ class TestAddEdge:
         client.delete(f"/api/pipelines/{pid}")
 
     def test_add_edge_nonexistent_port(self):
-        pid, n1, n2 = self._make_two_node_pipeline()
+        resp = client.post("/api/pipelines", json={"name": "Bad Port"})
+        pid = resp.json()["id"]
+
+        r1 = _add_node(pid, "ml_toolbox.nodes.ingest.csv_reader")
+        r2 = _add_node(pid, "ml_toolbox.nodes.ingest.parquet_reader", x=100)
 
         resp = client.post(
             f"/api/pipelines/{pid}/edges",
             json={
-                "source": n1,
+                "source": r1["id"],
                 "source_port": "no_such_port",
-                "target": n2,
+                "target": r2["id"],
                 "target_port": "df",
             },
         )
         assert resp.status_code == 400
-
-        client.delete(f"/api/pipelines/{pid}")
-
-
-class TestDeleteEdge:
-    def test_delete_edge(self):
-        resp = client.post("/api/pipelines", json={"name": "Del Edge"})
-        pid = resp.json()["id"]
-
-        r1 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
-        )
-        n1 = r1.json()["id"]
-
-        r2 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.transform.clean",
-                "position": {"x": 100, "y": 0},
-            },
-        )
-        n2 = r2.json()["id"]
-
-        edge_resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={"source": n1, "source_port": "df", "target": n2, "target_port": "df"},
-        )
-        edge_id = edge_resp.json()["id"]
-
-        resp = client.delete(f"/api/pipelines/{pid}/edges/{edge_id}")
-        assert resp.status_code == 204
-
-        # Verify removed
-        pipeline = client.get(f"/api/pipelines/{pid}").json()
-        assert len(pipeline["edges"]) == 0
-
-        client.delete(f"/api/pipelines/{pid}")
-
-    def test_delete_edge_not_found(self):
-        resp = client.post("/api/pipelines", json={"name": "No Edge"})
-        pid = resp.json()["id"]
-
-        resp = client.delete(f"/api/pipelines/{pid}/edges/nonexistent")
-        assert resp.status_code == 404
-
-        client.delete(f"/api/pipelines/{pid}")
-
-
-class TestUpdateEdge:
-    def test_update_edge_condition(self):
-        resp = client.post("/api/pipelines", json={"name": "Cond Edge"})
-        pid = resp.json()["id"]
-
-        r1 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={"type": "ml_toolbox.nodes.demo.run", "position": {"x": 0, "y": 0}},
-        )
-        n1 = r1.json()["id"]
-
-        r2 = client.post(
-            f"/api/pipelines/{pid}/nodes",
-            json={
-                "type": "ml_toolbox.nodes.transform.clean",
-                "position": {"x": 100, "y": 0},
-            },
-        )
-        n2 = r2.json()["id"]
-
-        edge_resp = client.post(
-            f"/api/pipelines/{pid}/edges",
-            json={"source": n1, "source_port": "df", "target": n2, "target_port": "df"},
-        )
-        edge_id = edge_resp.json()["id"]
-
-        # Set condition
-        resp = client.patch(
-            f"/api/pipelines/{pid}/edges/{edge_id}",
-            json={"condition": "len(df) > 0"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["condition"] == "len(df) > 0"
-
-        # Clear condition
-        resp = client.patch(
-            f"/api/pipelines/{pid}/edges/{edge_id}",
-            json={"condition": None},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["condition"] is None
-
-        client.delete(f"/api/pipelines/{pid}")
-
-    def test_update_edge_not_found(self):
-        resp = client.post("/api/pipelines", json={"name": "No Edge"})
-        pid = resp.json()["id"]
-
-        resp = client.patch(
-            f"/api/pipelines/{pid}/edges/nonexistent",
-            json={"condition": "x"},
-        )
-        assert resp.status_code == 404
 
         client.delete(f"/api/pipelines/{pid}")
 
