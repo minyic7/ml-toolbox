@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMetadata, updateMetadata } from "../../lib/api";
-import { AlertTriangle, ChevronRight, ChevronDown, Check } from "lucide-react";
+import { AlertTriangle, ChevronRight, ChevronDown, Check, CheckCircle } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -20,6 +20,8 @@ interface ColumnMeta {
   evidence?: string[];
   alternatives_considered?: string[];
   suggested_action?: string;
+  cast_status?: "cast" | "failed" | "skipped";
+  cast_reason?: string;
 }
 
 type MetadataPayload = {
@@ -271,6 +273,22 @@ function ColumnRow({
                 size={12}
                 style={{ color: "var(--success-green)", flexShrink: 0 }}
               />
+            )}
+            {col.cast_status === "cast" && (
+              <span title="Column cast to numeric">
+                <CheckCircle
+                  size={12}
+                  style={{ color: "var(--success-green)", flexShrink: 0 }}
+                />
+              </span>
+            )}
+            {col.cast_status === "failed" && (
+              <span title={col.cast_reason ?? "Cast failed"}>
+                <AlertTriangle
+                  size={12}
+                  style={{ color: "var(--error-red, #ef4444)", flexShrink: 0 }}
+                />
+              </span>
             )}
           </div>
         </td>

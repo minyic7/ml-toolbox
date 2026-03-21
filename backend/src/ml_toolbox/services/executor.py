@@ -666,10 +666,14 @@ def _infer_schema_background(
     run_dir: Path,
     broadcast: Callable[[str, dict], None],
 ) -> None:
-    """Background schema inference — heuristic analysis → .meta.json."""
+    """Background schema inference — heuristic analysis → cast → .meta.json."""
     import pandas as pd
 
-    from ml_toolbox.llm.metadata import build_metadata_from_heuristics, heuristic_profile
+    from ml_toolbox.llm.metadata import (
+        build_metadata_from_heuristics,
+        cast_by_metadata,
+        heuristic_profile,
+    )
 
     # Find the output parquet file(s) for this node
     output_files = list(run_dir.glob(f"{node_id}*.parquet"))
@@ -685,9 +689,22 @@ def _infer_schema_background(
             profiles, row_count=len(df), node_id=node_id,
         )
 
+        # Cast columns based on inferred types
+        df, cast_results = cast_by_metadata(df, metadata)
+
+        # Write cast_status into metadata
+        for col_name, result in cast_results.items():
+            if col_name in metadata.get("columns", {}):
+                metadata["columns"][col_name]["cast_status"] = result.get("status")
+                if result.get("reason"):
+                    metadata["columns"][col_name]["cast_reason"] = result["reason"]
+
         # Write .meta.json alongside the parquet file
         meta_path = output_file.with_suffix(".meta.json")
         meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+        # Rewrite parquet with correct types
+        df.to_parquet(output_file, index=False)
 
         # Notify frontend via WebSocket
         broadcast(pipeline_id, {
