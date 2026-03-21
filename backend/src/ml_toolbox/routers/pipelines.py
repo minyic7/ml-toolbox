@@ -747,6 +747,24 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
     return meta
 
 
+def _parquet_to_csv_response(output_file: Path) -> StreamingResponse:
+    """Convert a parquet file to CSV and return as a streaming response."""
+    import io
+
+    import pandas as pd
+
+    df = pd.read_parquet(output_file)
+    buffer = io.BytesIO()
+    df.to_csv(buffer, index=False)
+    buffer.seek(0)
+    filename = output_file.stem + ".csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/{pipeline_id}/outputs/{node_id}")
 async def get_output(
     pipeline_id: str,
@@ -763,12 +781,16 @@ async def download_output(
     pipeline_id: str,
     node_id: str,
     run_id: str | None = Query(default=None),
+    format: str | None = Query(default=None),
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     resolved_run_id, run_dir = _resolve_run_dir(pipeline_id, run_id)
     output_file = _find_output_file(run_dir, node_id)
     if output_file is None:
         raise HTTPException(status_code=404, detail="Output not found")
+
+    if format == "csv" and output_file.suffix == ".parquet":
+        return _parquet_to_csv_response(output_file)
 
     media_type = mimetypes.guess_type(output_file.name)[0] or "application/octet-stream"
 
@@ -793,13 +815,19 @@ async def get_run_output(pipeline_id: str, run_id: str, node_id: str) -> dict:
 
 @router.get("/{pipeline_id}/runs/{run_id}/outputs/{node_id}/download")
 async def download_run_output(
-    pipeline_id: str, run_id: str, node_id: str
+    pipeline_id: str,
+    run_id: str,
+    node_id: str,
+    format: str | None = Query(default=None),
 ) -> StreamingResponse:
     _load_pipeline(pipeline_id)
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
     output_file = _find_output_file(run_dir, node_id)
     if output_file is None:
         raise HTTPException(status_code=404, detail="Output not found")
+
+    if format == "csv" and output_file.suffix == ".parquet":
+        return _parquet_to_csv_response(output_file)
 
     media_type = mimetypes.guess_type(output_file.name)[0] or "application/octet-stream"
 
