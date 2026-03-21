@@ -179,7 +179,7 @@ function ColumnSelect({
               ? { bottom: window.innerHeight - triggerRect.top + 4 }
               : { top: triggerRect.bottom + 4 }),
             zIndex: 9999,
-            background: "#ffffff",
+            background: "var(--bg-primary)",
             border: "1px solid var(--border-default)",
             borderRadius: 8,
             boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
