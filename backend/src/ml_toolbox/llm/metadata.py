@@ -59,9 +59,11 @@ def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
                 profile["min"] = _safe_scalar(non_null.min())
                 profile["max"] = _safe_scalar(non_null.max())
 
-        # Flag likely-encoded integers
-        if pd.api.types.is_integer_dtype(series) and unique_count <= 20:
-            profile["likely_encoded"] = True
+        # Collect all unique values when cardinality is low
+        if unique_count <= 20:
+            profile["all_values"] = sorted(
+                _safe_scalar(v) for v in series.dropna().unique()
+            )
 
         # Unknown/unsupported dtypes (bytes, nested structs, etc.)
         if (
@@ -95,27 +97,31 @@ def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
     unique_ratio = p["unique_ratio"]
     name_lower = col_name.lower().strip()
 
-    # 1. Target detection by name
+    # 1. Binary + target name → possible target (confidence 0.7 signals guess)
+    if name_lower in _TARGET_NAMES and (dtype == "bool" or unique_count == 2):
+        return {"semantic_type": "binary", "role": "target", "confidence": 0.7}
+
+    # 2. Target detection by name (non-binary)
     if name_lower in _TARGET_NAMES:
         return {"semantic_type": "target", "role": "target", "confidence": 0.85}
 
-    # 2. Datetime
+    # 3. Datetime
     if "datetime" in dtype or any(
         kw in name_lower for kw in ("date", "time", "timestamp")
     ):
         return {"semantic_type": "datetime", "role": "metadata", "confidence": 0.90}
 
-    # 3. Boolean / binary
+    # 4. Boolean / binary
     if dtype == "bool" or unique_count == 2:
         return {"semantic_type": "binary", "role": "feature", "confidence": 0.85}
 
-    # 4. String / object columns
+    # 5. String / object columns
     if dtype in ("object", "string", "str", "category"):
         if unique_ratio > 0.9:
             return {"semantic_type": "identifier", "role": "identifier", "confidence": 0.75}
         return {"semantic_type": "categorical", "role": "feature", "confidence": 0.80}
 
-    # 5. Numeric columns (including nullable Int64, Float64, UInt32, etc.)
+    # 6. Numeric columns (including nullable Int64, Float64, UInt32, etc.)
     if dtype in NUMERIC_DTYPE_STRINGS or "int" in dtype or "float" in dtype:
         if unique_count <= 15:
             return {"semantic_type": "categorical", "role": "feature", "confidence": 0.70}
@@ -159,17 +165,50 @@ def build_metadata_from_heuristics(
 
 def _build_reasoning(p: dict[str, Any], guess: dict[str, Any]) -> str:
     """Build a human-readable reasoning string for a classification."""
-    parts = [f"dtype={p['dtype']}, {p['unique_count']} unique ({p['unique_ratio']:.1%})"]
-    if p["null_pct"] > 0:
-        parts.append(f"{p['null_pct']:.1%} null")
-    if "min" in p:
-        parts.append(f"range=[{p['min']}, {p['max']}]")
-    if p.get("likely_encoded"):
-        parts.append("integer with <=20 unique values — likely encoded")
+    name = p["name"]
+    dtype = p["dtype"]
     sem = guess["semantic_type"]
     role = guess["role"]
-    parts.append(f"→ {sem} ({role})")
-    return "; ".join(parts)
+    unique = p["unique_count"]
+
+    # Possible target: binary + name matches target keyword
+    if sem == "binary" and role == "target":
+        values = p.get("all_values", p.get("sample_values", []))
+        return (
+            f"{name}: {dtype}, binary values: {values}, "
+            f"name matches target keyword \u2192 possible target, please confirm"
+        )
+
+    if sem == "binary":
+        values = p.get("all_values", p.get("sample_values", []))
+        return f"{name}: {dtype}, binary values: {values} \u2192 binary {role}"
+
+    if sem in ("categorical", "categorical_or_ordinal", "ordinal"):
+        if unique <= 20:
+            values = sorted(p.get("all_values", p.get("sample_values", [])))
+            return f"{name}: {dtype}, {unique} values: {values} \u2192 {sem} {role}"
+        return f"{name}: {dtype}, {unique} unique values \u2192 {sem} {role}"
+
+    if sem == "continuous":
+        mn = p.get("min", "?")
+        mx = p.get("max", "?")
+        return (
+            f"{name}: {dtype}, {unique} unique values, "
+            f"range {mn}\u2013{mx} \u2192 continuous {role}"
+        )
+
+    if sem in ("identifier", "id"):
+        ratio = p.get("unique_ratio", 0)
+        return (
+            f"{name}: {dtype}, {unique} unique "
+            f"({ratio:.0%} of rows) \u2192 identifier, suggest ignore"
+        )
+
+    if sem == "unknown":
+        return f"{name}: {dtype}, unsupported dtype \u2192 unknown, suggest ignore"
+
+    # Fallback (datetime, target-by-name-only, etc.)
+    return f"{name}: {dtype}, {unique} unique \u2192 {sem} {role}"
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
