@@ -113,6 +113,7 @@ export default function EdgeWithCondition({
 
   return (
     <g onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <title>Hover to add a condition or delete this connection</title>
       {/* Invisible wider path for easier hover targeting */}
       <path
         d={edgePath}
