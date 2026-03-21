@@ -2,6 +2,7 @@ import { useExecutionStore } from "../../store/executionStore";
 import type { NodeInstance, NodeDefinition, Edge } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
+import SchemaEditor from "./SchemaEditor";
 
 interface BottomDrawerProps {
   pipelineId: string;
@@ -15,6 +16,7 @@ interface BottomDrawerProps {
   onCodeClick: () => void;
   onOutputClick: () => void;
   onInfoClick: () => void;
+  onOpenTerminal?: (nodeId: string) => void;
   rightPanelOpen: boolean;
   rightPanelMode: "code" | "output" | "info" | "terminal";
 }
@@ -33,6 +35,7 @@ export default function BottomDrawer({
   onCodeClick,
   onOutputClick,
   onInfoClick,
+  onOpenTerminal,
   rightPanelOpen,
   rightPanelMode,
 }: BottomDrawerProps) {
@@ -92,6 +95,33 @@ export default function BottomDrawer({
               nodeId={node.id}
               nodeInputs={definition.inputs}
             />
+            {definition.category === "Ingest" && (
+              <div
+                style={{
+                  borderTop: "1px solid var(--border-default)",
+                  marginTop: 4,
+                }}
+              >
+                <div
+                  style={{
+                    padding: "8px 16px 4px",
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Schema
+                </div>
+                <SchemaEditor
+                  pipelineId={pipelineId}
+                  nodeId={node.id}
+                  onOpenTerminal={onOpenTerminal}
+                />
+              </div>
+            )}
           </div>
           <div
             style={{

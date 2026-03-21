@@ -709,6 +709,7 @@ export default function PipelineScreen() {
               onCodeClick={handleCodeToggle}
               onOutputClick={handleOutputToggle}
               onInfoClick={handleInfoToggle}
+              onOpenTerminal={handleOpenTerminal}
               rightPanelOpen={rightPanelOpen}
               rightPanelMode={rightPanelMode}
             />
