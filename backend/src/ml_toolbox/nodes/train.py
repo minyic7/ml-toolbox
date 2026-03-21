@@ -31,6 +31,197 @@ _ESTIMATOR_MAP = {
 _REGRESSION_OBJECTIVES = {"reg:squarederror"}
 
 
+def _train_and_save(estimator, X, y, _get_output_path):  # type: ignore[no-untyped-def]
+    """Shared helper: fit estimator, compute metrics, persist model + metrics."""
+    import json
+
+    import joblib
+    import numpy as np
+
+    estimator.fit(X, y)
+    train_score = float(estimator.score(X, y))
+    metrics: dict[str, object] = {"train_score": train_score}
+    if hasattr(estimator, "classes_"):
+        metrics["accuracy"] = float(np.mean(estimator.predict(X) == y))
+    if hasattr(estimator, "feature_importances_"):
+        metrics["feature_importances"] = estimator.feature_importances_.tolist()
+    elif hasattr(estimator, "coef_"):
+        coef = estimator.coef_
+        metrics["feature_importances"] = (np.abs(coef[0]) if coef.ndim > 1 else np.abs(coef)).tolist()
+    model_path = _get_output_path("model", ".joblib")
+    joblib.dump(estimator, model_path)
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics))
+    return {"model": str(model_path), "metrics": str(metrics_path)}
+
+
+def _validate_and_split(inputs: dict, params: dict):  # type: ignore[no-untyped-def]
+    """Shared helper: read parquet, validate target_column, split X/y."""
+    import pandas as pd
+
+    df = pd.read_parquet(inputs["train"])
+    target_column = params.get("target_column", "")
+    if not target_column:
+        raise ValueError("target_column is required — set it in the Params tab (e.g. 'Survived', 'target')")
+    y = df[target_column]
+    X = df.drop(columns=[target_column])
+    return X, y
+
+
+# ---------------------------------------------------------------------------
+# Individual classifier nodes
+# ---------------------------------------------------------------------------
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "n_estimators": Slider(min=10, max=500, step=10, default=100, description="Number of trees"),
+        "max_depth": Slider(min=1, max=50, step=1, default=10, description="Maximum tree depth"),
+        "min_samples_split": Slider(min=2, max=20, step=1, default=2, description="Minimum samples to split a node"),
+    },
+    label="Random Forest Classifier",
+    category="Train",
+)
+def random_forest_classifier(inputs: dict, params: dict) -> dict:
+    """Train a Random Forest classifier."""
+    from sklearn.ensemble import RandomForestClassifier as RFC
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = RFC(
+        n_estimators=int(params.get("n_estimators", 100)),
+        max_depth=int(params.get("max_depth", 10)),
+        min_samples_split=int(params.get("min_samples_split", 2)),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "n_estimators": Slider(min=10, max=500, step=10, default=100, description="Number of boosting stages"),
+        "max_depth": Slider(min=1, max=20, step=1, default=3, description="Maximum tree depth"),
+        "learning_rate": Slider(min=0.001, max=1, step=0.01, default=0.1, description="Step size shrinkage"),
+    },
+    label="Gradient Boosting Classifier",
+    category="Train",
+)
+def gradient_boosting_classifier(inputs: dict, params: dict) -> dict:
+    """Train a Gradient Boosting classifier."""
+    from sklearn.ensemble import GradientBoostingClassifier as GBC
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = GBC(
+        n_estimators=int(params.get("n_estimators", 100)),
+        max_depth=int(params.get("max_depth", 3)),
+        learning_rate=float(params.get("learning_rate", 0.1)),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "C": Slider(min=0.001, max=100, step=0.1, default=1.0, description="Inverse regularization strength"),
+        "max_iter": Slider(min=100, max=5000, step=100, default=1000, description="Maximum iterations"),
+    },
+    label="Logistic Regression",
+    category="Train",
+)
+def logistic_regression(inputs: dict, params: dict) -> dict:
+    """Train a Logistic Regression classifier."""
+    from sklearn.linear_model import LogisticRegression as LR
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = LR(
+        C=float(params.get("C", 1.0)),
+        max_iter=int(params.get("max_iter", 1000)),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "kernel": Select(["linear", "rbf", "poly", "sigmoid"], default="rbf", description="Kernel function"),
+        "C": Slider(min=0.001, max=100, step=0.1, default=1.0, description="Regularization parameter"),
+    },
+    label="SVC",
+    category="Train",
+)
+def svc_classifier(inputs: dict, params: dict) -> dict:
+    """Train a Support Vector Classifier."""
+    from sklearn.svm import SVC
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = SVC(
+        kernel=str(params.get("kernel", "rbf")),
+        C=float(params.get("C", 1.0)),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "max_depth": Slider(min=1, max=50, step=1, default=10, description="Maximum tree depth"),
+        "min_samples_split": Slider(min=2, max=20, step=1, default=2, description="Minimum samples to split a node"),
+        "criterion": Select(["gini", "entropy"], default="gini", description="Split quality function"),
+    },
+    label="Decision Tree Classifier",
+    category="Train",
+)
+def decision_tree_classifier(inputs: dict, params: dict) -> dict:
+    """Train a Decision Tree classifier."""
+    from sklearn.tree import DecisionTreeClassifier as DTC
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = DTC(
+        max_depth=int(params.get("max_depth", 10)),
+        min_samples_split=int(params.get("min_samples_split", 2)),
+        criterion=str(params.get("criterion", "gini")),
+        random_state=42,
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
+@node(
+    inputs={"train": PortType.TABLE},
+    outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
+    params={
+        "target_column": Text(default="", description="Column name to predict", placeholder="target"),
+        "n_neighbors": Slider(min=1, max=50, step=1, default=5, description="Number of neighbors"),
+        "weights": Select(["uniform", "distance"], default="uniform", description="Weight function for prediction"),
+    },
+    label="KNN Classifier",
+    category="Train",
+)
+def knn_classifier(inputs: dict, params: dict) -> dict:
+    """Train a K-Nearest Neighbors classifier."""
+    from sklearn.neighbors import KNeighborsClassifier as KNC
+
+    X, y = _validate_and_split(inputs, params)
+    estimator = KNC(
+        n_neighbors=int(params.get("n_neighbors", 5)),
+        weights=str(params.get("weights", "uniform")),
+    )
+    return _train_and_save(estimator, X, y, _get_output_path)
+
+
 @node(
     inputs={"train": PortType.TABLE},
     outputs={"model": PortType.MODEL, "metrics": PortType.METRICS},
