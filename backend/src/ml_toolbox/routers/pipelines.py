@@ -775,7 +775,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
 def _is_internal_file(f: Path) -> bool:
     """Return True for internal metadata files that are not node outputs."""
     name = f.name
-    if name.endswith((".hash", ".txt", ".meta.json")):
+    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json")):
         return True
     # Exclude internal manifest/result/error JSON files but keep
     # legitimate node output JSON (e.g. metrics.json).
@@ -1065,6 +1065,27 @@ async def put_metadata(
         threading.Thread(target=_recast, daemon=True).start()
 
     return {"status": "saved"}
+
+
+# ── Analysis Sidecar API ─────────────────────────────────────────
+
+
+@router.get("/{pipeline_id}/outputs/{node_id}/analysis")
+async def get_analysis(
+    pipeline_id: str,
+    node_id: str,
+    run_id: str | None = Query(default=None),
+) -> dict:
+    """Read .analysis.json sidecar produced by subprocess CC output analysis."""
+    _load_pipeline(pipeline_id)
+    _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+    analysis_files = list(run_dir.glob(f"{node_id}*.analysis.json"))
+    if not analysis_files:
+        return {"analysis": None}
+    try:
+        return {"analysis": json.loads(analysis_files[0].read_text())}
+    except Exception:
+        return {"analysis": None}
 
 
 @router.put("/{pipeline_id}/selection")

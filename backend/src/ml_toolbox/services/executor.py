@@ -55,7 +55,10 @@ def _translate_params_for_sandbox(
     return translated
 
 
-_SIDECAR_SUFFIXES = (".meta.json", "_manifest_error.json", "_logs.txt", ".hash", "_manifest.json", "_result.json")
+_SIDECAR_SUFFIXES = (
+    ".meta.json", "_manifest_error.json", "_logs.txt", ".hash",
+    "_manifest.json", "_result.json", ".analysis.json",
+)
 
 
 def _is_sidecar_file(path: Path) -> bool:
@@ -662,16 +665,21 @@ def _post_execution_hook(
     run_dir: Path,
     broadcast: Callable[[str, dict], None],
 ) -> None:
-    """Trigger background schema inference for ingest nodes after execution."""
-    if ".ingest." not in node_type.lower():
-        return
+    """Trigger background tasks after node execution."""
+    # Schema inference for ingest nodes
+    if ".ingest." in node_type.lower():
+        threading.Thread(
+            target=_infer_schema_background,
+            args=(pipeline_id, node_id, run_dir, broadcast),
+            daemon=True,
+        ).start()
 
-    thread = threading.Thread(
-        target=_infer_schema_background,
-        args=(pipeline_id, node_id, run_dir, broadcast),
+    # Output analysis via subprocess Claude Code for all nodes
+    threading.Thread(
+        target=_analyze_output_background,
+        args=(pipeline_id, node_id, node_type, run_dir, broadcast),
         daemon=True,
-    )
-    thread.start()
+    ).start()
 
 
 def _infer_schema_background(
@@ -728,3 +736,144 @@ def _infer_schema_background(
         logger.info("Auto schema inference completed for node %s", node_id)
     except Exception as e:
         logger.warning("Schema inference failed for %s: %s", node_id, e)
+
+
+def _analyze_output_background(
+    pipeline_id: str,
+    node_id: str,
+    node_type: str,
+    run_dir: Path,
+    broadcast: Callable[[str, dict], None],
+) -> None:
+    """Spawn a short-lived Claude Code subprocess to analyze node output."""
+    import shutil
+    import subprocess
+
+    # Check if claude CLI is available
+    if shutil.which("claude") is None:
+        logger.debug("claude CLI not found, skipping output analysis for %s", node_id)
+        return
+
+    # Find output files (exclude sidecars)
+    output_files = [
+        f for f in run_dir.glob(f"{node_id}*")
+        if not _is_sidecar_file(f)
+    ]
+    if not output_files:
+        return
+
+    output_file = output_files[0]
+
+    # Read output content based on file type
+    try:
+        if output_file.suffix == ".json":
+            output_content = output_file.read_text()[:5000]
+        elif output_file.suffix == ".parquet":
+            import pandas as pd
+
+            df = pd.read_parquet(output_file)
+            output_content = (
+                f"Parquet: {len(df)} rows, {len(df.columns)} cols.\n"
+                f"Columns: {list(df.columns)}\n"
+                f"Dtypes:\n{df.dtypes.to_string()}\n"
+                f"Head:\n{df.head(5).to_string()}"
+            )[:5000]
+        else:
+            output_content = f"File: {output_file.name}, size: {output_file.stat().st_size}"
+    except Exception as e:
+        logger.warning("Failed to read output for analysis %s: %s", node_id, e)
+        return
+
+    # Read .meta.json if available
+    meta_content = ""
+    meta_files = list(run_dir.glob(f"{node_id}*.meta.json"))
+    if meta_files:
+        try:
+            meta_content = meta_files[0].read_text()[:2000]
+        except Exception:
+            pass
+
+    prompt = f"""Analyze this pipeline node output and provide insights.
+
+Node type: {node_type}
+Output file: {output_file.name}
+
+Output content:
+{output_content}
+
+Metadata:
+{meta_content if meta_content else 'No metadata available'}
+
+Provide:
+1. Key findings (2-3 bullet points)
+2. Warnings (anything concerning — missing data, outliers, skew, etc.)
+3. Suggested next steps
+
+Return ONLY valid JSON (no markdown fences, no extra text):
+{{"findings": ["...", "..."], "warnings": [{{"type": "medium", "column": "col_name or null", "message": "..."}}], "suggestions": ["...", "..."]}}"""
+
+    try:
+        result = subprocess.run(
+            ["claude", "-p", prompt, "--output-format", "json"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(run_dir.parent.parent),  # project dir
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            raw = result.stdout.strip()
+
+            # The claude --output-format json wraps the response in a JSON
+            # envelope with a "result" field. Extract the inner text.
+            try:
+                envelope = json.loads(raw)
+                if isinstance(envelope, dict) and "result" in envelope:
+                    inner = envelope["result"]
+                else:
+                    inner = raw
+            except (json.JSONDecodeError, TypeError):
+                inner = raw
+
+            # The inner text may contain markdown fences — strip them.
+            if isinstance(inner, str):
+                stripped = inner.strip()
+                if stripped.startswith("```"):
+                    lines = stripped.split("\n")
+                    # Remove first line (```json) and last line (```)
+                    lines = lines[1:]
+                    if lines and lines[-1].strip() == "```":
+                        lines = lines[:-1]
+                    stripped = "\n".join(lines)
+                try:
+                    analysis = json.loads(stripped)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Output analysis returned invalid JSON for %s", node_id,
+                    )
+                    return
+            else:
+                analysis = inner
+
+            # Validate structure
+            if not isinstance(analysis, dict):
+                logger.warning("Output analysis not a dict for %s", node_id)
+                return
+
+            # Write .analysis.json alongside the output file
+            analysis_path = output_file.with_suffix(".analysis.json")
+            analysis_path.write_text(json.dumps(analysis, indent=2))
+
+            broadcast(pipeline_id, {
+                "type": "analysis_updated",
+                "node_id": node_id,
+            })
+            logger.info("Output analysis completed for node %s", node_id)
+        else:
+            logger.warning(
+                "Output analysis subprocess failed for %s (rc=%s): %s",
+                node_id, result.returncode, result.stderr[:200] if result.stderr else "",
+            )
+    except subprocess.TimeoutExpired:
+        logger.warning("Output analysis timed out for %s", node_id)
+    except Exception as e:
+        logger.warning("Output analysis failed for %s: %s", node_id, e)
