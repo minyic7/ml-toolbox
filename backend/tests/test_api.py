@@ -28,12 +28,14 @@ class TestNodesAPI:
         resp = client.get("/api/nodes")
         assert resp.status_code == 200
         nodes = resp.json()
-        assert len(nodes) == 6
+        assert len(nodes) == 7
         types = {n["type"] for n in nodes}
         assert "ml_toolbox.nodes.ingest.csv_reader" in types
         assert "ml_toolbox.nodes.ingest.parquet_reader" in types
         assert "ml_toolbox.nodes.preprocessing.random_holdout" in types
         assert "ml_toolbox.nodes.eda.correlation_matrix" in types
+        assert "ml_toolbox.nodes.eda.distribution_profile" in types
+        assert "ml_toolbox.nodes.eda.missing_analysis" in types
         assert "ml_toolbox.nodes.eda.outlier_detection" in types
 
     def test_list_nodes_entry_shape(self):
