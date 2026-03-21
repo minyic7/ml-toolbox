@@ -119,7 +119,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        width: 210,
+        width: 260,
         background: "var(--node-bg)",
         borderRadius: "0 8px 8px 0",
         borderLeft: `4px solid ${accentColor}`,
@@ -248,99 +248,111 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
         {category} &middot; {nodeType.includes("/") ? nodeType.split("/").pop() : nodeType}
       </div>
 
-      {/* Port rows — each row aligns a port label with its PortDot */}
-      <div
-        style={{
-          paddingTop: 2,
-          paddingBottom: 8,
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
-        }}
-      >
-        {Array.from({ length: Math.max(inputs.length, outputs.length) }).map(
-          (_, i) => {
-            const inp = inputs[i];
-            const out = outputs[i];
-            return (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  minHeight: 20,
-                  position: "relative",
-                }}
-              >
-                {/* Input label */}
+      {/* Port columns — inputs left, outputs right, separated by divider */}
+      {(inputs.length > 0 || outputs.length > 0) && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: inputs.length > 0 && outputs.length > 0
+              ? "1fr auto 1fr"
+              : "1fr",
+            borderTop: "1px solid var(--border-default)",
+          }}
+        >
+          {/* Input column */}
+          {inputs.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                padding: "6px 8px",
+              }}
+            >
+              {inputs.map((inp) => (
                 <div
+                  key={inp.name}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 4,
-                    paddingLeft: 10,
+                    minHeight: 20,
+                    position: "relative",
                   }}
                 >
-                  {inp && (
-                    <>
-                      <span
-                        title={inp.name}
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontSize: 9,
-                          color: "var(--text-muted)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          maxWidth: "7ch",
-                        }}
-                      >
-                        {inp.name}
-                      </span>
-                      <TypeBadge type={inp.type} />
-                    </>
-                  )}
+                  <PortDot port={inp} side="input" />
+                  <span
+                    title={inp.name}
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 9,
+                      color: "var(--text-muted)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {inp.name}
+                  </span>
+                  <TypeBadge type={inp.type} />
                 </div>
+              ))}
+            </div>
+          )}
 
-                {/* Output label */}
+          {/* Divider */}
+          {inputs.length > 0 && outputs.length > 0 && (
+            <div
+              style={{
+                width: 1,
+                background: "var(--border-default)",
+              }}
+            />
+          )}
+
+          {/* Output column */}
+          {outputs.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                padding: "6px 8px",
+              }}
+            >
+              {outputs.map((out) => (
                 <div
+                  key={out.name}
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: "flex-end",
                     gap: 4,
-                    paddingRight: 10,
+                    minHeight: 20,
+                    position: "relative",
                   }}
                 >
-                  {out && (
-                    <>
-                      <TypeBadge type={out.type} />
-                      <span
-                        title={out.name}
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontSize: 9,
-                          color: "var(--text-muted)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          maxWidth: "7ch",
-                        }}
-                      >
-                        {out.name}
-                      </span>
-                    </>
-                  )}
+                  <TypeBadge type={out.type} />
+                  <span
+                    title={out.name}
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 9,
+                      color: "var(--text-muted)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {out.name}
+                  </span>
+                  <PortDot port={out} side="output" />
                 </div>
-
-                {/* Port dots — inside the row so they align vertically */}
-                {inp && <PortDot port={inp} side="input" />}
-                {out && <PortDot port={out} side="output" />}
-              </div>
-            );
-          },
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error strip */}
       {isError && (
