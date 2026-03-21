@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import type { OutputPreview } from "../../lib/types";
+import type { OutputPreview, OutputPortPreview } from "../../lib/types";
 import { useOutput, useRuns } from "../../hooks/useOutputs";
 import { getOutputDownloadUrl } from "../../lib/api";
 import {
@@ -26,6 +26,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(
     undefined,
   );
+  const [selectedPort, setSelectedPort] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (requestedRunId) {
@@ -37,9 +38,24 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
   const { data: runs } = useRuns(pipelineId);
   const { data: output = null, isLoading: outputLoading, isError: outputError, refetch: refetchOutput } = useOutput(pipelineId, nodeId, selectedRunId);
 
+  const isMultiOutput = !!(output?.outputs && output.outputs.length > 1);
+
+  // Reset selectedPort when output changes
+  useEffect(() => {
+    if (isMultiOutput) {
+      setSelectedPort((prev) => {
+        // Keep current selection if it's still valid
+        if (prev && output!.outputs!.some((o) => o.port === prev)) return prev;
+        return output!.outputs![0].port;
+      });
+    } else {
+      setSelectedPort(undefined);
+    }
+  }, [output, isMultiOutput]);
+
   const downloadUrl = useMemo(
-    () => getOutputDownloadUrl(pipelineId, nodeId, selectedRunId),
-    [pipelineId, nodeId, selectedRunId],
+    () => getOutputDownloadUrl(pipelineId, nodeId, selectedRunId, undefined, selectedPort),
+    [pipelineId, nodeId, selectedRunId, selectedPort],
   );
 
   return (
@@ -90,6 +106,44 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
         </div>
       )}
 
+      {/* Port selector tabs — for multi-output nodes */}
+      {isMultiOutput && (
+        <div style={{
+          display: "flex",
+          gap: 4,
+          padding: "6px 12px",
+          borderBottom: "1px solid var(--border-default)",
+        }}>
+          {output!.outputs!.map((o) => (
+            <button
+              key={o.port}
+              onClick={() => setSelectedPort(o.port)}
+              style={{
+                fontSize: 10,
+                fontWeight: selectedPort === o.port ? 700 : 500,
+                padding: "3px 10px",
+                borderRadius: 6,
+                border: selectedPort === o.port
+                  ? "1px solid var(--accent-primary)"
+                  : "1px solid var(--border-default)",
+                background: selectedPort === o.port
+                  ? "var(--ghost-hover-bg)"
+                  : "transparent",
+                color: selectedPort === o.port
+                  ? "var(--accent-primary)"
+                  : "var(--text-muted)",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              {o.port}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Output content */}
       {outputError ? (
         <div
@@ -132,6 +186,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
           pipelineId={pipelineId}
           nodeId={nodeId}
           selectedRunId={selectedRunId}
+          selectedPort={selectedPort}
           onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined}
         />
       )}
@@ -172,6 +227,7 @@ function OutputContent({
   pipelineId,
   nodeId,
   selectedRunId,
+  selectedPort,
   onRunFrom,
 }: {
   output: OutputPreview | null;
@@ -179,6 +235,7 @@ function OutputContent({
   pipelineId: string;
   nodeId: string;
   selectedRunId?: string;
+  selectedPort?: string;
   onRunFrom?: () => void;
 }) {
   if (!output) {
@@ -264,17 +321,30 @@ function OutputContent({
     );
   }
 
-  const type = normalizeType(output.type);
+  // Resolve active output for multi-output nodes
+  const isMultiOutput = !!(output.outputs && output.outputs.length > 1);
+  const activePort: OutputPortPreview | undefined = isMultiOutput
+    ? output.outputs!.find((o) => o.port === selectedPort) ?? output.outputs![0]
+    : undefined;
+
+  // Use active port's data when available, otherwise fall back to primary
+  const displayType = activePort ? activePort.type : output.type;
+  const displayPreview = activePort ? activePort.preview : output.preview;
+  const displaySize = activePort ? activePort.size : output.size;
+
+  const type = normalizeType(displayType);
 
   // Build summary text
   const summaryParts: string[] = [type];
-  if (output.preview?.total_rows != null) {
-    summaryParts.push(`${output.preview.total_rows.toLocaleString()} rows`);
+  if (displayPreview?.total_rows != null) {
+    summaryParts.push(`${displayPreview.total_rows.toLocaleString()} rows`);
   }
-  if (output.preview?.columns) {
-    summaryParts.push(`${output.preview.columns.length} cols`);
+  if (displayPreview?.columns) {
+    summaryParts.push(`${displayPreview.columns.length} cols`);
   }
   const summaryText = summaryParts.join(" · ");
+
+  const portParam = activePort?.port;
 
   return (
     <>
@@ -329,7 +399,7 @@ function OutputContent({
           {type === "TABLE" ? (
             <>
               <a
-                href={getOutputDownloadUrl(pipelineId, nodeId, selectedRunId, "csv")}
+                href={getOutputDownloadUrl(pipelineId, nodeId, selectedRunId, "csv", portParam)}
                 download
                 style={ghostButtonStyle}
                 onMouseEnter={hoverIn}
@@ -339,7 +409,7 @@ function OutputContent({
                 CSV
               </a>
               <a
-                href={getOutputDownloadUrl(pipelineId, nodeId, selectedRunId)}
+                href={getOutputDownloadUrl(pipelineId, nodeId, selectedRunId, undefined, portParam)}
                 download
                 style={ghostButtonStyle}
                 onMouseEnter={hoverIn}
@@ -366,7 +436,7 @@ function OutputContent({
 
       {/* Preview content */}
       <div style={{ padding: "0 12px 8px" }}>
-        {renderPreview(output)}
+        {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize })}
       </div>
     </>
   );

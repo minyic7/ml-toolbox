@@ -271,10 +271,12 @@ export function getOutputDownloadUrl(
   nodeId: string,
   runId?: string,
   format?: string,
+  port?: string,
 ) {
   const params = new URLSearchParams();
   if (runId) params.set("run_id", runId);
   if (format) params.set("format", format);
+  if (port) params.set("port", port);
   const qs = params.toString();
   return `${basePath}/api/pipelines/${pipelineId}/outputs/${nodeId}/download${qs ? `?${qs}` : ""}`;
 }
@@ -294,9 +296,11 @@ export function getRunOutputDownloadUrl(
   runId: string,
   nodeId: string,
   format?: string,
+  port?: string,
 ) {
   const params = new URLSearchParams();
   if (format) params.set("format", format);
+  if (port) params.set("port", port);
   const qs = params.toString();
   return `${basePath}/api/pipelines/${pipelineId}/runs/${runId}/outputs/${nodeId}/download${qs ? `?${qs}` : ""}`;
 }
