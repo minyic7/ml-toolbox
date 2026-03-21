@@ -67,7 +67,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         }
         if target_column:
             report["target_correlations"] = []
-        out = _get_output_path("report")
+        out = _get_output_path("report", ext=".json")
         out.write_text(json.dumps(report))
         return {"report": str(out)}
 
@@ -141,7 +141,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
         corr_df = numeric_df.corr(method=method)
         report = _compute(corr_df, method)
 
-    out = _get_output_path("report")
+    out = _get_output_path("report", ext=".json")
     out.write_text(json.dumps(report))
     return {"report": str(out)}
 
@@ -438,7 +438,7 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
         "warnings": warnings,
     }
 
-    out_path = _get_output_path("report")
+    out_path = _get_output_path("report", ext=".json")
     out_path.write_text(json.dumps(report, indent=2))
     return {"report": str(out_path)}
 
@@ -623,6 +623,6 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
         "warnings": warnings,
     }
 
-    out_path = _get_output_path("report")
+    out_path = _get_output_path("report", ext=".json")
     out_path.write_text(json.dumps(report, indent=2))
     return {"report": str(out_path)}
