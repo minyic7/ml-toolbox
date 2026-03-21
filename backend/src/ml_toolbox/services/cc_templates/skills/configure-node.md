@@ -1,7 +1,7 @@
 ---
 name: configure-node
 description: Auto-configure a node's parameters based on upstream .meta.json
-args: "{node_id}"
+argument-hint: "[node_id]"
 ---
 
 # Configure Node

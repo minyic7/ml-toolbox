@@ -164,7 +164,11 @@ class PipelineCCManager:
             content = skill_file.read_text()
             for key, value in placeholders.items():
                 content = content.replace(key, value)
-            (skills_dir / skill_file.name).write_text(content)
+            # Claude Code expects skills/{name}/SKILL.md directory structure
+            skill_name = skill_file.stem  # e.g. "configure-node"
+            skill_dir = skills_dir / skill_name
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(content)
 
     # ------------------------------------------------------------------
     # Helpers
