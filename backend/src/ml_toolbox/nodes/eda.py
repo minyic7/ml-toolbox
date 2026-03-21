@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas
-
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 
@@ -475,6 +470,61 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     warnings: list[dict] = []
     total_outlier_cells = 0
 
+    def _iqr_analysis(series: pd.Series, multiplier: float) -> dict:  # type: ignore[type-arg]
+        """Compute IQR-based statistics for a numeric series."""
+        q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
+        q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
+        iqr = q3 - q1
+        lower_fence = round(q1 - multiplier * iqr, 4)
+        upper_fence = round(q3 + multiplier * iqr, 4)
+        return {
+            "q1": q1,
+            "q3": q3,
+            "iqr": iqr,
+            "lower_fence": lower_fence,
+            "upper_fence": upper_fence,
+        }
+
+    def _zscore_analysis(series: pd.Series, threshold: float) -> dict:  # type: ignore[type-arg]
+        """Compute z-score-based statistics for a numeric series."""
+        mean = float(series.mean())  # pyright: ignore[reportArgumentType]
+        std = float(series.std())  # pyright: ignore[reportArgumentType]
+        if std == 0:
+            return {"mean": mean, "std": std, "z_max": 0.0}
+        z_scores = ((series - mean) / std).abs()
+        z_max = float(z_scores.max())  # pyright: ignore[reportArgumentType]
+        return {"mean": mean, "std": std, "z_max": z_max}
+
+    def _get_outlier_mask(
+        series: pd.Series,  # type: ignore[type-arg]
+        method: str,
+        iqr_multiplier: float,
+        zscore_threshold: float,
+    ) -> pd.Series:  # type: ignore[type-arg]
+        """Return a boolean mask identifying outliers in the series."""
+        if method == "iqr":
+            q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
+            q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
+            iqr = q3 - q1
+            return (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)  # type: ignore[return-value]
+        elif method == "zscore":
+            mean = float(series.mean())  # pyright: ignore[reportArgumentType]
+            std = float(series.std())  # pyright: ignore[reportArgumentType]
+            if std == 0:
+                return pd.Series(False, index=series.index)
+            return ((series - mean) / std).abs() > zscore_threshold  # type: ignore[return-value]
+        else:  # both — union of IQR and z-score outliers
+            q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
+            q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
+            iqr = q3 - q1
+            iqr_mask = (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)
+            mean = float(series.mean())  # pyright: ignore[reportArgumentType]
+            std = float(series.std())  # pyright: ignore[reportArgumentType]
+            if std == 0:
+                return iqr_mask  # type: ignore[return-value]
+            zscore_mask = ((series - mean) / std).abs() > zscore_threshold
+            return iqr_mask | zscore_mask  # type: ignore[return-value]
+
     for col in numeric_df.columns:
         col_series: pd.Series = numeric_df[col].dropna()  # type: ignore[assignment]
         if len(col_series) == 0:
@@ -569,63 +619,3 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     out_path = _get_output_path("report")
     out_path.write_text(json.dumps(report, indent=2))
     return {"report": str(out_path)}
-
-
-def _iqr_analysis(series: pandas.Series, multiplier: float) -> dict:  # type: ignore[type-arg]
-    """Compute IQR-based statistics for a numeric series."""
-    q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
-    q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
-    iqr = q3 - q1
-    lower_fence = round(q1 - multiplier * iqr, 4)
-    upper_fence = round(q3 + multiplier * iqr, 4)
-    return {
-        "q1": q1,
-        "q3": q3,
-        "iqr": iqr,
-        "lower_fence": lower_fence,
-        "upper_fence": upper_fence,
-    }
-
-
-def _zscore_analysis(series: pandas.Series, threshold: float) -> dict:  # type: ignore[type-arg]
-    """Compute z-score-based statistics for a numeric series."""
-    mean = float(series.mean())  # pyright: ignore[reportArgumentType]
-    std = float(series.std())  # pyright: ignore[reportArgumentType]
-    if std == 0:
-        return {"mean": mean, "std": std, "z_max": 0.0}
-    z_scores = ((series - mean) / std).abs()
-    z_max = float(z_scores.max())  # pyright: ignore[reportArgumentType]
-    return {"mean": mean, "std": std, "z_max": z_max}
-
-
-def _get_outlier_mask(
-    series: pandas.Series,  # type: ignore[type-arg]
-    method: str,
-    iqr_multiplier: float,
-    zscore_threshold: float,
-) -> pandas.Series:  # type: ignore[type-arg]
-    """Return a boolean mask identifying outliers in the series."""
-    import pandas as pd
-
-    if method == "iqr":
-        q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
-        q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
-        iqr = q3 - q1
-        return (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)  # type: ignore[return-value]
-    elif method == "zscore":
-        mean = float(series.mean())  # pyright: ignore[reportArgumentType]
-        std = float(series.std())  # pyright: ignore[reportArgumentType]
-        if std == 0:
-            return pd.Series(False, index=series.index)
-        return ((series - mean) / std).abs() > zscore_threshold  # type: ignore[return-value]
-    else:  # both — union of IQR and z-score outliers
-        q1 = float(series.quantile(0.25))  # pyright: ignore[reportArgumentType]
-        q3 = float(series.quantile(0.75))  # pyright: ignore[reportArgumentType]
-        iqr = q3 - q1
-        iqr_mask = (series < q1 - iqr_multiplier * iqr) | (series > q3 + iqr_multiplier * iqr)
-        mean = float(series.mean())  # pyright: ignore[reportArgumentType]
-        std = float(series.std())  # pyright: ignore[reportArgumentType]
-        if std == 0:
-            return iqr_mask  # type: ignore[return-value]
-        zscore_mask = ((series - mean) / std).abs() > zscore_threshold
-        return iqr_mask | zscore_mask  # type: ignore[return-value]
