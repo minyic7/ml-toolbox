@@ -87,7 +87,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
                     "type": "high_correlation",
                     "columns": [p["a"], p["b"]],
                     "r": p["r"],
-                    "message": f"{p['a']} \u2194 {p['b']}: r={p['r']} \u2014 high collinearity",
+                    "message": f"{p['a']} ↔ {p['b']}: r={p['r']} — high collinearity",
                 })
 
         result = {
@@ -346,3 +346,92 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
     out = _get_output_path("report", ext=".json")
     out.write_text(json.dumps(report, indent=2))
     return {"report": str(out)}
+
+
+@node(
+    inputs={"df": PortType.TABLE},
+    outputs={"report": PortType.METRICS},
+    params={},
+    label="Missing Analysis",
+    category="Eda",
+    description="Analyze missing value patterns across all columns.",
+    guide="""## Missing Analysis\n\nUnderstand where and how much data is missing before deciding on a strategy.\n\n### What it does\n- Per-column missing count and percentage\n- Overall dataset completeness\n- Missing severity classification (none / low <5% / medium 5-30% / high >30%)\n- Complete rows ratio\n\n### How to interpret\n- **Low missing (<5%)**: safe to impute with mean/median/mode\n- **Medium missing (5-30%)**: investigate if MAR or MNAR before imputing\n- **High missing (>30%)**: consider dropping the column or using a missing indicator flag\n- **MNAR (Missing Not At Random)**: the missingness itself carries information — add a binary flag column\n\n### Remember\nMissing analysis on train only. Apply the same imputation strategy (fitted on train) to val/test.""",
+)
+def missing_analysis(inputs: dict, params: dict) -> dict:
+    """Analyze missing value patterns across all columns."""
+    import pandas as pd
+
+    df = pd.read_parquet(inputs["df"])
+
+    total_rows = len(df)
+    total_columns = len(df.columns)
+    total_cells = total_rows * total_columns
+
+    missing_counts = df.isnull().sum()
+    missing_pcts = df.isnull().mean()
+    complete_rows = int(df.dropna().shape[0])
+
+    total_missing_cells = int(missing_counts.sum())
+    overall_missing_pct = round(total_missing_cells / total_cells, 4) if total_cells > 0 else 0.0
+
+    # Build per-column entries (only columns with missing > 0), sorted by missing_pct desc
+    columns = []
+    for col in df.columns:
+        mc = int(missing_counts[col].item())
+        if mc == 0:
+            continue
+        mp = round(float(missing_pcts[col].item()), 4)
+        if mp > 0.30:
+            severity = "high"
+        elif mp >= 0.05:
+            severity = "medium"
+        else:
+            severity = "low"
+        columns.append({
+            "name": col,
+            "missing_count": mc,
+            "missing_pct": mp,
+            "severity": severity,
+            "present_count": total_rows - mc,
+        })
+
+    columns.sort(key=lambda c: c["missing_pct"], reverse=True)
+
+    no_missing_count = total_columns - len(columns)
+
+    # Generate warnings for medium/high missing columns
+    warnings = []
+    for col_info in columns:
+        pct_display = round(col_info["missing_pct"] * 100, 1)
+        if col_info["severity"] == "high":
+            warnings.append({
+                "column": col_info["name"],
+                "type": "critical_missing",
+                "message": f"{pct_display}% missing — consider dropping or adding a missing indicator",
+            })
+        elif col_info["severity"] == "medium":
+            warnings.append({
+                "column": col_info["name"],
+                "type": "high_missing",
+                "message": f"{pct_display}% missing — investigate MAR vs MNAR before imputing",
+            })
+
+    report = {
+        "report_type": "missing_analysis",
+        "summary": {
+            "total_rows": total_rows,
+            "total_columns": total_columns,
+            "total_missing_cells": total_missing_cells,
+            "total_cells": total_cells,
+            "overall_missing_pct": overall_missing_pct,
+            "complete_rows": complete_rows,
+            "complete_rows_pct": round(complete_rows / total_rows, 4) if total_rows > 0 else 0.0,
+            "no_missing_count": no_missing_count,
+        },
+        "columns": columns,
+        "warnings": warnings,
+    }
+
+    out_path = _get_output_path("report")
+    out_path.write_text(json.dumps(report, indent=2))
+    return {"report": str(out_path)}
