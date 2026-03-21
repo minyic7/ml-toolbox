@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import {
   Tooltip,
   TooltipContent,
@@ -128,28 +129,17 @@ export function ParamControl({ param, value, onChange, disabled }: ParamControlP
               {numValue}
             </span>
           </div>
-          <input
-            type="range"
+          <Slider
             min={min}
             max={max}
             step={step}
-            value={numValue}
+            value={[numValue]}
             disabled={disabled}
-            onChange={(e) => setSliderLocal(Number(e.target.value))}
-            onPointerUp={() => {
-              if (sliderLocal !== null) {
-                onChange(param.name, sliderLocal);
-                setSliderLocal(null);
-              }
+            onValueChange={([v]) => setSliderLocal(v)}
+            onValueCommit={([v]) => {
+              onChange(param.name, v);
+              setSliderLocal(null);
             }}
-            onBlur={() => {
-              if (sliderLocal !== null) {
-                onChange(param.name, sliderLocal);
-                setSliderLocal(null);
-              }
-            }}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
-            style={{ accentColor: "var(--accent-primary)" }}
           />
         </div>
       );
