@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -86,6 +85,12 @@ class PipelineCCManager:
         )
 
     # ------------------------------------------------------------------
+    # Template directory
+    # ------------------------------------------------------------------
+
+    _TEMPLATE_DIR = Path(__file__).parent / "cc_templates"
+
+    # ------------------------------------------------------------------
     # CLAUDE.md generation
     # ------------------------------------------------------------------
 
@@ -114,56 +119,23 @@ class PipelineCCManager:
 
         project_dir = self.data_dir / "projects" / pipeline_id
         runs_dir = project_dir / "runs"
+        api_base = "http://localhost:8000"
 
-        content = f"""\
-# ML-Toolbox — Claude Code Context
+        placeholders = {
+            "{{pipeline_name}}": name,
+            "{{pipeline_id}}": pipeline_id,
+            "{{project_dir}}": str(project_dir),
+            "{{runs_dir}}": str(runs_dir),
+            "{{api_base}}": api_base,
+            "{{nodes_section}}": nodes_section,
+            "{{edges_section}}": edges_section,
+        }
 
-## Pipeline
-- **Name:** {name}
-- **ID:** `{pipeline_id}`
+        template_path = self._TEMPLATE_DIR / "CLAUDE.md"
+        content = template_path.read_text()
+        for key, value in placeholders.items():
+            content = content.replace(key, value)
 
-{nodes_section}
-
-{edges_section}
-
-## Data Locations
-- Project dir: `{project_dir}`
-- Runs dir: `{runs_dir}`
-- Pipeline JSON: `{project_dir / 'pipeline.json'}`
-
-## Output Format
-Node outputs are written to structured files:
-```
-~/.ml-toolbox/projects/{{project_id}}/runs/{{run_id}}/
-  {{node_id}}.parquet    # TABLE
-  {{node_id}}.joblib     # MODEL
-  {{node_id}}.json       # METRICS / VALUE
-  {{node_id}}.npy        # ARRAY
-  {{node_id}}.hash       # params + code SHA-256
-```
-
-## ML Toolbox API (localhost:8000)
-- `GET  /api/pipelines` — list pipelines
-- `GET  /api/pipelines/{{id}}` — get pipeline
-- `PUT  /api/pipelines/{{id}}` — update pipeline
-- `POST /api/pipelines/{{id}}/run` — run full pipeline
-- `POST /api/pipelines/{{id}}/run/{{node_id}}` — run from node
-- `GET  /api/pipelines/{{id}}/status` — execution status
-- `GET  /api/nodes` — list available node types
-- `GET  /api/runs` — list all runs
-
-## Available Skills
-- **infer-schema** — Analyze data files and infer column types
-- **suggest-dag** — Suggest pipeline DAG improvements
-- **explain-output** — Explain node output files
-- **configure-node** — Help configure node parameters
-
-## Guidelines
-- This is a single-user personal project (no auth, no multi-tenancy).
-- Nodes run in Docker sandbox containers, not in the FastAPI process.
-- Data transfer between nodes uses file paths, not data objects.
-- DAG execution uses Kahn's topological sort.
-"""
         (work_dir / "CLAUDE.md").write_text(content)
 
     # ------------------------------------------------------------------
@@ -174,72 +146,25 @@ Node outputs are written to structured files:
         skills_dir = work_dir / ".claude" / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)
 
-        template_dir = Path(__file__).parent.parent / "cc_skills"
-        if template_dir.is_dir():
-            for skill_file in template_dir.iterdir():
-                if skill_file.is_file():
-                    shutil.copy2(skill_file, skills_dir / skill_file.name)
-            return
-
-        # Fallback: generate default skill stubs
-        self._write_default_skills(skills_dir, pipeline_id)
-
-    def _write_default_skills(self, skills_dir: Path, pipeline_id: str) -> None:
         project_dir = self.data_dir / "projects" / pipeline_id
+        runs_dir = project_dir / "runs"
+        api_base = "http://localhost:8000"
 
-        skills: dict[str, str] = {
-            "infer-schema.md": f"""\
----
-name: infer-schema
-description: Analyze data files and infer column types/statistics
----
-
-# Infer Schema
-
-Analyze parquet/CSV files in the project and report column names, types,
-null counts, and basic statistics.
-
-## Usage
-Look in `{project_dir}/runs/` for output files and analyze their schema.
-""",
-            "suggest-dag.md": f"""\
----
-name: suggest-dag
-description: Suggest improvements to the pipeline DAG
----
-
-# Suggest DAG
-
-Review the pipeline definition at `{project_dir}/pipeline.json`
-and suggest improvements to the node graph.
-""",
-            "explain-output.md": f"""\
----
-name: explain-output
-description: Explain the contents of node output files
----
-
-# Explain Output
-
-Read node output files (parquet, JSON, joblib) from
-`{project_dir}/runs/` and explain what they contain.
-""",
-            "configure-node.md": f"""\
----
-name: configure-node
-description: Help configure node parameters
----
-
-# Configure Node
-
-Help the user choose appropriate parameter values for pipeline nodes.
-Read the pipeline JSON at `{project_dir}/pipeline.json` to see
-current node configurations and available parameter types.
-""",
+        placeholders = {
+            "{{pipeline_id}}": pipeline_id,
+            "{{project_dir}}": str(project_dir),
+            "{{runs_dir}}": str(runs_dir),
+            "{{api_base}}": api_base,
         }
 
-        for filename, content in skills.items():
-            (skills_dir / filename).write_text(content)
+        template_skills_dir = self._TEMPLATE_DIR / "skills"
+        for skill_file in template_skills_dir.iterdir():
+            if not skill_file.is_file():
+                continue
+            content = skill_file.read_text()
+            for key, value in placeholders.items():
+                content = content.replace(key, value)
+            (skills_dir / skill_file.name).write_text(content)
 
     # ------------------------------------------------------------------
     # Helpers
