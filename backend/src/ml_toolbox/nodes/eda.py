@@ -35,6 +35,8 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
 )
 def correlation_matrix(inputs: dict, params: dict) -> dict:
     """Compute pairwise correlation matrix for numeric columns."""
+    import json
+
     import pandas as pd
 
     df = pd.read_parquet(inputs["df"])
@@ -179,6 +181,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
 )
 def distribution_profile(inputs: dict, params: dict) -> dict:
     """Profile all columns: dtype, stats, distribution shape, value counts."""
+    import json
     from typing import Any, cast
 
     import numpy as np
@@ -360,6 +363,8 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
 )
 def missing_analysis(inputs: dict, params: dict) -> dict:
     """Analyze missing value patterns across all columns."""
+    import json
+
     import pandas as pd
 
     df = pd.read_parquet(inputs["df"])
@@ -456,6 +461,8 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
 )
 def outlier_detection(inputs: dict, params: dict) -> dict:
     """Detect outliers in numeric columns using IQR or z-score methods."""
+    import json
+
     import pandas as pd
 
     df = pd.read_parquet(inputs["df"])
