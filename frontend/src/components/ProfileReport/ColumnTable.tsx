@@ -1,8 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
+import { formatStat, resolveField } from "./formatStat";
 
-interface Header {
+export interface Header {
   key: string;
   label: string;
+  /** Optional custom cell renderer. Receives the resolved cell value and full row. */
+  render?: (value: unknown, row: Record<string, unknown>) => ReactNode;
 }
 
 interface ColumnTableProps {
@@ -28,8 +31,8 @@ export function ColumnTable({ columns, headers }: ColumnTableProps) {
 
   const sorted = sortKey
     ? [...columns].sort((a, b) => {
-        const av = a[sortKey];
-        const bv = b[sortKey];
+        const av = resolveField(a, sortKey);
+        const bv = resolveField(b, sortKey);
         if (av == null && bv == null) return 0;
         if (av == null) return 1;
         if (bv == null) return -1;
@@ -97,32 +100,26 @@ export function ColumnTable({ columns, headers }: ColumnTableProps) {
                     : "transparent",
               }}
             >
-              {headers.map((h) => (
-                <td
-                  key={h.key}
-                  style={{
-                    padding: "4px 8px",
-                    color: "var(--text-primary)",
-                    borderBottom: "1px solid var(--border-default)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {formatCell(row[h.key])}
-                </td>
-              ))}
+              {headers.map((h) => {
+                const value = resolveField(row, h.key);
+                return (
+                  <td
+                    key={h.key}
+                    style={{
+                      padding: "4px 8px",
+                      color: "var(--text-primary)",
+                      borderBottom: "1px solid var(--border-default)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h.render ? h.render(value, row) : formatStat(value)}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
-}
-
-function formatCell(value: unknown): string {
-  if (value == null) return "\u2014";
-  if (typeof value === "number") {
-    if (Number.isInteger(value)) return value.toLocaleString();
-    return value.toFixed(4);
-  }
-  return String(value);
 }
