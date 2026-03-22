@@ -20,9 +20,11 @@ interface ColumnMeta {
   evidence?: string[];
   alternatives_considered?: string[];
   suggested_action?: string;
-  cast_status?: "cast" | "failed" | "skipped";
+  cast_status?: "cast" | "failed" | "skipped" | "dropped";
   cast_reason?: string;
 }
+
+const DROP_ROLES = new Set(["ignore", "identifier"]);
 
 type MetadataPayload = {
   columns: Record<string, ColumnMeta>;
@@ -233,6 +235,8 @@ function ColumnRow({
 }: ColumnRowProps) {
   const hasReasoning =
     col.reasoning || col.decision || col.evidence?.length;
+  const isDropped = DROP_ROLES.has(col.role);
+  const rowOpacity = isDropped ? 0.45 : 1;
 
   return (
     <>
@@ -242,6 +246,7 @@ function ColumnRow({
           background: isLowConfidence
             ? "rgba(234, 179, 8, 0.06)"
             : "transparent",
+          opacity: rowOpacity,
         }}
       >
         {/* Column name */}
@@ -268,6 +273,23 @@ function ColumnRow({
             >
               {colName}
             </span>
+            {isDropped && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  padding: "1px 5px",
+                  borderRadius: 3,
+                  background: "var(--ghost-hover-bg)",
+                  color: "var(--text-muted)",
+                  flexShrink: 0,
+                }}
+              >
+                Dropped
+              </span>
+            )}
             {isSaved && (
               <Check
                 size={12}
