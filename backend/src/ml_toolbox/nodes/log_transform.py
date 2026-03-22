@@ -49,10 +49,6 @@ def _write_meta(parquet_path: str, metadata: dict) -> None:
     meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
 
-
-    return sorted(selected)
-
-
 @node(
     inputs={
         "train": PortType.TABLE,
