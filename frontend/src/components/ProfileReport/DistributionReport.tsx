@@ -1,9 +1,11 @@
+import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
 import { ColumnTable } from "./ColumnTable";
 import { WarningList } from "./WarningList";
 
 interface DistributionReportProps {
   data: Record<string, unknown>;
+  analysis?: CcAnalysis | null;
 }
 
 const SECTION_HEADER: React.CSSProperties = {
@@ -18,7 +20,7 @@ const SECTION_HEADER: React.CSSProperties = {
   marginTop: 16,
 };
 
-export function DistributionReport({ data }: DistributionReportProps) {
+export function DistributionReport({ data, analysis }: DistributionReportProps) {
   const summary = data.summary as Record<string, unknown> | undefined;
   const columns = (data.columns ?? []) as Record<string, unknown>[];
   const target = data.target as Record<string, unknown> | undefined;
@@ -27,6 +29,7 @@ export function DistributionReport({ data }: DistributionReportProps) {
     column?: string;
     message: string;
   }[];
+  const aiWarnings = analysis?.warnings ?? [];
 
   const numericCols = columns.filter((c) => c.dtype !== "object" && c.dtype !== "category");
   const catCols = columns.filter((c) => c.dtype === "object" || c.dtype === "category");
@@ -76,7 +79,19 @@ export function DistributionReport({ data }: DistributionReportProps) {
 
       {target && <TargetSection target={target} />}
 
-      <WarningList warnings={warnings} />
+      {/* Single warnings section: AI if available, else hardcoded */}
+      {aiWarnings.length > 0 ? (
+        <WarningList
+          warnings={aiWarnings.map((w) => ({
+            type: w.type,
+            column: w.column ?? undefined,
+            message: w.message,
+          }))}
+          source="ai"
+        />
+      ) : (
+        <WarningList warnings={warnings} />
+      )}
     </div>
   );
 }

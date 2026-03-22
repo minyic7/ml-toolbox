@@ -59,8 +59,8 @@ export function OutlierReport({ data, analysis }: OutlierReportProps) {
       <div style={SECTION_HEADER}>Outlier Details</div>
       <OutlierTable columns={columns} method={method} />
 
-      <WarningList warnings={warnings} />
-      {aiWarnings.length > 0 && (
+      {/* Single warnings section: AI if available, else hardcoded */}
+      {aiWarnings.length > 0 ? (
         <WarningList
           warnings={aiWarnings.map((w) => ({
             type: w.type,
@@ -69,6 +69,8 @@ export function OutlierReport({ data, analysis }: OutlierReportProps) {
           }))}
           source="ai"
         />
+      ) : (
+        <WarningList warnings={warnings} />
       )}
     </div>
   );
