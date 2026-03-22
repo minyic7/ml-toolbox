@@ -522,6 +522,8 @@ function renderPreview(output: OutputPreview, analysis?: import("../../lib/types
             columns={preview.columns}
             rows={preview.rows}
             totalRows={preview.total_rows ?? preview.rows.length}
+            dtypes={preview.dtypes}
+            hasMetadata={!!output.column_metadata}
           />
         );
       }

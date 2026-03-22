@@ -725,6 +725,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
                 "columns": list(df.columns),
                 "rows": df.head(10).values.tolist(),
                 "total_rows": len(df),
+                "dtypes": {col: str(df[col].dtype) for col in df.columns},
             }
         except Exception:
             pass
@@ -737,6 +738,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
                 "columns": list(df.columns),
                 "rows": df.values.tolist(),
                 "total_rows": -1,
+                "dtypes": {col: str(df[col].dtype) for col in df.columns},
             }
         except Exception:
             pass
