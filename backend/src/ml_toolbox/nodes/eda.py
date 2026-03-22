@@ -64,6 +64,18 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
 
     import pandas as pd
 
+    def _update_eda_context(input_df_path: str, section_key: str, section_data: dict) -> None:
+        context_path = Path(input_df_path).with_suffix(".eda-context.json")
+        if context_path.exists():
+            try:
+                context = json.loads(context_path.read_text())
+            except Exception:
+                context = {}
+        else:
+            context = {}
+        context[section_key] = section_data
+        context_path.write_text(json.dumps(context, indent=2))
+
     df = pd.read_parquet(inputs["df"])
     numeric_df = df.select_dtypes(include="number")
     method = params.get("method", "pearson")
@@ -267,6 +279,18 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
 
     import numpy as np
     import pandas as pd
+
+    def _update_eda_context(input_df_path: str, section_key: str, section_data: dict) -> None:
+        context_path = Path(input_df_path).with_suffix(".eda-context.json")
+        if context_path.exists():
+            try:
+                context = json.loads(context_path.read_text())
+            except Exception:
+                context = {}
+        else:
+            context = {}
+        context[section_key] = section_data
+        context_path.write_text(json.dumps(context, indent=2))
 
     def _scalar(v: Any) -> float:
         """Extract a scalar float from a pandas aggregate result."""
@@ -483,8 +507,21 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
 def missing_analysis(inputs: dict, params: dict) -> dict:
     """Analyze missing value patterns across all columns."""
     import json
+    from pathlib import Path
 
     import pandas as pd
+
+    def _update_eda_context(input_df_path: str, section_key: str, section_data: dict) -> None:
+        context_path = Path(input_df_path).with_suffix(".eda-context.json")
+        if context_path.exists():
+            try:
+                context = json.loads(context_path.read_text())
+            except Exception:
+                context = {}
+        else:
+            context = {}
+        context[section_key] = section_data
+        context_path.write_text(json.dumps(context, indent=2))
 
     df = pd.read_parquet(inputs["df"])
 
@@ -599,6 +636,18 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     from pathlib import Path
 
     import pandas as pd
+
+    def _update_eda_context(input_df_path: str, section_key: str, section_data: dict) -> None:
+        context_path = Path(input_df_path).with_suffix(".eda-context.json")
+        if context_path.exists():
+            try:
+                context = json.loads(context_path.read_text())
+            except Exception:
+                context = {}
+        else:
+            context = {}
+        context[section_key] = section_data
+        context_path.write_text(json.dumps(context, indent=2))
 
     df = pd.read_parquet(inputs["df"])
     numeric_df = df.select_dtypes(include="number")
