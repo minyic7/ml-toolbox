@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import mimetypes
@@ -481,11 +482,8 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
     store.save(pipeline_id, data)
 
     # Trigger auto-configure for the target node in background
-    threading.Thread(
-        target=_auto_configure_node,
-        args=(pipeline_id, body.target, data),
-        daemon=True,
-    ).start()
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, _auto_configure_node, pipeline_id, body.target)
 
     return edge
 
@@ -1130,18 +1128,25 @@ async def notify_metadata_updated(pipeline_id: str, node_id: str) -> dict:
 
 
 def _auto_configure_node(
-    pipeline_id: str, target_node_id: str, pipeline_data: dict
+    pipeline_id: str, target_node_id: str,
 ) -> None:
     """Spawn a short-lived Claude Code subprocess to suggest param values
     for *target_node_id* based on upstream .meta.json files.
 
-    Runs in a daemon thread — failures are logged and silently ignored.
+    Runs via ``loop.run_in_executor`` — failures are logged and silently
+    ignored.
     """
     import shutil
     import subprocess
 
     if shutil.which("claude") is None:
         logger.debug("claude CLI not found, skipping auto-configure for %s", target_node_id)
+        return
+
+    # Load fresh pipeline data (not a stale snapshot from the request)
+    try:
+        pipeline_data = store.load(pipeline_id)
+    except FileNotFoundError:
         return
 
     # Find target node
@@ -1154,28 +1159,37 @@ def _auto_configure_node(
     node_type = target_node.get("type", "")
     node_label = target_node.get("name") or node_type.rsplit(".", 1)[-1]
 
-    # Collect upstream metadata
+    # Collect upstream metadata — each source separated with a header
     upstream_edges = [
         e for e in pipeline_data["edges"] if e["target"] == target_node_id
     ]
     if not upstream_edges:
         return
 
-    meta_content = ""
+    meta_sections: list[str] = []
     for edge in upstream_edges:
         source_id = edge["source"]
+        source_node = next(
+            (n for n in pipeline_data["nodes"] if n["id"] == source_id), None
+        )
+        source_label = _node_label(source_node) if source_node else source_id
         try:
             latest_run = file_store.get_latest_run_id(pipeline_id)
             if latest_run:
                 run_dir = file_store.PROJECTS_DIR / pipeline_id / "runs" / latest_run
                 meta_files = list(run_dir.glob(f"{source_id}*.meta.json"))
                 if meta_files:
-                    meta_content += meta_files[0].read_text()[:3000]
+                    meta_sections.append(
+                        f"--- Upstream node: {source_label} ({source_id}) ---\n"
+                        + meta_files[0].read_text()[:3000]
+                    )
         except Exception:
             pass
 
-    if not meta_content:
+    if not meta_sections:
         return  # No metadata available — nothing to auto-configure
+
+    meta_content = "\n\n".join(meta_sections)
 
     # Build param context
     current_params = target_node.get("params", [])
@@ -1259,24 +1273,25 @@ Only include params that should change. Return {{}} if defaults are fine."""
         if not params_to_set or not isinstance(params_to_set, dict):
             return
 
-        # Re-load pipeline data to avoid stale writes
-        fresh_data = store.load(pipeline_id)
-        fresh_target = next(
-            (n for n in fresh_data["nodes"] if n["id"] == target_node_id), None
-        )
-        if not fresh_target:
-            return
+        # Acquire per-pipeline lock for safe read-modify-write
+        with store.pipeline_lock(pipeline_id):
+            fresh_data = store.load(pipeline_id)
+            fresh_target = next(
+                (n for n in fresh_data["nodes"] if n["id"] == target_node_id), None
+            )
+            if not fresh_target:
+                return
 
-        changed = False
-        for param_def in fresh_target.get("params", []):
-            if isinstance(param_def, dict) and param_def.get("name") in params_to_set:
-                param_def["default"] = params_to_set[param_def["name"]]
-                changed = True
+            changed = False
+            for param_def in fresh_target.get("params", []):
+                if isinstance(param_def, dict) and param_def.get("name") in params_to_set:
+                    param_def["default"] = params_to_set[param_def["name"]]
+                    changed = True
 
-        if not changed:
-            return
+            if not changed:
+                return
 
-        store.save(pipeline_id, fresh_data)
+            store.save(pipeline_id, fresh_data)
 
         broadcast_sync(pipeline_id, {
             "type": "pipeline_updated",

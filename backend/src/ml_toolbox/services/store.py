@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import json
 import shutil
+import threading
+from collections import defaultdict
 from pathlib import Path
 
 from ml_toolbox.config import DATA_DIR
 
 PROJECTS_DIR = DATA_DIR / "projects"
+
+_pipeline_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
+
+
+def pipeline_lock(pipeline_id: str) -> threading.Lock:
+    """Return a per-pipeline lock for safe concurrent read-modify-write."""
+    return _pipeline_locks[pipeline_id]
 
 
 def _pipeline_path(pipeline_id: str) -> Path:
