@@ -109,6 +109,7 @@ export interface OutputPortPreview {
     columns?: string[];
     rows?: unknown[][];
     total_rows?: number;
+    dtypes?: Record<string, string>;
     shape?: number[];
     dtype?: string;
     values?: number[];
@@ -127,6 +128,7 @@ export interface OutputPreview {
     columns?: string[];
     rows?: unknown[][];
     total_rows?: number;
+    dtypes?: Record<string, string>;
     // ARRAY (.npy) previews
     shape?: number[];
     dtype?: string;
@@ -139,6 +141,7 @@ export interface OutputPreview {
   error: string | null;
   logs?: string | null;
   outputs?: OutputPortPreview[];
+  column_metadata?: Record<string, Record<string, unknown>>;
 }
 
 export interface RunInfo {
