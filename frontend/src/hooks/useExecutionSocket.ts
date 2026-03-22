@@ -84,6 +84,15 @@ export function useExecutionSocket(pipelineId: string | undefined) {
           return;
         }
 
+        // Handle metadata_propagated events (schema change propagated downstream)
+        if (msg.type === "metadata_propagated") {
+          qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          qc.invalidateQueries({ queryKey: ["metadata"] });
+          const count = Array.isArray(msg.updated_nodes) ? msg.updated_nodes.length : 0;
+          toast.success(`Schema updated — ${count} downstream node${count === 1 ? "" : "s"} reconfigured`);
+          return;
+        }
+
         // Handle pipeline_updated events (e.g. CC patched node params)
         if (msg.type === "pipeline_updated") {
           qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
