@@ -1317,6 +1317,29 @@ def _read_upstream_metadata(
     return None
 
 
+def _read_upstream_eda_context(
+    pipeline_id: str, target_node_id: str, pipeline_data: dict,
+) -> dict | None:
+    """Read .eda-context.json from the first upstream node's output."""
+    edges = pipeline_data.get("edges", [])
+    upstream_edges = [e for e in edges if e["target"] == target_node_id]
+    if not upstream_edges:
+        return None
+
+    source_id = upstream_edges[0]["source"]
+    try:
+        latest_run = file_store.get_latest_run_id(pipeline_id)
+        if not latest_run:
+            return None
+        run_dir = file_store.PROJECTS_DIR / pipeline_id / "runs" / latest_run
+        eda_files = list(run_dir.glob(f"{source_id}*.eda-context.json"))
+        if eda_files:
+            return json.loads(eda_files[0].read_text())
+    except Exception:
+        pass
+    return None
+
+
 def _get_params_for_node(
     node_fn: str,
     continuous: list[str],
@@ -1324,6 +1347,7 @@ def _get_params_for_node(
     identifiers: list[str],
     categoricals: list[str],
     columns_meta: dict,
+    eda_context: dict | None = None,
 ) -> dict[str, Any]:
     """Return param updates based on node type and column metadata."""
     if node_fn == "outlier_detection":
@@ -1343,6 +1367,61 @@ def _get_params_for_node(
 
     if node_fn == "random_holdout":
         return {"stratify_column": target_col}
+
+    # ── EDA-context-aware rules ─────────────────────────────────
+
+    if node_fn == "log_transform":
+        if eda_context:
+            dist = eda_context.get("distribution", {})
+            outliers = eda_context.get("outliers", {})
+            cols = [
+                col for col, stats in dist.items()
+                if abs(stats.get("skewness", 0)) > 1
+                or outliers.get(col, {}).get("outlier_pct", 0) > 0.05
+            ]
+            cols = [c for c in cols if c != target_col]
+            return {"columns": ", ".join(cols)} if cols else {}
+        return {}
+
+    if node_fn == "interaction_creator":
+        if eda_context:
+            pairs = eda_context.get("correlation", {}).get("high_pairs", [])
+            pair_strs = [f"{a}:{b}" for a, b, r in pairs if abs(r) > 0.5]
+            return {"pairs": ", ".join(pair_strs)} if pair_strs else {}
+        return {}
+
+    if node_fn == "datetime_encoder":
+        dt_cols = [
+            name for name, m in columns_meta.items()
+            if m.get("semantic_type") == "datetime"
+        ]
+        return {"column": dt_cols[0]} if dt_cols else {}
+
+    if node_fn == "column_dropper":
+        drop = [
+            name for name, m in columns_meta.items()
+            if m.get("role") == "identifier"
+        ]
+        return {"columns_to_drop": ", ".join(drop)} if drop else {}
+
+    if node_fn == "missing_imputer":
+        if eda_context:
+            missing = eda_context.get("missing", {})
+            high_missing = [
+                col for col, m in missing.items()
+                if m.get("missing_pct", 0) > 0.3
+            ]
+            if high_missing:
+                return {"strategy": "constant", "constant_value": "0"}
+        return {}
+
+    if node_fn == "feature_selector":
+        if eda_context:
+            corr = eda_context.get("correlation", {})
+            target_corrs = corr.get("target_correlations", [])
+            if target_corrs:
+                return {"method": "correlation_with_target", "threshold": "0.05"}
+        return {}
 
     return {}
 
@@ -1370,7 +1449,13 @@ def _auto_configure_node(
     node_fn = node_type.rsplit(".", 1)[-1]
 
     metadata = _read_upstream_metadata(pipeline_id, target_node_id, pipeline_data)
+    eda_context = _read_upstream_eda_context(
+        pipeline_id, target_node_id, pipeline_data,
+    )
+
     if not metadata or "columns" not in metadata:
+        # Even without metadata, some EDA-only rules could apply,
+        # but all current rules need at least columns_meta for target_col.
         return
 
     columns_meta: dict = metadata["columns"]
@@ -1393,6 +1478,7 @@ def _auto_configure_node(
 
     params_update = _get_params_for_node(
         node_fn, continuous, target_col, identifiers, categoricals, columns_meta,
+        eda_context,
     )
     if not params_update:
         return
