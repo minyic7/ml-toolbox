@@ -1,14 +1,16 @@
-"""Random Forest training node — auto-detects classification vs regression."""
+"""Training nodes — Decision Tree and Random Forest."""
 
 from __future__ import annotations
 
 import json
 import logging
+import warnings
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
 
-from ml_toolbox.protocol import PortType, Slider, Text, node
+from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,267 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
+
+
+def _read_meta(input_path: str) -> dict:
+    """Read .meta.json sidecar alongside a parquet file."""
+    meta_path = Path(input_path).with_suffix(".meta.json")
+    if meta_path.exists():
+        try:
+            return json.loads(meta_path.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def _detect_task_type(meta: dict, target_col: str, train_df: pl.DataFrame) -> str:
+    """Determine 'classification' or 'regression' from metadata and data.
+
+    Rules:
+    - categorical / binary semantic_type → classification
+    - continuous semantic_type → regression
+    - integer dtype with few unique values (≤ 20) → classification
+    - float dtype → regression
+    - fallback: classification
+    """
+    col_meta = meta.get("columns", {}).get(target_col, {})
+    semantic = col_meta.get("semantic_type", "")
+
+    if semantic in ("categorical", "binary"):
+        return "classification"
+    if semantic == "continuous":
+        return "regression"
+
+    # Infer from actual data
+    if target_col in train_df.columns:
+        dtype = train_df[target_col].dtype
+        if dtype in (pl.Float32, pl.Float64):
+            return "regression"
+        n_unique = train_df[target_col].n_unique()
+        if n_unique <= 20:
+            return "classification"
+        return "regression"
+
+    return "classification"
+
+
+_CLASSIFICATION_CRITERIA = ("gini", "entropy")
+_REGRESSION_CRITERIA = ("squared_error", "absolute_error")
+
+
+# ── Decision Tree ────────────────────────────────────────────────────
+
+
+@node(
+    inputs={"train": PortType.TABLE, "val": PortType.TABLE, "test": PortType.TABLE},
+    outputs={
+        "predictions": PortType.TABLE,
+        "model": PortType.MODEL,
+        "metrics": PortType.METRICS,
+    },
+    params={
+        "max_depth": Slider(
+            min=1, max=50, step=1, default=10,
+            description="Maximum tree depth — primary regularization knob",
+        ),
+        "min_samples_split": Slider(
+            min=2, max=20, step=1, default=2,
+            description="Minimum samples required to split an internal node",
+        ),
+        "criterion": Select(
+            options=["gini", "entropy", "squared_error", "absolute_error"],
+            default="gini",
+            description=(
+                "Split quality metric. gini/entropy for classification, "
+                "squared_error/absolute_error for regression (auto-corrected if mismatched)"
+            ),
+        ),
+    },
+    label="Decision Tree",
+    category="Training",
+    description=(
+        "Train a Decision Tree model. Auto-detects classification vs regression "
+        "from the target column type."
+    ),
+    allowed_upstream={
+        "train": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "scaler_transform",
+            "category_encoder",
+        ],
+        "val": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "scaler_transform",
+            "category_encoder",
+        ],
+        "test": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "scaler_transform",
+            "category_encoder",
+        ],
+    },
+    guide="""## Decision Tree
+
+Train a **Decision Tree** for classification or regression. The task type is
+auto-detected from the target column metadata.
+
+### Pros
+- **Highly interpretable** — the tree structure can be visualised and explained
+- **No feature scaling needed** — splits are invariant to monotonic transforms
+- **Handles both numeric and categorical targets**
+
+### Cons
+- **Prone to overfitting** — especially with deep trees
+- **High variance** — small data changes can produce very different trees
+
+### Parameters
+| Parameter | Purpose |
+|-----------|---------|
+| `max_depth` | Maximum tree depth — the **primary regularization knob**. Lower values reduce overfitting. |
+| `min_samples_split` | Minimum samples to allow a split. Raising this also reduces overfitting. |
+| `criterion` | Split metric. Auto-corrected to match the detected task type. |
+
+### Auto-detection
+The node reads `.meta.json` to determine the task type:
+- **categorical / binary** semantic type → classification
+- **continuous** semantic type → regression
+- **integer with ≤ 20 unique values** → classification
+- **float** → regression
+""",
+)
+def decision_tree(inputs: dict, params: dict) -> dict:
+    """Train a Decision Tree — auto-detect classification vs regression."""
+    from sklearn.metrics import (
+        accuracy_score,
+        f1_score,
+        mean_absolute_error,
+        mean_squared_error,
+        precision_score,
+        r2_score,
+        recall_score,
+    )
+    from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+
+    # ── Read training data ────────────────────────────────────────
+    train_df = pl.read_parquet(inputs["train"])
+    meta = _read_meta(inputs["train"])
+    target_col = meta.get("target", "")
+
+    if not target_col or target_col not in train_df.columns:
+        raise ValueError(
+            f"Target column '{target_col}' not found. "
+            "Ensure upstream node produces a .meta.json with a 'target' key."
+        )
+
+    # ── Detect task type ──────────────────────────────────────────
+    task_type = _detect_task_type(meta, target_col, train_df)
+    logger.info("Detected task type: %s", task_type)
+
+    # ── Resolve criterion ─────────────────────────────────────────
+    criterion = params.get("criterion", "gini")
+    if task_type == "classification" and criterion not in _CLASSIFICATION_CRITERIA:
+        warnings.warn(
+            f"Criterion '{criterion}' is not valid for classification — "
+            f"falling back to 'gini'",
+            stacklevel=1,
+        )
+        criterion = "gini"
+    elif task_type == "regression" and criterion not in _REGRESSION_CRITERIA:
+        warnings.warn(
+            f"Criterion '{criterion}' is not valid for regression — "
+            f"falling back to 'squared_error'",
+            stacklevel=1,
+        )
+        criterion = "squared_error"
+
+    max_depth = int(params.get("max_depth", 10))
+    min_samples_split = int(params.get("min_samples_split", 2))
+
+    # ── Prepare features / target ─────────────────────────────────
+    feature_cols = [c for c in train_df.columns if c != target_col]
+    X_train = train_df.select(feature_cols).to_pandas()
+    y_train = train_df[target_col].to_pandas()
+
+    # ── Build and fit model ───────────────────────────────────────
+    if task_type == "classification":
+        model = DecisionTreeClassifier(
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            criterion=criterion,
+            random_state=42,
+        )
+    else:
+        model = DecisionTreeRegressor(
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            criterion=criterion,
+            random_state=42,
+        )
+
+    model.fit(X_train, y_train)
+
+    # ── Generate predictions and metrics for each split ───────────
+    all_predictions: list[pl.DataFrame] = []
+    metrics: dict = {"task_type": task_type}
+
+    for split_name in ("train", "val", "test"):
+        input_path = inputs.get(split_name)
+        if not input_path:
+            continue
+
+        split_path = Path(input_path)
+        if not split_path.exists():
+            continue
+
+        df = train_df if split_name == "train" else pl.read_parquet(split_path)
+        if df.height == 0:
+            continue
+
+        X = df.select(feature_cols).to_pandas()
+        y_true = df[target_col].to_pandas()
+        y_pred = model.predict(X)
+
+        # Build predictions frame
+        pred_df = df.with_columns(
+            pl.Series("prediction", y_pred),
+            pl.Series("split", [split_name] * df.height),
+        )
+        all_predictions.append(pred_df)
+
+        # Compute metrics
+        if task_type == "classification":
+            avg = "weighted" if y_true.nunique() > 2 else "binary"
+            metrics[split_name] = {
+                "accuracy": round(float(accuracy_score(y_true, y_pred)), 4),
+                "precision": round(float(precision_score(y_true, y_pred, average=avg, zero_division=0.0)), 4),  # type: ignore[arg-type]
+                "recall": round(float(recall_score(y_true, y_pred, average=avg, zero_division=0.0)), 4),  # type: ignore[arg-type]
+                "f1": round(float(f1_score(y_true, y_pred, average=avg, zero_division=0.0)), 4),  # type: ignore[arg-type]
+            }
+        else:
+            metrics[split_name] = {
+                "mse": round(float(mean_squared_error(y_true, y_pred)), 4),
+                "mae": round(float(mean_absolute_error(y_true, y_pred)), 4),
+                "r2": round(float(r2_score(y_true, y_pred)), 4),
+            }
+
+    # ── Write predictions ─────────────────────────────────────────
+    predictions_df = pl.concat(all_predictions) if all_predictions else pl.DataFrame()
+    predictions_path = _get_output_path("predictions", ".parquet")
+    predictions_df.write_parquet(predictions_path)
+
+    # ── Write metrics ─────────────────────────────────────────────
+    metrics_path = _get_output_path("metrics", ".json")
+    metrics_path.write_text(json.dumps(metrics, indent=2))
+
+    # ── Return model as raw object (auto-serialized by runner) ────
+    return {
+        "predictions": str(predictions_path),
+        "model": model,
+        "metrics": str(metrics_path),
+    }
+
+
+# ── Random Forest ────────────────────────────────────────────────────
 
 
 @node(
