@@ -87,6 +87,9 @@ export function useExecutionSocket(pipelineId: string | undefined) {
         // Handle pipeline_updated events (e.g. CC patched node params)
         if (msg.type === "pipeline_updated") {
           qc.invalidateQueries({ queryKey: ["pipeline", pipelineId] });
+          if (typeof msg.node_id === "string") {
+            toast.info("Node params auto-configured based on upstream data");
+          }
           return;
         }
 
