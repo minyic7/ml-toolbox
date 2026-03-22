@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from ml_toolbox.protocol import PortType, Text, node
+from ml_toolbox.protocol import PortType, Text, Toggle, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
@@ -18,99 +17,6 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
-
-
-
-def _find_prediction_column(df: "pd.DataFrame") -> str:  # type: ignore[name-defined]  # noqa: F821
-    """Determine the prediction column from convention."""
-    for name in ("y_pred", "prediction", "predicted"):
-        if name in df.columns:
-            return name
-    raise ValueError(
-        "Cannot find prediction column. Include a column named 'y_pred' or 'prediction'."
-    )
-
-
-def _find_split_column(df: "pd.DataFrame") -> str | None:  # type: ignore[name-defined]  # noqa: F821
-    """Find the split indicator column, if present."""
-    for name in ("__split__", "split"):
-        if name in df.columns:
-            return name
-    return None
-
-
-def _compute_classification_metrics(
-    y_true: "pd.Series",  # type: ignore[type-arg]  # noqa: F821
-    y_pred: "pd.Series",  # type: ignore[type-arg]  # noqa: F821
-    y_prob: "pd.DataFrame | None",  # type: ignore[name-defined]  # noqa: F821
-) -> dict:
-    """Compute classification metrics for a single split."""
-    from sklearn.metrics import (  # pyright: ignore[reportMissingImports]
-        accuracy_score,
-        f1_score,
-        precision_score,
-        recall_score,
-        roc_auc_score,
-    )
-
-    metrics: dict = {
-        "accuracy": round(float(accuracy_score(y_true, y_pred)), 6),
-        "f1_macro": round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 6),  # pyright: ignore[reportArgumentType]
-        "precision_macro": round(
-            float(precision_score(y_true, y_pred, average="macro", zero_division=0)), 6  # pyright: ignore[reportArgumentType]
-        ),
-        "recall_macro": round(
-            float(recall_score(y_true, y_pred, average="macro", zero_division=0)), 6  # pyright: ignore[reportArgumentType]
-        ),
-    }
-
-    # AUC — requires probability columns
-    if y_prob is not None and len(y_prob.columns) > 0:
-        try:
-            classes = sorted(y_true.unique())
-            if len(classes) == 2:
-                # Binary: use the probability of the positive class
-                prob_col = y_prob.columns[-1]  # last column = positive class
-                metrics["auc"] = round(
-                    float(roc_auc_score(y_true, y_prob[prob_col])), 6
-                )
-            elif len(classes) > 2:
-                # Multiclass: OVR
-                metrics["auc"] = round(
-                    float(
-                        roc_auc_score(
-                            y_true, y_prob.values, multi_class="ovr", average="macro"
-                        )
-                    ),
-                    6,
-                )
-        except (ValueError, TypeError):
-            pass  # AUC not computable (e.g. single class in split)
-
-    metrics["support"] = int(len(y_true))
-    return metrics
-
-
-def _compute_regression_metrics(
-    y_true: "pd.Series",  # type: ignore[type-arg]  # noqa: F821
-    y_pred: "pd.Series",  # type: ignore[type-arg]  # noqa: F821
-) -> dict:
-    """Compute regression metrics for a single split."""
-    from sklearn.metrics import (  # pyright: ignore[reportMissingImports]
-        mean_absolute_error,
-        mean_squared_error,
-        r2_score,
-    )
-    import numpy as np  # pyright: ignore[reportMissingImports]
-
-    mse = float(mean_squared_error(y_true, y_pred))
-    metrics: dict = {
-        "mae": round(float(mean_absolute_error(y_true, y_pred)), 6),
-        "rmse": round(float(np.sqrt(mse)), 6),
-        "r2": round(float(r2_score(y_true, y_pred)), 6),
-        "support": int(len(y_true)),
-    }
-    return metrics
 
 
 # ── ROC & PR Curves ────────────────────────────────────────────
@@ -159,6 +65,8 @@ def _compute_regression_metrics(
 )
 def roc_pr_curves(inputs: dict, params: dict) -> dict:
     """Compute ROC and Precision-Recall curves with AUC values."""
+    import json
+
     import numpy as np
     import pandas as pd
     from sklearn.metrics import (
@@ -168,6 +76,53 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
         roc_auc_score,
         roc_curve,
     )
+
+    def to_json_safe(val: object) -> object:
+        """Convert numpy types to JSON-serializable Python types."""
+        if isinstance(val, (np.integer,)):
+            return int(val)
+        if isinstance(val, (np.floating,)):
+            return float(val)
+        if isinstance(val, np.ndarray):
+            return val.tolist()
+        return val
+
+    def build_warnings(roc_auc: float, ap: float, prevalence: float) -> list[dict]:
+        """Generate interpretation warnings for binary classification."""
+        warns: list[dict] = []
+        if roc_auc < 0.6:
+            warns.append({
+                "type": "low_roc_auc",
+                "message": (
+                    f"AUC-ROC {roc_auc:.3f} — model barely beats random (0.5). "
+                    "Consider better features or a different model."
+                ),
+            })
+        elif roc_auc < 0.7:
+            warns.append({
+                "type": "medium_roc_auc",
+                "message": (
+                    f"AUC-ROC {roc_auc:.3f} — weak discrimination. "
+                    "May be acceptable for some tasks but investigate improvements."
+                ),
+            })
+        if prevalence < 0.1:
+            warns.append({
+                "type": "high_imbalance",
+                "message": (
+                    f"Positive class prevalence {prevalence:.1%} — highly imbalanced. "
+                    f"Focus on PR curve (AP={ap:.3f}) rather than ROC for evaluation."
+                ),
+            })
+        if ap < prevalence * 1.5 and prevalence < 0.5:
+            warns.append({
+                "type": "low_average_precision",
+                "message": (
+                    f"AP {ap:.3f} is close to prevalence {prevalence:.3f} — "
+                    "model precision is barely above random. Consider rebalancing or better features."
+                ),
+            })
+        return warns
 
     df = pd.read_parquet(inputs["predictions"])
 
@@ -247,8 +202,8 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
         report = {
             "report_type": "roc_pr_curves",
             "task": "binary",
-            "positive_class": _to_json_safe(positive_class),
-            "classes": [_to_json_safe(c) for c in classes],
+            "positive_class": to_json_safe(positive_class),
+            "classes": [to_json_safe(c) for c in classes],
             "summary": {
                 "roc_auc": round(roc_auc, 4),
                 "average_precision": round(ap_score, 4),
@@ -263,7 +218,7 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
                 "recall": pr_recall,
                 "precision": pr_precision,
             },
-            "warnings": _build_warnings(roc_auc, ap_score, prevalence),
+            "warnings": build_warnings(roc_auc, ap_score, prevalence),
         }
     else:
         # Multi-class: One-vs-Rest
@@ -309,7 +264,7 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
             prevalence = float(np.mean(y_binary))
 
             per_class.append({
-                "class": _to_json_safe(cls),
+                "class": to_json_safe(cls),
                 "roc_auc": round(roc_auc_val, 4),
                 "average_precision": round(ap_val, 4),
                 "prevalence": round(prevalence, 4),
@@ -323,7 +278,7 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
         report = {
             "report_type": "roc_pr_curves",
             "task": "multiclass",
-            "classes": [_to_json_safe(c) for c in classes],
+            "classes": [to_json_safe(c) for c in classes],
             "summary": {
                 "macro_roc_auc": round(macro_auc, 4),
                 "macro_average_precision": round(macro_ap, 4),
@@ -338,60 +293,6 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
     out.write_text(json.dumps(report))
     return {"report": str(out)}
 
-
-def _to_json_safe(val: object) -> object:
-    """Convert numpy types to JSON-serializable Python types."""
-    import numpy as np
-
-    if isinstance(val, (np.integer,)):
-        return int(val)
-    if isinstance(val, (np.floating,)):
-        return float(val)
-    if isinstance(val, np.ndarray):
-        return val.tolist()
-    return val
-
-
-def _build_warnings(roc_auc: float, ap: float, prevalence: float) -> list[dict]:
-    """Generate interpretation warnings for binary classification."""
-    warnings: list[dict] = []
-
-    if roc_auc < 0.6:
-        warnings.append({
-            "type": "low_roc_auc",
-            "message": (
-                f"AUC-ROC {roc_auc:.3f} — model barely beats random (0.5). "
-                "Consider better features or a different model."
-            ),
-        })
-    elif roc_auc < 0.7:
-        warnings.append({
-            "type": "medium_roc_auc",
-            "message": (
-                f"AUC-ROC {roc_auc:.3f} — weak discrimination. "
-                "May be acceptable for some tasks but investigate improvements."
-            ),
-        })
-
-    if prevalence < 0.1:
-        warnings.append({
-            "type": "high_imbalance",
-            "message": (
-                f"Positive class prevalence {prevalence:.1%} — highly imbalanced. "
-                f"Focus on PR curve (AP={ap:.3f}) rather than ROC for evaluation."
-            ),
-        })
-
-    if ap < prevalence * 1.5 and prevalence < 0.5:
-        warnings.append({
-            "type": "low_average_precision",
-            "message": (
-                f"AP {ap:.3f} is close to prevalence {prevalence:.3f} — "
-                "model precision is barely above random. Consider rebalancing or better features."
-            ),
-        })
-
-    return warnings
 
 
 @node(
@@ -581,13 +482,55 @@ def feature_importance(inputs: dict, params: dict) -> dict:
 )
 def classification_metrics(inputs: dict, params: dict) -> dict:
     """Compute classification metrics per split."""
+    import json
+
     import pandas as pd
+    from sklearn.metrics import (
+        accuracy_score,
+        f1_score,
+        precision_score,
+        recall_score,
+        roc_auc_score,
+    )
+
+    def find_prediction_column(df: pd.DataFrame) -> str:
+        for name in ("y_pred", "prediction", "predicted"):
+            if name in df.columns:
+                return name
+        raise ValueError(
+            "Cannot find prediction column. Include a column named 'y_pred' or 'prediction'."
+        )
+
+    def find_split_column(df: pd.DataFrame) -> str | None:
+        for name in ("__split__", "split"):
+            if name in df.columns:
+                return name
+        return None
+
+    def compute_cls_metrics(y_true, y_pred, y_prob) -> dict:
+        m: dict = {
+            "accuracy": round(float(accuracy_score(y_true, y_pred)), 6),
+            "f1_macro": round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 6),
+            "precision_macro": round(float(precision_score(y_true, y_pred, average="macro", zero_division=0)), 6),
+            "recall_macro": round(float(recall_score(y_true, y_pred, average="macro", zero_division=0)), 6),
+        }
+        if y_prob is not None and len(y_prob.columns) > 0:
+            try:
+                classes = sorted(y_true.unique())
+                if len(classes) == 2:
+                    prob_col = y_prob.columns[-1]
+                    m["auc"] = round(float(roc_auc_score(y_true, y_prob[prob_col])), 6)
+                elif len(classes) > 2:
+                    m["auc"] = round(float(roc_auc_score(y_true, y_prob.values, multi_class="ovr", average="macro")), 6)
+            except (ValueError, TypeError):
+                pass
+        m["support"] = int(len(y_true))
+        return m
 
     df = pd.read_parquet(inputs["predictions"])
 
     target_col = params.get("target_column", "")
     if not target_col:
-        # Convention-based fallback
         for name in ("y_true", "target", "label"):
             if name in df.columns:
                 target_col = name
@@ -599,34 +542,28 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
             f"Got columns: {list(df.columns)}"
         )
 
-    pred_col = _find_prediction_column(df)
-    split_col = _find_split_column(df)
+    pred_col = find_prediction_column(df)
+    split_col = find_split_column(df)
 
-    # Detect probability columns (y_prob_*)
     prob_cols = [c for c in df.columns if c.startswith("y_prob_")]
 
-    # Build per-split metrics
     splits: dict[str, dict] = {}
     if split_col:
         for split_name in df[split_col].unique():
             mask = df[split_col] == split_name
             split_df = df[mask]
             y_prob = split_df[prob_cols] if prob_cols else None
-            splits[str(split_name)] = _compute_classification_metrics(
+            splits[str(split_name)] = compute_cls_metrics(
                 split_df[target_col], split_df[pred_col], y_prob
             )
     else:
         y_prob = df[prob_cols] if prob_cols else None
-        splits["all"] = _compute_classification_metrics(
-            df[target_col], df[pred_col], y_prob
-        )
+        splits["all"] = compute_cls_metrics(df[target_col], df[pred_col], y_prob)
 
-    # Determine split ordering for display
     split_order = ["train", "val", "test"]
     ordered_splits = [s for s in split_order if s in splits]
     ordered_splits += [s for s in splits if s not in ordered_splits]
 
-    # Detect overfitting warnings
     warnings: list[dict] = []
     if "train" in splits and "val" in splits:
         train_acc = splits["train"]["accuracy"]
@@ -641,7 +578,6 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
                 ),
             })
 
-    # Metric descriptions for UI
     metric_info = {
         "accuracy": "Fraction of correct predictions",
         "f1_macro": "Harmonic mean of precision & recall (macro-averaged)",
@@ -700,13 +636,39 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
 )
 def regression_metrics(inputs: dict, params: dict) -> dict:
     """Compute regression metrics per split."""
+    import json
+
+    import numpy as np
     import pandas as pd
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+    def find_prediction_column(df: pd.DataFrame) -> str:
+        for name in ("y_pred", "prediction", "predicted"):
+            if name in df.columns:
+                return name
+        raise ValueError(
+            "Cannot find prediction column. Include a column named 'y_pred' or 'prediction'."
+        )
+
+    def find_split_column(df: pd.DataFrame) -> str | None:
+        for name in ("__split__", "split"):
+            if name in df.columns:
+                return name
+        return None
+
+    def compute_reg_metrics(y_true, y_pred) -> dict:
+        mse = float(mean_squared_error(y_true, y_pred))
+        return {
+            "mae": round(float(mean_absolute_error(y_true, y_pred)), 6),
+            "rmse": round(float(np.sqrt(mse)), 6),
+            "r2": round(float(r2_score(y_true, y_pred)), 6),
+            "support": int(len(y_true)),
+        }
 
     df = pd.read_parquet(inputs["predictions"])
 
     target_col = params.get("target_column", "")
     if not target_col:
-        # Convention-based fallback
         for name in ("y_true", "target", "label"):
             if name in df.columns:
                 target_col = name
@@ -718,22 +680,19 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
             f"Got columns: {list(df.columns)}"
         )
 
-    pred_col = _find_prediction_column(df)
-    split_col = _find_split_column(df)
+    pred_col = find_prediction_column(df)
+    split_col = find_split_column(df)
 
-    # Build per-split metrics
     splits: dict[str, dict] = {}
     if split_col:
         for split_name in df[split_col].unique():
             mask = df[split_col] == split_name
             split_df = df[mask]
-            splits[str(split_name)] = _compute_regression_metrics(
+            splits[str(split_name)] = compute_reg_metrics(
                 split_df[target_col], split_df[pred_col]
             )
     else:
-        splits["all"] = _compute_regression_metrics(
-            df[target_col], df[pred_col]
-        )
+        splits["all"] = compute_reg_metrics(df[target_col], df[pred_col])
 
     # Determine split ordering
     split_order = ["train", "val", "test"]
@@ -784,3 +743,296 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
     out = _get_output_path("report", ext=".json")
     out.write_text(json.dumps(report, indent=2))
     return {"report": str(out)}
+
+
+# ── Confusion Matrix ──────────────────────────────────────────
+
+
+@node(
+    inputs={"predictions": PortType.TABLE},
+    outputs={"report": PortType.METRICS},
+    params={
+        "normalize": Toggle(
+            default=False,
+            description="Show percentages instead of raw counts",
+        ),
+    },
+    label="Confusion Matrix",
+    category="Evaluation",
+    description="Compute confusion matrix with per-class precision, recall, and F1 for classification tasks.",
+    allowed_upstream={"predictions": ["train_sklearn_model", "train_xgboost"]},
+    guide="""## Confusion Matrix
+
+Visualise how a classifier's predictions compare against ground truth, broken down by class.
+
+### How to read it
+- **Rows** = true (actual) classes, **Columns** = predicted classes
+- **Diagonal** cells are correct predictions (True Positives for each class)
+- **Off-diagonal** cells are mistakes — the row tells you what the sample *was*, the column tells you what the model *guessed*
+
+### Key metrics shown alongside the matrix
+| Metric | Meaning |
+|--------|---------|
+| **Precision** | Of everything the model predicted as class X, how many actually were X? High precision = few false positives. |
+| **Recall** | Of all actual class X samples, how many did the model find? High recall = few false negatives. |
+| **F1** | Harmonic mean of precision and recall — a single number balancing both. |
+
+### Normalize toggle
+- **Off (raw counts):** see exactly how many samples fall into each cell — useful for spotting class imbalance.
+- **On (percentages):** each row sums to 100 % — easier to compare recall across classes of different sizes.""",
+)
+def confusion_matrix(inputs: dict, params: dict) -> dict:
+    """Compute confusion matrix with per-class precision/recall/F1."""
+    import json
+
+    import numpy as np
+    import pandas as pd
+
+    df = pd.read_parquet(inputs["predictions"])
+
+    if "y_true" not in df.columns or "y_pred" not in df.columns:
+        missing = [c for c in ("y_true", "y_pred") if c not in df.columns]
+        report = {
+            "report_type": "confusion_matrix",
+            "summary": {"total_samples": len(df), "num_classes": 0},
+            "confusion_matrix": [], "class_labels": [], "per_class": [],
+            "accuracy": 0.0,
+            "warnings": [{"type": "missing_columns",
+                          "message": f"Required columns missing: {', '.join(missing)}. "
+                          "Input table must contain 'y_true' and 'y_pred' columns."}],
+        }
+        out = _get_output_path("report", ext=".json")
+        out.write_text(json.dumps(report))
+        return {"report": str(out)}
+
+    y_true = df["y_true"].values
+    y_pred = df["y_pred"].values
+    classes = sorted(set(y_true) | set(y_pred), key=str)
+    class_labels = [str(c) for c in classes]
+    n_classes = len(classes)
+    total_samples = len(y_true)
+
+    label_to_idx = {c: i for i, c in enumerate(classes)}
+    cm = np.zeros((n_classes, n_classes), dtype=int)
+    for t, p in zip(y_true, y_pred):
+        cm[label_to_idx[t], label_to_idx[p]] += 1
+
+    per_class = []
+    for i, label in enumerate(class_labels):
+        tp = int(cm[i, i])
+        fp = int(cm[:, i].sum() - tp)
+        fn = int(cm[i, :].sum() - tp)
+        support = int(cm[i, :].sum())
+        prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        per_class.append({"label": label, "precision": round(prec, 4),
+                          "recall": round(rec, 4), "f1": round(f1, 4), "support": support})
+
+    accuracy = round(float(np.trace(cm)) / total_samples, 4) if total_samples > 0 else 0.0
+    row_sums = cm.sum(axis=1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cm_normalized = np.where(row_sums > 0, cm / row_sums, 0.0)
+
+    warn_list: list[dict] = []
+    supports = [pc["support"] for pc in per_class]
+    if supports and max(supports) > 3 * min(supports) and min(supports) > 0:
+        warn_list.append({"type": "class_imbalance",
+                          "message": f"Class sizes vary significantly (min {min(supports)}, max {max(supports)}). "
+                          "Consider stratified sampling or class weights."})
+    low_recall = [pc["label"] for pc in per_class if pc["recall"] < 0.5 and pc["support"] > 0]
+    if low_recall:
+        warn_list.append({"type": "low_recall",
+                          "message": f"Low recall (<50%) for: {', '.join(low_recall)}. "
+                          "The model is missing many samples of these classes."})
+
+    report = {
+        "report_type": "confusion_matrix",
+        "summary": {"total_samples": total_samples, "num_classes": n_classes},
+        "accuracy": accuracy, "class_labels": class_labels,
+        "confusion_matrix": cm.tolist(),
+        "confusion_matrix_normalized": [[round(v, 4) for v in row] for row in cm_normalized.tolist()],
+        "normalize": params.get("normalize", False),
+        "per_class": per_class, "warnings": warn_list,
+    }
+    out = _get_output_path("report", ext=".json")
+    out.write_text(json.dumps(report))
+    return {"report": str(out)}
+
+
+# ── Model Comparison ──────────────────────────────────────────
+
+_ALLOWED_MODEL_UPSTREAM = ["train_sklearn_model", "train_xgboost"]
+_ALLOWED_TEST_UPSTREAM = [
+    "random_holdout", "column_dropper", "missing_value_imputer",
+    "category_encoder", "scaler_transform", "log_transform",
+    "interaction_creator", "datetime_encoder",
+]
+
+
+@node(
+    inputs={
+        "model_a": PortType.MODEL, "model_b": PortType.MODEL,
+        "model_c": PortType.MODEL, "model_d": PortType.MODEL,
+        "test": PortType.TABLE,
+    },
+    outputs={"report": PortType.METRICS},
+    params={"target_column": Text(default="", description="Target column (auto-detected from schema)")},
+    label="Model Comparison",
+    category="Evaluation",
+    description="Compare 2-4 models side-by-side on the same test set.",
+    guide="""\
+## Model Comparison
+
+Compare multiple trained models on the **same held-out test set** to make
+a fair, apples-to-apples selection.
+
+### What metrics are computed?
+| Task | Metrics |
+|------|---------|
+| Classification | Accuracy, Precision, Recall, F1 Score |
+| Regression | MSE, RMSE, MAE, R-squared |
+
+Task type (classification vs regression) is auto-detected from the target column.
+
+### How to read the results
+- **Best values are highlighted** for each metric.
+- For classification: higher is better for all metrics.
+- For regression: lower is better for MSE/RMSE/MAE; higher is better for R-squared.
+
+### Interpreting close results
+When two models score within ~1-2% of each other, prefer the simpler model
+(fewer features, faster training) — the difference likely won't survive new data.""",
+    allowed_upstream={
+        "model_a": _ALLOWED_MODEL_UPSTREAM, "model_b": _ALLOWED_MODEL_UPSTREAM,
+        "model_c": _ALLOWED_MODEL_UPSTREAM, "model_d": _ALLOWED_MODEL_UPSTREAM,
+        "test": _ALLOWED_TEST_UPSTREAM,
+    },
+)
+def model_comparison(inputs: dict, params: dict) -> dict:
+    """Compare 2-4 models side-by-side on the same test set."""
+    import json
+    import warnings
+
+    import joblib
+    import numpy as np
+    import pandas as pd
+    from sklearn.metrics import (
+        accuracy_score, f1_score, mean_absolute_error,
+        mean_squared_error, precision_score, r2_score, recall_score,
+    )
+
+    MODEL_PORTS = ["model_a", "model_b", "model_c", "model_d"]
+    HIGHER_IS_BETTER = {"accuracy", "precision", "recall", "f1_score", "r2"}
+    LOWER_IS_BETTER = {"mse", "rmse", "mae"}
+
+    def detect_task(y: np.ndarray) -> str:
+        unique = np.unique(y[~np.isnan(y)] if np.issubdtype(y.dtype, np.floating) else y)
+        if len(unique) <= 20 and np.issubdtype(y.dtype, np.integer):
+            return "classification"
+        if len(unique) <= 20 and np.issubdtype(y.dtype, np.floating):
+            if np.allclose(unique, np.round(unique)):
+                return "classification"
+        return "regression"
+
+    def cls_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+        is_binary = len(np.unique(y_true)) <= 2
+        avg = "binary" if is_binary else "weighted"
+        return {
+            "accuracy": float(accuracy_score(y_true, y_pred)),
+            "precision": float(precision_score(y_true, y_pred, average=avg, zero_division=0)),
+            "recall": float(recall_score(y_true, y_pred, average=avg, zero_division=0)),
+            "f1_score": float(f1_score(y_true, y_pred, average=avg, zero_division=0)),
+        }
+
+    def reg_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+        mse = float(mean_squared_error(y_true, y_pred))
+        return {"mse": mse, "rmse": float(np.sqrt(mse)),
+                "mae": float(mean_absolute_error(y_true, y_pred)),
+                "r2": float(r2_score(y_true, y_pred))}
+
+    def find_best(metric_name: str, scores: dict[str, float]) -> list[str]:
+        if not scores:
+            return []
+        if metric_name in HIGHER_IS_BETTER:
+            best_val = max(scores.values())
+        elif metric_name in LOWER_IS_BETTER:
+            best_val = min(scores.values())
+        else:
+            return []
+        return [n for n, v in scores.items() if v == best_val]
+
+    connected_models: list[tuple[str, str]] = []
+    for port in MODEL_PORTS:
+        if port in inputs:
+            connected_models.append((port, inputs[port]))
+    if len(connected_models) < 2:
+        raise ValueError(f"Model Comparison requires at least 2 model inputs. Got {len(connected_models)}.")
+    if "test" not in inputs:
+        raise ValueError("Model Comparison requires a test TABLE input.")
+
+    test_df = pd.read_parquet(inputs["test"])
+    target_col = params.get("target_column", "")
+    if not target_col or target_col == "auto":
+        for name in ("target", "label", "y"):
+            if name in test_df.columns:
+                target_col = name
+                break
+    if not target_col or target_col not in test_df.columns:
+        target_col = test_df.columns[-1]
+        warnings.warn(f"Target column not specified; using last column: {target_col}", stacklevel=1)
+
+    X_test = test_df.drop(columns=[target_col])
+    y_test = test_df[target_col].to_numpy()
+    task = detect_task(y_test)
+    compute = cls_metrics if task == "classification" else reg_metrics
+
+    models_info: list[dict] = []
+    all_metric_names: list[str] = []
+    for port_name, model_path in connected_models:
+        model = joblib.load(model_path)
+        y_pred = model.predict(X_test)
+        metrics = compute(y_test, y_pred)
+        if not all_metric_names:
+            all_metric_names = list(metrics.keys())
+        models_info.append({
+            "port": port_name, "name": f"{port_name} ({type(model).__name__})",
+            "model_type": type(model).__name__, "metrics": metrics,
+        })
+
+    best_per_metric = {
+        mn: find_best(mn, {m["name"]: m["metrics"][mn] for m in models_info})
+        for mn in all_metric_names
+    }
+
+    warn_list: list[dict] = []
+    if len(test_df) < 50:
+        warn_list.append({"type": "small_test_set",
+                          "message": f"Test set has only {len(test_df)} rows — metrics may be unreliable."})
+    for mn in all_metric_names:
+        vals = [m["metrics"][mn] for m in models_info]
+        if len(vals) >= 2:
+            spread = max(vals) - min(vals)
+            if mn in HIGHER_IS_BETTER and spread < 0.02:
+                warn_list.append({"type": "close_results",
+                                  "message": f"Models are within 2% on {mn} ({spread:.4f}) — consider model complexity."})
+            elif mn in LOWER_IS_BETTER and spread < 0.01 * max(abs(v) for v in vals):
+                warn_list.append({"type": "close_results",
+                                  "message": f"Models are very close on {mn} — consider model complexity."})
+
+    report = {
+        "report_type": "model_comparison",
+        "summary": {"models_compared": len(models_info), "task_type": task,
+                     "test_rows": len(test_df), "features": len(X_test.columns)},
+        "models": models_info,
+        "comparison_table": {
+            "metric_names": all_metric_names,
+            "models": [m["name"] for m in models_info],
+            "values": {mn: [m["metrics"][mn] for m in models_info] for mn in all_metric_names},
+            "best": best_per_metric,
+        },
+        "warnings": warn_list,
+    }
+    output_path = _get_output_path("report")
+    output_path.write_text(json.dumps(report, indent=2))
+    return {"report": str(output_path)}

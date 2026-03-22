@@ -119,7 +119,11 @@ The `normalize` toggle applies **StandardScaler** inside this node before fittin
 )
 def linear_regression(inputs: dict, params: dict) -> dict:
     """Train a Linear Regression model on numeric/continuous targets."""
+    import json
+    from pathlib import Path
+
     import numpy as np
+    import pandas as pd
     from sklearn.linear_model import LinearRegression
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
     from sklearn.preprocessing import StandardScaler

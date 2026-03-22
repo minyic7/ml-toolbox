@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import polars as pl
-
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 

@@ -134,6 +134,10 @@ The model outputs calibrated probabilities, making it ideal when you need confid
 )
 def logistic_regression(inputs: dict, params: dict) -> dict:
     """Train a LogisticRegression classifier and produce predictions + metrics."""
+    import json
+    from pathlib import Path
+
+    import pandas as pd
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import (
         accuracy_score,
