@@ -179,7 +179,7 @@ def test_unsupported_model(tmp_path: Path):
     # KMeans has neither feature_importances_ nor coef_
     from sklearn.cluster import KMeans
 
-    model = KMeans(n_clusters=2, random_state=42, n_init=10)
+    model = KMeans(n_clusters=2, random_state=42, n_init=10)  # pyright: ignore[reportArgumentType]
     model.fit(np.random.randn(20, 3))
     p = tmp_path / "model.joblib"
     joblib.dump(model, p)
