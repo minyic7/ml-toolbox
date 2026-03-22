@@ -38,6 +38,28 @@ export function CsvReaderIcon({ color = "currentColor", size = 16 }: IconProps) 
   );
 }
 
+/** Spreadsheet with 'XLS' label — Excel file */
+export function ExcelReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Page with folded corner */}
+      <path
+        d="M4 1.5h5.5l3 3V13.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12A1 1 0 0 1 4 1.5z"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path d="M9.5 1.5V4.5h3" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* Grid lines — spreadsheet feel */}
+      <line x1="4.5" y1="7" x2="11.5" y2="7" stroke={color} strokeWidth="0.8" />
+      <line x1="4.5" y1="9.5" x2="11.5" y2="9.5" stroke={color} strokeWidth="0.8" />
+      <line x1="4.5" y1="12" x2="11.5" y2="12" stroke={color} strokeWidth="0.8" />
+      <line x1="7" y1="5.5" x2="7" y2="13" stroke={color} strokeWidth="0.8" />
+      <line x1="9.5" y1="5.5" x2="9.5" y2="13" stroke={color} strokeWidth="0.8" />
+    </svg>
+  );
+}
+
 // ── Preprocessing ───────────────────────────────────────────────
 
 /** Rectangle split into 3 unequal parts — train/val/test hold-out */
@@ -49,6 +71,26 @@ export function RandomHoldoutIcon({ color = "currentColor", size = 16 }: IconPro
       {/* Dashed dividers at ~70% and ~85% to suggest 70/15/15 split */}
       <line x1="10" y1="3" x2="10" y2="13" stroke={color} strokeWidth="1" strokeDasharray="2 1" />
       <line x1="12.5" y1="3" x2="12.5" y2="13" stroke={color} strokeWidth="1" strokeDasharray="2 1" />
+    </svg>
+  );
+}
+
+/** Rectangle split into 3 parts with horizontal bars — stratified hold-out */
+export function StratifiedHoldoutIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer rectangle */}
+      <rect x="1" y="3" width="14" height="10" rx="1" stroke={color} strokeWidth="1.2" />
+      {/* Dashed dividers at ~70% and ~85% to suggest 70/15/15 split */}
+      <line x1="10" y1="3" x2="10" y2="13" stroke={color} strokeWidth="1" strokeDasharray="2 1" />
+      <line x1="12.5" y1="3" x2="12.5" y2="13" stroke={color} strokeWidth="1" strokeDasharray="2 1" />
+      {/* Horizontal stratification lines — class distribution preserved */}
+      <line x1="2" y1="6.5" x2="9" y2="6.5" stroke={color} strokeWidth="0.8" opacity="0.5" />
+      <line x1="2" y1="9.5" x2="9" y2="9.5" stroke={color} strokeWidth="0.8" opacity="0.5" />
+      <line x1="10.5" y1="6.5" x2="12" y2="6.5" stroke={color} strokeWidth="0.8" opacity="0.5" />
+      <line x1="10.5" y1="9.5" x2="12" y2="9.5" stroke={color} strokeWidth="0.8" opacity="0.5" />
+      <line x1="13" y1="6.5" x2="14.5" y2="6.5" stroke={color} strokeWidth="0.8" opacity="0.5" />
+      <line x1="13" y1="9.5" x2="14.5" y2="9.5" stroke={color} strokeWidth="0.8" opacity="0.5" />
     </svg>
   );
 }
