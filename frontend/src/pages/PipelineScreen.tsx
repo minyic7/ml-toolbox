@@ -376,6 +376,13 @@ export default function PipelineScreen() {
     // Clicking blank canvas — keep drawer open with last selected node
   }, [nodeStatuses, selectedNodeId, rightPanelMode]);
 
+  const handleNodeDoubleClick = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setDrawerOpen(true);
+    setRightPanelMode('output');
+    setRightPanelOpen(true);
+  }, []);
+
   const handleTabClick = useCallback((nodeId: string, tab: string) => {
     setSelectedNodeId(nodeId);
     setDrawerOpen(true);
@@ -703,6 +710,7 @@ export default function PipelineScreen() {
               onDropNode={handleDropNode}
               onRunFrom={handleRunFrom}
               onNodeSelect={handleNodeSelect}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onTabClick={handleTabClick}
               onRenameNode={handleRenameFromContextMenu}
               onDuplicateNode={handleDuplicateNode}
