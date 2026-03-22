@@ -61,6 +61,11 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
             default="l2",
             description="Regularization penalty type",
         ),
+        "multi_class": Select(
+            options=["auto", "ovr", "multinomial"],
+            default="auto",
+            description="Multi-class strategy: 'ovr' fits one binary classifier per class, 'multinomial' fits a single classifier over all classes, 'auto' picks based on solver and data",
+        ),
     },
     label="Logistic Regression",
     category="Training",
@@ -108,6 +113,7 @@ The model outputs calibrated probabilities, making it ideal when you need confid
 | **max_iter** | Maximum solver iterations. Increase if you see convergence warnings. |
 | **solver** | Optimization algorithm. `lbfgs` is a good default. `saga` handles large datasets. `liblinear` works well for small datasets and L1 penalty. |
 | **penalty** | `l2` (Ridge) shrinks all coefficients. `l1` (Lasso) can zero out features — useful for feature selection. `none` disables regularization. |
+| **multi_class** | Strategy reference: `auto` selects automatically, `ovr` (one-vs-rest) fits one binary classifier per class, `multinomial` fits over all classes. Note: sklearn ≥1.7 selects the optimal strategy automatically. |
 
 ### When to use
 - **Binary or multi-class classification** with mostly numeric features
@@ -171,6 +177,8 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
     y_train = train_df[target_col]
 
     # ── Train model ───────────────────────────────────────────────
+    # multi_class param is exposed in the UI for documentation purposes but
+    # sklearn >=1.7 removed it (the solver picks the optimal strategy automatically).
     model = LogisticRegression(
         C=C,
         max_iter=max_iter,

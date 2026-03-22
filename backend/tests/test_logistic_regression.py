@@ -31,7 +31,7 @@ def test_logistic_regression_metadata():
         {"name": "metrics", "type": "METRICS"},
     ]
     param_names = {p["name"] for p in meta["params"]}
-    assert param_names == {"C", "max_iter", "solver", "penalty"}
+    assert param_names == {"C", "max_iter", "solver", "penalty", "multi_class"}
     assert meta["guide"] != ""
 
 
@@ -300,4 +300,27 @@ def test_multiclass_with_saga_solver(tmp_path: Path):
         params={"solver": "saga", "max_iter": 2000},
     )
     assert result["model"].solver == "saga"
+    assert len(result["model"].classes_) == 3
+
+
+def test_multi_class_param_accepted(tmp_path: Path):
+    """multi_class parameter should be accepted without error."""
+    result = _run_logistic(
+        tmp_path,
+        n_classes=3,
+        params={"multi_class": "multinomial"},
+    )
+    # sklearn >=1.7 removed multi_class param; verify training still succeeds
+    assert hasattr(result["model"], "coef_")
+    assert len(result["model"].classes_) == 3
+
+
+def test_multi_class_ovr_accepted(tmp_path: Path):
+    """multi_class='ovr' should be accepted without error."""
+    result = _run_logistic(
+        tmp_path,
+        n_classes=3,
+        params={"multi_class": "ovr"},
+    )
+    assert hasattr(result["model"], "coef_")
     assert len(result["model"].classes_) == 3
