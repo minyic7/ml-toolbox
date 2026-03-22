@@ -16,10 +16,10 @@ import ml_toolbox.nodes  # noqa: F401
 
 
 def test_logistic_regression_metadata():
-    meta = NODE_REGISTRY["ml_toolbox.nodes.training.logistic_regression"]
+    meta = NODE_REGISTRY["ml_toolbox.nodes.logistic_regression.logistic_regression"]
     assert meta["label"] == "Logistic Regression"
     assert meta["category"] == "Training"
-    assert meta["type"] == "ml_toolbox.nodes.training.logistic_regression"
+    assert meta["type"] == "ml_toolbox.nodes.logistic_regression.logistic_regression"
     assert meta["inputs"] == [
         {"name": "train", "type": "TABLE"},
         {"name": "val", "type": "TABLE"},
@@ -110,7 +110,7 @@ def _run_logistic(
     include_test=True,
 ):
     """Helper to set up data, meta, and run the logistic regression node."""
-    from ml_toolbox.nodes.training import logistic_regression
+    from ml_toolbox.nodes.logistic_regression import logistic_regression
 
     train_path, val_path, test_path = _make_classification_data(
         tmp_path, n_train, n_val, n_test, n_classes
@@ -128,7 +128,7 @@ def _run_logistic(
         inputs["test"] = str(test_path)
 
     with patch(
-        "ml_toolbox.nodes.training._get_output_path",
+        "ml_toolbox.nodes.logistic_regression._get_output_path",
         side_effect=_mock_output_factory(tmp_path),
     ):
         result = logistic_regression(inputs=inputs, params=params)

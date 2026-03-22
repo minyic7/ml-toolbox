@@ -1,4 +1,4 @@
-"""Logistic Regression training node — first Training-category node."""
+"""Random Forest training node — auto-detects classification vs regression."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ml_toolbox.protocol import PortType, Select, Slider, node
+from ml_toolbox.protocol import PortType, Slider, Text, node
 
 logger = logging.getLogger(__name__)
 
@@ -37,236 +37,244 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "metrics": PortType.METRICS,
     },
     params={
-        "C": Slider(
-            min=0.001,
-            max=100.0,
-            step=0.001,
-            default=1.0,
-            description="Inverse regularization strength — smaller values = stronger regularization",
+        "n_estimators": Slider(
+            min=10,
+            max=500,
+            step=10,
+            default=100,
+            description="Number of trees in the forest. More trees = better accuracy but slower training.",
         ),
-        "max_iter": Slider(
-            min=100,
-            max=5000,
-            step=100,
-            default=1000,
-            description="Maximum iterations for the solver to converge",
+        "max_depth": Slider(
+            min=1,
+            max=50,
+            step=1,
+            default=10,
+            description="Maximum depth of each tree. Higher = more complex model, risk of overfitting.",
         ),
-        "solver": Select(
-            options=["lbfgs", "saga", "liblinear"],
-            default="lbfgs",
-            description="Optimization algorithm",
+        "min_samples_split": Slider(
+            min=2,
+            max=20,
+            step=1,
+            default=2,
+            description="Minimum samples required to split an internal node.",
         ),
-        "penalty": Select(
-            options=["l2", "l1", "none"],
-            default="l2",
-            description="Regularization penalty type",
-        ),
-        "multi_class": Select(
-            options=["auto", "ovr", "multinomial"],
-            default="auto",
-            description="Multi-class strategy: 'ovr' fits one binary classifier per class, 'multinomial' fits a single classifier over all classes, 'auto' picks based on solver and data",
+        "n_jobs": Text(
+            default="-1",
+            description="Number of parallel jobs (-1 = use all cores)",
+            placeholder="-1",
         ),
     },
-    label="Logistic Regression",
+    label="Random Forest",
     category="Training",
-    description="Train a scikit-learn LogisticRegression classifier. Reads target from .meta.json, outputs predictions, model (.joblib), and metrics (.json).",
+    description="Train a Random Forest model (classifier or regressor). Auto-detects task type from target column metadata.",
     allowed_upstream={
         "train": [
-            "random_holdout",
-            "scaler_transform",
-            "column_dropper",
-            "missing_value_imputer",
-            "category_encoder",
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "scaler_transform",
         ],
         "val": [
-            "random_holdout",
-            "scaler_transform",
-            "column_dropper",
-            "missing_value_imputer",
-            "category_encoder",
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "scaler_transform",
         ],
         "test": [
-            "random_holdout",
-            "scaler_transform",
-            "column_dropper",
-            "missing_value_imputer",
-            "category_encoder",
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "scaler_transform",
         ],
     },
-    guide="""## Logistic Regression
+    guide="""## Random Forest
 
-A linear classifier that models the probability of class membership using the logistic (sigmoid) function. Despite its name, it is used for **classification**, not regression.
+A **Random Forest** is an ensemble of decision trees trained on random subsets of the data (bagging). Each tree votes on the prediction, and the forest aggregates the votes — majority vote for classification, average for regression.
 
-### How it works
+### Why Random Forest?
+- **Robust out-of-the-box** — works well without much tuning
+- **Handles mixed feature types** — numeric and categorical (after encoding)
+- **Built-in feature importance** — see which features drive predictions
+- **Resistant to overfitting** — thanks to bagging and random feature selection
 
-Logistic regression fits a linear decision boundary by minimizing a log-loss objective. For input features **x**, it predicts:
+### Key Parameters
 
-`P(y=1|x) = 1 / (1 + exp(-(w·x + b)))`
+| Parameter | Effect | Guidance |
+|-----------|--------|----------|
+| **n_estimators** | Number of trees | More trees → better accuracy but slower. 100–300 is usually enough; diminishing returns beyond that. |
+| **max_depth** | Max tree depth | Controls model complexity. Lower = simpler model, less overfitting. Start with 10, increase if underfitting. |
+| **min_samples_split** | Min samples to split a node | Higher values prevent the tree from learning overly specific patterns. |
+| **n_jobs** | Parallel workers | `-1` uses all CPU cores. Set to `1` for debugging. |
 
-The model outputs calibrated probabilities, making it ideal when you need confidence scores alongside predictions.
+### Auto-detection
+The node reads `.meta.json` to determine the task type:
+- **binary / multiclass** target → `RandomForestClassifier`
+- **continuous** target → `RandomForestRegressor`
 
-### Parameters
+### Feature Importance
+The output `metrics.json` includes `feature_importances` — a ranked list of features by importance (Gini importance). The **Feature Importance** evaluation node can read and visualize this.
 
-| Parameter | Purpose |
-|-----------|---------|
-| **C** | Inverse regularization strength. Lower values (e.g. 0.01) = stronger regularization = simpler model. Higher values (e.g. 100) = less regularization = more complex model. |
-| **max_iter** | Maximum solver iterations. Increase if you see convergence warnings. |
-| **solver** | Optimization algorithm. `lbfgs` is a good default. `saga` handles large datasets. `liblinear` works well for small datasets and L1 penalty. |
-| **penalty** | `l2` (Ridge) shrinks all coefficients. `l1` (Lasso) can zero out features — useful for feature selection. `none` disables regularization. |
-| **multi_class** | Strategy reference: `auto` selects automatically, `ovr` (one-vs-rest) fits one binary classifier per class, `multinomial` fits over all classes. Note: sklearn ≥1.7 selects the optimal strategy automatically. |
-
-### When to use
-- **Binary or multi-class classification** with mostly numeric features
-- **Interpretability matters** — coefficients show feature importance and direction
-- **Calibrated probabilities** — output probabilities are well-calibrated by design
-- **Baseline model** — fast to train, easy to understand, hard to beat on clean data
-
-### Solver–penalty compatibility
-| Solver | l1 | l2 | none |
-|--------|----|----|------|
-| lbfgs | — | yes | yes |
-| saga | yes | yes | yes |
-| liblinear | yes | yes | — |
-
-### Outputs
-- **predictions** — DataFrame with `y_pred`, `y_prob_<class>` columns, and a `split` column (train/val/test)
-- **model** — Trained sklearn model saved as `.joblib`
-- **metrics** — JSON with accuracy, F1, precision, recall, and AUC per split
+### Inputs / Outputs
+| Port | Type | Required | Description |
+|------|------|----------|-------------|
+| train | TABLE | Yes | Training data with features + target |
+| val | TABLE | No | Validation split — predictions + metrics computed if connected |
+| test | TABLE | No | Test split — predictions + metrics computed if connected |
+| predictions | TABLE | Out | Predictions for all connected splits (stacked) |
+| model | MODEL | Out | Trained sklearn model (joblib-serialized) |
+| metrics | METRICS | Out | Accuracy/RMSE per split + feature importances |
 """,
 )
-def logistic_regression(inputs: dict, params: dict) -> dict:
-    """Train a LogisticRegression classifier and produce predictions + metrics."""
-    from sklearn.linear_model import LogisticRegression
+def random_forest(inputs: dict, params: dict) -> dict:
+    """Train a Random Forest model — auto-detects classification vs regression."""
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
     from sklearn.metrics import (
         accuracy_score,
         f1_score,
-        precision_score,
-        recall_score,
-        roc_auc_score,
+        mean_absolute_error,
+        mean_squared_error,
+        r2_score,
     )
 
-    # ── Parse params ──────────────────────────────────────────────
-    C = float(params.get("C", 1.0))
-    max_iter = int(params.get("max_iter", 1000))
-    solver = params.get("solver", "lbfgs")
-    penalty_raw = params.get("penalty", "l2")
+    n_estimators = int(params.get("n_estimators", 100))
+    max_depth = int(params.get("max_depth", 10))
+    min_samples_split = int(params.get("min_samples_split", 2))
+    n_jobs_str = str(params.get("n_jobs", "-1")).strip()
+    n_jobs = int(n_jobs_str) if n_jobs_str else -1
 
-    # sklearn uses None instead of "none" string
-    penalty_val: str | None = None if penalty_raw == "none" else penalty_raw
-
-    # ── Read train data + meta ────────────────────────────────────
+    # ── Read train data ──────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
+    # ── Read .meta.json sidecar ──────────────────────────────────
     meta_path = Path(inputs["train"]).with_suffix(".meta.json")
+    meta: dict = {}
     target_col: str | None = None
+    semantic_type: str | None = None
+
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
             target_col = meta.get("target")
+            if target_col:
+                col_meta = meta.get("columns", {}).get(target_col, {})
+                semantic_type = col_meta.get("semantic_type")
         except Exception:
             pass
 
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
-            f"Cannot determine target column. meta.json target='{target_col}', "
-            f"available columns: {list(train_df.columns)}"
+            "Cannot determine target column. Ensure upstream data has a .meta.json "
+            "sidecar with a 'target' field."
         )
 
-    # ── X/y split ─────────────────────────────────────────────────
-    X_train = train_df.drop(columns=[target_col])
+    # ── Auto-detect task type ────────────────────────────────────
+    is_classification = semantic_type in ("binary", "multiclass")
+
+    # ── Prepare features and target ──────────────────────────────
+    feature_cols = [c for c in train_df.columns if c != target_col]
+    X_train = train_df[feature_cols]
     y_train = train_df[target_col]
 
-    # ── Train model ───────────────────────────────────────────────
-    # multi_class param is exposed in the UI for documentation purposes but
-    # sklearn >=1.7 removed it (the solver picks the optimal strategy automatically).
-    model = LogisticRegression(
-        C=C,
-        max_iter=max_iter,
-        solver=solver,
-        penalty=penalty_val,  # type: ignore[arg-type]
-        random_state=42,
-    )
+    # ── Train model ──────────────────────────────────────────────
+    if is_classification:
+        model = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            n_jobs=n_jobs,
+            random_state=42,
+        )
+    else:
+        model = RandomForestRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            n_jobs=n_jobs,
+            random_state=42,
+        )
+
     model.fit(X_train, y_train)
 
-    # ── Helper: compute metrics for a split ───────────────────────
-    classes = model.classes_
+    # ── Compute metrics per split ────────────────────────────────
+    def _evaluate(df: pd.DataFrame, split_name: str) -> tuple[dict, pd.DataFrame]:
+        X = df[feature_cols]
+        y_true = df[target_col]
+        y_pred = model.predict(X)
 
-    def _compute_metrics(y_true: pd.Series, y_pred, y_prob) -> dict:  # type: ignore[type-arg]
-        is_binary = len(classes) == 2
-        average = "binary" if is_binary else "weighted"
-
-        metrics: dict = {
-            "accuracy": float(accuracy_score(y_true, y_pred)),
-            "f1": float(f1_score(y_true, y_pred, average=average, zero_division=0.0)),  # type: ignore[arg-type]
-            "precision": float(
-                precision_score(y_true, y_pred, average=average, zero_division=0.0)  # type: ignore[arg-type]
-            ),
-            "recall": float(
-                recall_score(y_true, y_pred, average=average, zero_division=0.0)  # type: ignore[arg-type]
-            ),
-        }
-
-        # AUC — needs probability columns
-        try:
-            if is_binary:
-                metrics["auc"] = float(roc_auc_score(y_true, y_prob[:, 1]))
-            else:
-                metrics["auc"] = float(
-                    roc_auc_score(y_true, y_prob, multi_class="ovr", average="weighted")
-                )
-        except (ValueError, IndexError):
-            # AUC can fail if only one class is present in the split
-            pass
-
-        return metrics
-
-    # ── Generate predictions + metrics per split ──────────────────
-    all_predictions: list[pd.DataFrame] = []
-    metrics_report: dict = {"report_type": "training_metrics"}
-
-    for split_name in ("train", "val", "test"):
-        input_path = inputs.get(split_name)
-        if not input_path:
-            continue
-
-        split_path = Path(input_path)
-        if not split_path.exists():
-            continue
-
-        split_df = train_df if split_name == "train" else pd.read_parquet(split_path)
-        if split_df.empty:
-            continue
-
-        X_split = split_df.drop(columns=[target_col])
-        y_split: pd.Series = split_df[target_col]  # type: ignore[assignment]
-
-        y_pred = model.predict(X_split)
-        y_prob = model.predict_proba(X_split)
-
-        # Build predictions DataFrame
-        pred_df = pd.DataFrame({"y_pred": y_pred})
-        for i, cls in enumerate(classes):
-            pred_df[f"y_prob_{cls}"] = y_prob[:, i]
+        pred_df = df.copy()
+        pred_df["prediction"] = y_pred
         pred_df["split"] = split_name
-        all_predictions.append(pred_df)
 
-        # Compute metrics
-        metrics_report[split_name] = _compute_metrics(y_split, y_pred, y_prob)
+        if is_classification:
+            return {
+                "accuracy": float(accuracy_score(y_true, y_pred)),
+                "f1_weighted": float(f1_score(y_true, y_pred, average="weighted", zero_division="warn")),
+            }, pred_df
+        else:
+            return {
+                "rmse": float(mean_squared_error(y_true, y_pred) ** 0.5),
+                "mae": float(mean_absolute_error(y_true, y_pred)),
+                "r2": float(r2_score(y_true, y_pred)),
+            }, pred_df
 
-    # ── Save predictions ──────────────────────────────────────────
+    all_predictions: list[pd.DataFrame] = []
+    split_metrics: dict[str, dict] = {}
+
+    # Train metrics
+    train_metrics, train_preds = _evaluate(train_df, "train")
+    split_metrics["train_metrics"] = train_metrics
+    all_predictions.append(train_preds)
+
+    # Val metrics (optional)
+    if inputs.get("val"):
+        val_path = Path(inputs["val"])
+        if val_path.exists():
+            val_df = pd.read_parquet(val_path)
+            val_metrics, val_preds = _evaluate(val_df, "val")
+            split_metrics["val_metrics"] = val_metrics
+            all_predictions.append(val_preds)
+
+    # Test metrics (optional)
+    if inputs.get("test"):
+        test_path = Path(inputs["test"])
+        if test_path.exists():
+            test_df = pd.read_parquet(test_path)
+            test_metrics, test_preds = _evaluate(test_df, "test")
+            split_metrics["test_metrics"] = test_metrics
+            all_predictions.append(test_preds)
+
+    # ── Feature importances ──────────────────────────────────────
+    importances = model.feature_importances_
+    feature_importances = sorted(
+        [{"feature": f, "importance": float(imp)} for f, imp in zip(feature_cols, importances)],
+        key=lambda x: x["importance"],
+        reverse=True,
+    )
+
+    # ── Build summary ────────────────────────────────────────────
+    # Use val metrics for summary if available, else train
+    summary_source = split_metrics.get("val_metrics", split_metrics["train_metrics"])
+
+    metrics_output = {
+        "report_type": "random_forest",
+        "task": "classification" if is_classification else "regression",
+        "summary": summary_source,
+        **split_metrics,
+        "feature_importances": feature_importances,
+        "params": {
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "min_samples_split": min_samples_split,
+            "n_jobs": n_jobs,
+        },
+    }
+
+    # ── Write outputs ────────────────────────────────────────────
+    # Predictions
     predictions_df = pd.concat(all_predictions, ignore_index=True)
-    predictions_path = _get_output_path("predictions", ".parquet")
-    predictions_df.to_parquet(predictions_path, index=False)
+    pred_path = _get_output_path("predictions", ".parquet")
+    predictions_df.to_parquet(pred_path, index=False)
 
-    # ── Save metrics ──────────────────────────────────────────────
+    # Metrics
     metrics_path = _get_output_path("metrics", ".json")
-    metrics_path.write_text(json.dumps(metrics_report, indent=2))
+    metrics_path.write_text(json.dumps(metrics_output, indent=2))
 
-    # ── Return results ────────────────────────────────────────────
-    # MODEL output: return the raw model object — the sandbox runner
-    # auto-serializes it to .joblib based on the output port type.
     return {
-        "predictions": str(predictions_path),
+        "predictions": str(pred_path),
         "model": model,
         "metrics": str(metrics_path),
     }
