@@ -146,6 +146,55 @@ automatically selects columns where:
 )
 def log_transform(inputs: dict, params: dict) -> dict:
     """Apply log1p to selected columns in all splits."""
+    import json
+    import warnings
+    from pathlib import Path
+
+    import polars as pl
+
+    _NUMERIC = (
+        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
+        pl.Float32, pl.Float64,
+    )
+
+    def _read_meta(parquet_path: str) -> dict:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        if meta_path.exists():
+            try:
+                return json.loads(meta_path.read_text())
+            except Exception:
+                pass
+        return {}
+
+    def _write_meta(parquet_path: str, metadata: dict) -> None:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+    def _read_eda_context(parquet_path: str) -> dict:
+        ctx_path = Path(parquet_path).with_suffix(".eda-context.json")
+        if ctx_path.exists():
+            try:
+                return json.loads(ctx_path.read_text())
+            except Exception:
+                pass
+        return {}
+
+    def _auto_select_columns(eda: dict, avail: list[str]) -> list[str]:
+        selected: set[str] = set()
+        dist = eda.get("distribution", {})
+        for col, info in dist.items():
+            if col in avail:
+                skew = info.get("skewness", 0)
+                if isinstance(skew, (int, float)) and skew > 1:
+                    selected.add(col)
+        outliers = eda.get("outliers", {})
+        for col, info in outliers.items():
+            if col in avail:
+                pct = info.get("outlier_pct", 0)
+                if isinstance(pct, (int, float)) and pct > 0.05:
+                    selected.add(col)
+        return sorted(selected)
 
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
@@ -158,7 +207,7 @@ def log_transform(inputs: dict, params: dict) -> dict:
     # ── Determine numeric columns ────────────────────────────────
     available_numeric = [
         c for c in train_df.columns
-        if train_df[c].dtype in _NUMERIC_DTYPES and c != target_col
+        if train_df[c].dtype in _NUMERIC and c != target_col
     ]
 
     # ── Resolve columns to transform ─────────────────────────────

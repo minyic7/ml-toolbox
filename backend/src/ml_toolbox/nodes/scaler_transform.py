@@ -88,6 +88,104 @@ Scale numeric features so they share a common range or distribution. **Always fi
 )
 def scaler_transform(inputs: dict, params: dict) -> dict:
     """Scale numeric features — fit on train, transform all splits."""
+    import json
+    import logging
+    from pathlib import Path
+
+    import polars as pl
+
+    _logger = logging.getLogger(__name__)
+
+    numeric_dtypes = (
+        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
+        pl.Float32, pl.Float64,
+    )
+
+    def _get_numeric_cols(df: pl.DataFrame, col_metadata: dict) -> list[str]:
+        if col_metadata:
+            numeric = []
+            for name, meta in col_metadata.items():
+                if name not in df.columns:
+                    continue
+                role = meta.get("role", "")
+                if role in ("ignore", "identifier"):
+                    continue
+                dtype_str = meta.get("dtype", "").lower()
+                if any(t in dtype_str for t in ("int", "float", "numeric", "decimal")):
+                    numeric.append(name)
+                elif df[name].dtype in numeric_dtypes:
+                    numeric.append(name)
+            return numeric
+        return [name for name, dtype in zip(df.columns, df.dtypes) if dtype in numeric_dtypes]
+
+    def _fit(train_df: pl.DataFrame, scale_cols: list[str], method: str) -> dict[str, dict]:
+        fit: dict[str, dict] = {}
+        for col in scale_cols:
+            series = train_df[col].drop_nulls().cast(float)
+            if method == "StandardScaler":
+                mean = series.mean()
+                std = series.std()
+                if std is None or std == 0:
+                    _logger.warning("Column '%s' has zero variance — skipping (StandardScaler)", col)
+                    continue
+                fit[col] = {"mean": float(mean), "std": float(std)}  # type: ignore[arg-type]
+            elif method == "MinMaxScaler":
+                mn = series.min()
+                mx = series.max()
+                if mn == mx:
+                    _logger.warning("Column '%s' has min==max — skipping (MinMaxScaler)", col)
+                    continue
+                fit[col] = {"min": float(mn), "max": float(mx)}  # type: ignore[arg-type]
+            elif method == "RobustScaler":
+                median = series.median()
+                q25 = series.quantile(0.25, interpolation="linear")
+                q75 = series.quantile(0.75, interpolation="linear")
+                iqr = float(q75) - float(q25)  # type: ignore[arg-type]
+                if iqr == 0:
+                    _logger.warning("Column '%s' has zero IQR — skipping (RobustScaler)", col)
+                    continue
+                fit[col] = {"median": float(median), "iqr": iqr}  # type: ignore[arg-type]
+        return fit
+
+    def _transform_df(df: pl.DataFrame, fit_params: dict[str, dict], method: str) -> pl.DataFrame:
+        exprs: list[pl.Expr] = []
+        for col, fp in fit_params.items():
+            if col not in df.columns:
+                continue
+            if method == "StandardScaler":
+                exprs.append(
+                    ((pl.col(col).cast(pl.Float64) - fp["mean"]) / fp["std"]).alias(col)
+                )
+            elif method == "MinMaxScaler":
+                exprs.append(
+                    ((pl.col(col).cast(pl.Float64) - fp["min"]) / (fp["max"] - fp["min"])).alias(col)
+                )
+            elif method == "RobustScaler":
+                exprs.append(
+                    ((pl.col(col).cast(pl.Float64) - fp["median"]) / fp["iqr"]).alias(col)
+                )
+        if exprs:
+            df = df.with_columns(exprs)
+        return df
+
+    def _write_meta_sidecar(
+        output_path: Path, col_metadata: dict, fit_params: dict[str, dict], target_col: str | None,
+    ) -> None:
+        if not col_metadata:
+            return
+        updated = {}
+        for name, meta in col_metadata.items():
+            entry = dict(meta)
+            if name in fit_params:
+                entry["dtype"] = "Float64"
+            updated[name] = entry
+        sidecar = {"columns": updated, "generated_by": "scaler_transform"}
+        if target_col:
+            sidecar["target"] = target_col
+        meta_out = output_path.with_suffix(".meta.json")
+        meta_out.write_text(json.dumps(sidecar, indent=2))
+
     method = params.get("method", "StandardScaler")
     columns_param = params.get("columns", "")
 
@@ -110,24 +208,18 @@ def scaler_transform(inputs: dict, params: dict) -> dict:
     if columns_param.strip():
         requested = [c.strip() for c in columns_param.split(",") if c.strip()]
     else:
-        # All numeric columns from metadata or from DataFrame dtypes
-        requested = _get_numeric_columns(train_df, col_metadata)
+        requested = _get_numeric_cols(train_df, col_metadata)
 
     # Filter out target column and non-numeric columns
     scale_cols: list[str] = []
-    numeric_dtypes = (
-        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
-        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
-        pl.Float32, pl.Float64,
-    )
     for col in requested:
         if col == target_col:
             continue
         if col not in train_df.columns:
-            logger.warning("Column '%s' not found in data — skipping", col)
+            _logger.warning("Column '%s' not found in data — skipping", col)
             continue
         if train_df[col].dtype not in numeric_dtypes:
-            logger.warning("Column '%s' is not numeric (%s) — skipping", col, train_df[col].dtype)
+            _logger.warning("Column '%s' is not numeric (%s) — skipping", col, train_df[col].dtype)
             continue
         scale_cols.append(col)
 
@@ -146,15 +238,13 @@ def scaler_transform(inputs: dict, params: dict) -> dict:
             continue
 
         df = pl.read_parquet(split_path) if split_name != "train" else train_df
-        # Skip empty DataFrames (e.g. val with 0 rows)
         if df.height > 0:
-            df = _transform(df, fit_params, method)
+            df = _transform_df(df, fit_params, method)
 
         out_path = _get_output_path(split_name)
         df.write_parquet(out_path)
         results[split_name] = str(out_path)
 
-        # ── Write updated .meta.json sidecar ─────────────────────
         _write_meta_sidecar(out_path, col_metadata, fit_params, target_col)
 
     return results
