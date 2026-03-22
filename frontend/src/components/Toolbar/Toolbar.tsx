@@ -19,6 +19,7 @@ import {
   ScalerTransformIcon,
   FeatureCreatorIcon,
   GradientBoostingIcon,
+  FeatureSelectorIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -51,6 +52,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   scaler_transform: ScalerTransformIcon,
   feature_creator: FeatureCreatorIcon,
   gradient_boosting_train: GradientBoostingIcon,
+  feature_selector: FeatureSelectorIcon,
 };
 
 /** Stable category ordering */
