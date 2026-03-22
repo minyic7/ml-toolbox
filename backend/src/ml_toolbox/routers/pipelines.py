@@ -350,6 +350,43 @@ async def update_node(pipeline_id: str, node_id: str, body: UpdateNodeRequest) -
 
 # ── Edge Operations ──────────────────────────────────────────────
 
+# When a user connects a "train" port, automatically create companion
+# edges for "val" and "test" (if both source and target have those ports).
+_COMPANION_PORTS: dict[str, list[str]] = {"train": ["val", "test"]}
+
+
+def _create_companion_edges(
+    data: dict,
+    source_node: dict,
+    target_node: dict,
+    body: AddEdgeRequest,
+) -> list[dict]:
+    """Return companion edges to auto-create alongside a primary edge."""
+    companions = _COMPANION_PORTS.get(body.source_port, [])
+    if not companions:
+        return []
+
+    source_outputs = {o["name"] for o in source_node.get("outputs", [])}
+    target_inputs = {i["name"] for i in target_node.get("inputs", [])}
+    occupied_target_ports = {
+        e["target_port"]
+        for e in data["edges"]
+        if e["target"] == body.target
+    }
+
+    result: list[dict] = []
+    for port in companions:
+        if port in source_outputs and port in target_inputs and port not in occupied_target_ports:
+            result.append({
+                "id": uuid.uuid4().hex,
+                "source": body.source,
+                "source_port": port,
+                "target": body.target,
+                "target_port": port,
+                "condition": None,
+            })
+    return result
+
 
 def _node_label(node: dict) -> str:
     """Return the display label for a pipeline node."""
@@ -494,10 +531,18 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
     }
 
     data["edges"].append(edge)
+
+    # Auto-connect companion ports (train → val, test)
+    companion_edges = _create_companion_edges(data, source_node, target_node, body)
+    data["edges"].extend(companion_edges)
+
     store.save(pipeline_id, data)
 
     # Auto-configure target node params from upstream metadata (instant, no LLM)
     _auto_configure_node(pipeline_id, body.target)
+
+    if companion_edges:
+        broadcast_sync(pipeline_id, {"type": "pipeline_updated", "node_id": body.target})
 
     return edge
 
@@ -506,13 +551,31 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
 async def delete_edge(pipeline_id: str, edge_id: str) -> None:
     data = _load_pipeline(pipeline_id)
 
-    original_count = len(data["edges"])
-    data["edges"] = [e for e in data["edges"] if e["id"] != edge_id]
-
-    if len(data["edges"]) == original_count:
+    deleted_edge = next((e for e in data["edges"] if e["id"] == edge_id), None)
+    if deleted_edge is None:
         raise HTTPException(status_code=404, detail="Edge not found")
 
+    # Collect IDs to remove: the requested edge + any companion edges
+    ids_to_remove = {edge_id}
+    companion_ports = _COMPANION_PORTS.get(deleted_edge.get("source_port", ""), [])
+    if companion_ports:
+        for e in data["edges"]:
+            if (
+                e["source"] == deleted_edge["source"]
+                and e["target"] == deleted_edge["target"]
+                and e["source_port"] in companion_ports
+                and e["target_port"] in companion_ports
+            ):
+                ids_to_remove.add(e["id"])
+
+    data["edges"] = [e for e in data["edges"] if e["id"] not in ids_to_remove]
+
     store.save(pipeline_id, data)
+    if len(ids_to_remove) > 1:
+        broadcast_sync(
+            pipeline_id,
+            {"type": "pipeline_updated", "node_id": deleted_edge["target"]},
+        )
 
 
 @router.patch("/{pipeline_id}/edges/{edge_id}")
