@@ -67,16 +67,19 @@ def _write_meta(parquet_path: str, metadata: dict) -> None:
             "random_holdout", "stratified_holdout", "column_dropper",
             "missing_value_imputer", "category_encoder", "scaler_transform",
             "feature_selector",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "val": [
             "random_holdout", "stratified_holdout", "column_dropper",
             "missing_value_imputer", "category_encoder", "scaler_transform",
             "feature_selector",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "test": [
             "random_holdout", "stratified_holdout", "column_dropper",
             "missing_value_imputer", "category_encoder", "scaler_transform",
             "feature_selector",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Feature Selector

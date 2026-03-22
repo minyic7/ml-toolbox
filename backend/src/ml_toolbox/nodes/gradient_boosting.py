@@ -84,18 +84,21 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
             "column_dropper",
             "missing_value_imputer",
             "scaler_transform",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "val": [
             "random_holdout",
             "column_dropper",
             "missing_value_imputer",
             "scaler_transform",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "test": [
             "random_holdout",
             "column_dropper",
             "missing_value_imputer",
             "scaler_transform",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Gradient Boosting
