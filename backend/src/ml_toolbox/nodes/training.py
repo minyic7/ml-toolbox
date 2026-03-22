@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import polars as pl
-
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 
@@ -105,6 +103,10 @@ The node detects the task type from the target column data:
 )
 def decision_tree(inputs: dict, params: dict) -> dict:
     """Train a Decision Tree — auto-detect classification vs regression."""
+    import json
+    from pathlib import Path
+
+    import polars as pl
     from sklearn.metrics import (
         accuracy_score,
         f1_score,
@@ -344,6 +346,10 @@ The output `metrics.json` includes `feature_importances` — a ranked list of fe
 )
 def random_forest(inputs: dict, params: dict) -> dict:
     """Train a Random Forest model — auto-detects classification vs regression."""
+    import json
+    from pathlib import Path
+
+    import pandas as pd
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
     from sklearn.metrics import (
         accuracy_score,

@@ -25,7 +25,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     label="CSV Reader",
     category="Ingest",
     description="Load a CSV file into a TABLE output.",
-    allowed_upstream=[],
+    allowed_upstream={},
 )
 def csv_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     """Load a CSV file into a TABLE output."""
@@ -57,7 +57,7 @@ def csv_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     label="Parquet Reader",
     category="Ingest",
     description="Load a Parquet file into a TABLE output.",
-    allowed_upstream=[],
+    allowed_upstream={},
 )
 def parquet_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     """Load a Parquet file into a TABLE output."""
@@ -87,7 +87,7 @@ def parquet_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     label="Excel Reader",
     category="Ingest",
     description="Load an Excel file (.xlsx) into a TABLE output.",
-    allowed_upstream=[],
+    allowed_upstream={},
 )
 def excel_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     """Load an Excel file (.xlsx) into a TABLE output."""

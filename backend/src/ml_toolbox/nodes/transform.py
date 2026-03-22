@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from ml_toolbox.protocol import PortType, Select, Text, node
 
@@ -429,188 +428,134 @@ def category_encoder(inputs: dict, params: dict) -> dict:
     """Encode categorical columns using label, ordinal, or one-hot encoding."""
     import polars as pl
 
+    def encode_label_ordinal(
+        inputs: dict, train_df: pl.DataFrame, cat_columns: list[str], handle_unknown: str,
+    ) -> dict:
+        mappings: dict[str, dict[str, int]] = {}
+        for col in cat_columns:
+            unique_vals = sorted(train_df[col].drop_nulls().unique().to_list(), key=str)
+            mappings[col] = {str(v): i for i, v in enumerate(unique_vals)}
+
+        def apply_mapping(df: pl.DataFrame, split_name: str) -> pl.DataFrame:
+            for col in cat_columns:
+                mapping = mappings[col]
+                col_values = df[col].cast(pl.Utf8)
+                if handle_unknown == "error" and split_name != "train":
+                    for v in col_values.drop_nulls().unique().to_list():
+                        if v not in mapping:
+                            raise ValueError(
+                                f"Unseen category '{v}' in column '{col}' of {split_name} set"
+                            )
+                old = pl.Series(list(mapping.keys()))
+                new = pl.Series(list(mapping.values()))
+                encoded = col_values.replace_strict(old, new, default=-1).cast(pl.Int64)
+                df = df.with_columns(encoded.alias(col))
+            return df
+
+        train_encoded = apply_mapping(train_df, "train")
+        train_path = _get_output_path("train")
+        train_encoded.write_parquet(train_path)
+        result: dict[str, str] = {"train": str(train_path)}
+
+        if "val" in inputs:
+            val_df = pl.read_parquet(inputs["val"])
+            val_encoded = apply_mapping(val_df, "val") if val_df.height > 0 else val_df
+            val_path = _get_output_path("val")
+            val_encoded.write_parquet(val_path)
+            result["val"] = str(val_path)
+
+        if "test" in inputs:
+            test_df = pl.read_parquet(inputs["test"])
+            test_encoded = apply_mapping(test_df, "test") if test_df.height > 0 else test_df
+            test_path = _get_output_path("test")
+            test_encoded.write_parquet(test_path)
+            result["test"] = str(test_path)
+
+        return result
+
+    def encode_onehot(
+        inputs: dict, train_df: pl.DataFrame, cat_columns: list[str], handle_unknown: str,
+    ) -> dict:
+        category_sets: dict[str, list[str]] = {}
+        for col in cat_columns:
+            category_sets[col] = sorted(
+                [str(v) for v in train_df[col].drop_nulls().unique().to_list()]
+            )
+
+        def apply_onehot(df: pl.DataFrame, split_name: str) -> pl.DataFrame:
+            for col in cat_columns:
+                categories = category_sets[col]
+                col_values = df[col].cast(pl.Utf8)
+                if handle_unknown == "error" and split_name != "train":
+                    for v in col_values.drop_nulls().unique().to_list():
+                        if v not in categories:
+                            raise ValueError(
+                                f"Unseen category '{v}' in column '{col}' of {split_name} set"
+                            )
+                new_cols = [
+                    (pl.col(col).cast(pl.Utf8) == cat_value)
+                    .cast(pl.Int64)
+                    .alias(f"{col}_{cat_value}")
+                    for cat_value in categories
+                ]
+                df = df.with_columns(new_cols).drop(col)
+            return df
+
+        train_encoded = apply_onehot(train_df, "train")
+        train_path = _get_output_path("train")
+        train_encoded.write_parquet(train_path)
+        result: dict[str, str] = {"train": str(train_path)}
+
+        if "val" in inputs:
+            val_df = pl.read_parquet(inputs["val"])
+            val_encoded = apply_onehot(val_df, "val") if val_df.height > 0 else val_df
+            val_path = _get_output_path("val")
+            val_encoded.write_parquet(val_path)
+            result["val"] = str(val_path)
+
+        if "test" in inputs:
+            test_df = pl.read_parquet(inputs["test"])
+            test_encoded = apply_onehot(test_df, "test") if test_df.height > 0 else test_df
+            test_path = _get_output_path("test")
+            test_encoded.write_parquet(test_path)
+            result["test"] = str(test_path)
+
+        return result
+
     method = params.get("method", "label")
     columns_param = params.get("columns", "")
     handle_unknown = params.get("handle_unknown", "encode_as_unknown")
     target_col = params.get("target_column", "")
 
-    # Read train data
     train_df = pl.read_parquet(inputs["train"])
 
-    # Determine categorical columns
     if columns_param and columns_param.strip():
         cat_columns = [c.strip() for c in columns_param.split(",") if c.strip()]
         cat_columns = [c for c in cat_columns if c in train_df.columns and c != target_col]
     else:
-        # Auto-detect by dtype heuristic: object/string/category dtypes
         cat_dtypes = ("Object", "String", "Utf8", "Categorical", "Enum")
         cat_columns = [
             c for c in train_df.columns
-            if str(train_df[c].dtype) in cat_dtypes
-            and c != target_col
+            if str(train_df[c].dtype) in cat_dtypes and c != target_col
         ]
 
-    # Filter to columns that actually have categories (non-empty)
-    cat_columns = [
-        c for c in cat_columns
-        if train_df[c].drop_nulls().n_unique() > 0
-    ]
+    cat_columns = [c for c in cat_columns if train_df[c].drop_nulls().n_unique() > 0]
 
     if not cat_columns:
-        # Nothing to encode — pass through
         train_path = _get_output_path("train")
         train_df.write_parquet(train_path)
         result: dict[str, str] = {"train": str(train_path)}
-
         if "val" in inputs:
             val_path = _get_output_path("val")
             pl.read_parquet(inputs["val"]).write_parquet(val_path)
             result["val"] = str(val_path)
-
         if "test" in inputs:
             test_path = _get_output_path("test")
             pl.read_parquet(inputs["test"]).write_parquet(test_path)
             result["test"] = str(test_path)
-
         return result
 
     if method in ("label", "ordinal"):
-        return _encode_label_ordinal(
-            inputs, train_df, cat_columns, handle_unknown,
-        )
+        return encode_label_ordinal(inputs, train_df, cat_columns, handle_unknown)
     else:
-        return _encode_onehot(
-            inputs, train_df, cat_columns, handle_unknown,
-        )
-
-
-def _encode_label_ordinal(
-    inputs: dict,
-    train_df: Any,
-    cat_columns: list[str],
-    handle_unknown: str,
-) -> dict:
-    """Label/ordinal encoding: map each unique value to an integer."""
-    import polars as pl
-
-    # Step 1: Fit on train — build {value -> int} mapping per column
-    mappings: dict[str, dict[str, int]] = {}
-    for col in cat_columns:
-        unique_vals = sorted(
-            train_df[col].drop_nulls().unique().to_list(), key=str,
-        )
-        mappings[col] = {str(v): i for i, v in enumerate(unique_vals)}
-
-    def _apply_mapping(df: pl.DataFrame, split_name: str) -> pl.DataFrame:
-        for col in cat_columns:
-            mapping = mappings[col]
-            col_values = df[col].cast(pl.Utf8)
-
-            if handle_unknown == "error" and split_name != "train":
-                unique_vals = col_values.drop_nulls().unique().to_list()
-                for v in unique_vals:
-                    if v not in mapping:
-                        msg = (
-                            f"Unseen category '{v}' in column '{col}' "
-                            f"of {split_name} set"
-                        )
-                        raise ValueError(msg)
-
-            # Use native Polars replace_strict instead of map_elements
-            old = pl.Series(list(mapping.keys()))
-            new = pl.Series(list(mapping.values()))
-            encoded = col_values.replace_strict(old, new, default=-1).cast(pl.Int64)
-            df = df.with_columns(encoded.alias(col))
-        return df
-
-    train_encoded = _apply_mapping(train_df, "train")
-
-    train_path = _get_output_path("train")
-    train_encoded.write_parquet(train_path)
-    result: dict[str, str] = {"train": str(train_path)}
-
-    # Transform val (optional)
-    if "val" in inputs:
-        val_df = pl.read_parquet(inputs["val"])
-        val_encoded = _apply_mapping(val_df, "val") if val_df.height > 0 else val_df
-        val_path = _get_output_path("val")
-        val_encoded.write_parquet(val_path)
-        result["val"] = str(val_path)
-
-    # Transform test (optional)
-    if "test" in inputs:
-        test_df = pl.read_parquet(inputs["test"])
-        test_encoded = _apply_mapping(test_df, "test") if test_df.height > 0 else test_df
-        test_path = _get_output_path("test")
-        test_encoded.write_parquet(test_path)
-        result["test"] = str(test_path)
-
-    return result
-
-
-def _encode_onehot(
-    inputs: dict,
-    train_df: Any,
-    cat_columns: list[str],
-    handle_unknown: str,
-) -> dict:
-    """One-hot encoding: create N binary columns per original column."""
-    import polars as pl
-
-    # Step 1: Fit on train — learn distinct category set per column
-    category_sets: dict[str, list[str]] = {}
-    for col in cat_columns:
-        unique_vals = sorted(
-            [str(v) for v in train_df[col].drop_nulls().unique().to_list()],
-        )
-        category_sets[col] = unique_vals
-
-    def _apply_onehot(df: pl.DataFrame, split_name: str) -> pl.DataFrame:
-        for col in cat_columns:
-            categories = category_sets[col]
-            col_values = df[col].cast(pl.Utf8)
-
-            if handle_unknown == "error" and split_name != "train":
-                unique_vals = col_values.drop_nulls().unique().to_list()
-                for v in unique_vals:
-                    if v not in categories:
-                        msg = (
-                            f"Unseen category '{v}' in column '{col}' "
-                            f"of {split_name} set"
-                        )
-                        raise ValueError(msg)
-
-            # Create binary columns using native equality expressions
-            new_cols = [
-                (pl.col(col).cast(pl.Utf8) == cat_value)
-                .cast(pl.Int64)
-                .alias(f"{col}_{cat_value}")
-                for cat_value in categories
-            ]
-
-            df = df.with_columns(new_cols).drop(col)
-        return df
-
-    train_encoded = _apply_onehot(train_df, "train")
-
-    train_path = _get_output_path("train")
-    train_encoded.write_parquet(train_path)
-    result: dict[str, str] = {"train": str(train_path)}
-
-    # Transform val (optional)
-    if "val" in inputs:
-        val_df = pl.read_parquet(inputs["val"])
-        val_encoded = _apply_onehot(val_df, "val") if val_df.height > 0 else val_df
-        val_path = _get_output_path("val")
-        val_encoded.write_parquet(val_path)
-        result["val"] = str(val_path)
-
-    # Transform test (optional)
-    if "test" in inputs:
-        test_df = pl.read_parquet(inputs["test"])
-        test_encoded = _apply_onehot(test_df, "test") if test_df.height > 0 else test_df
-        test_path = _get_output_path("test")
-        test_encoded.write_parquet(test_path)
-        result["test"] = str(test_path)
-
-    return result
+        return encode_onehot(inputs, train_df, cat_columns, handle_unknown)
