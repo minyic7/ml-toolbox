@@ -22,6 +22,7 @@ import {
   GradientBoostingIcon,
   FeatureSelectorIcon,
   FeatureImportanceIcon,
+  ModelComparisonIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -57,6 +58,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   gradient_boosting_train: GradientBoostingIcon,
   feature_selector: FeatureSelectorIcon,
   feature_importance: FeatureImportanceIcon,
+  model_comparison: ModelComparisonIcon,
 };
 
 /** Stable category ordering */

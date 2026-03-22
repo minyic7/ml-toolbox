@@ -321,6 +321,23 @@ export function FeatureImportanceIcon({ color = "currentColor", size = 16 }: Ico
   );
 }
 
+/** Two bar groups side by side with checkmark — model comparison */
+export function ModelComparisonIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Model A bars */}
+      <rect x="1.5" y="8" width="2.5" height="6" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="4.5" y="5" width="2.5" height="9" rx="0.5" stroke={color} strokeWidth="1.2" />
+      {/* Model B bars */}
+      <rect x="9" y="6" width="2.5" height="8" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="12" y="9" width="2.5" height="5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      {/* Trophy / best marker */}
+      <path d="M7 1.5L8 3.5L9 1.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="8" cy="1.5" r="0.6" fill={color} />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
