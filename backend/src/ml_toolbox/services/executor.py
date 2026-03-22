@@ -711,6 +711,21 @@ def _infer_schema_background(
             profiles, row_count=len(df), node_id=node_id,
         )
 
+        # Store original source path so re-cast can recover dropped columns
+        manifest_path = run_dir / f"{node_id}_manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text())
+                source = manifest.get("params", {}).get("path", "")
+                if source:
+                    # Translate sandbox path back to host path
+                    sandbox_root = "/ml_data"
+                    if source.startswith(sandbox_root):
+                        source = str(DATA_DIR) + source[len(sandbox_root):]
+                    metadata["source_path"] = source
+            except Exception:
+                pass
+
         # Cast columns based on inferred types
         df, cast_results = cast_by_metadata(df, metadata)
 

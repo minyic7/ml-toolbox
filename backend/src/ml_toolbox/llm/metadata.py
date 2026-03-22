@@ -259,10 +259,17 @@ def _safe_scalar(val: Any) -> Any:
 # ── Column casting ────────────────────────────────────────────────────
 
 
+_DROP_ROLES = {"ignore", "identifier"}
+
+
 def cast_by_metadata(
     df: pd.DataFrame, metadata: dict[str, Any],
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Cast columns based on inferred semantic types.
+
+    Columns with ``role`` equal to ``ignore`` or ``identifier`` are dropped
+    from the dataframe (but kept in metadata so the Schema Editor can still
+    display them).
 
     Returns ``(df, results)`` where *results* maps column names to a dict
     with ``status``, optional ``to``, ``success_rate``, ``reason``, and
@@ -271,6 +278,20 @@ def cast_by_metadata(
     columns_meta = metadata.get("columns", {})
     results: dict[str, Any] = {}
 
+    # Drop columns marked as ignore or identifier
+    cols_to_drop = [
+        name for name, meta in columns_meta.items()
+        if meta.get("role") in _DROP_ROLES and name in df.columns
+    ]
+    if cols_to_drop:
+        df = df.drop(columns=cols_to_drop)
+        for col in cols_to_drop:
+            results[col] = {
+                "status": "dropped",
+                "reason": f"role={columns_meta[col]['role']}",
+            }
+
+    # Type casting for remaining columns
     for col_name, meta in columns_meta.items():
         if col_name not in df.columns:
             continue
