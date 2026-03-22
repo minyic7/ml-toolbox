@@ -1077,11 +1077,29 @@ async def put_metadata(
             if not downstream:
                 return
 
-            # Copy .meta.json to downstream output locations
+            source_columns: dict = body.get("columns", {})
+
+            # Merge classification changes into downstream .meta.json files,
+            # preserving downstream-specific column sets.
             for ds_node_id in downstream:
                 ds_meta_files = list(run_dir.glob(f"{ds_node_id}*.meta.json"))
                 for mf in ds_meta_files:
-                    mf.write_text(json.dumps(body, indent=2, ensure_ascii=False))
+                    try:
+                        ds_meta = json.loads(mf.read_text())
+                    except Exception:
+                        ds_meta = {}
+                    ds_columns = ds_meta.get("columns", {})
+                    # Only update columns that exist in both source and downstream
+                    for col_name, src_col in source_columns.items():
+                        if col_name in ds_columns:
+                            for key in ("role", "semantic_type"):
+                                if key in src_col:
+                                    ds_columns[col_name][key] = src_col[key]
+                                elif key in ds_columns[col_name]:
+                                    # Source cleared the field — remove it downstream
+                                    del ds_columns[col_name][key]
+                    ds_meta["columns"] = ds_columns
+                    mf.write_text(json.dumps(ds_meta, indent=2, ensure_ascii=False))
 
             # Re-run auto-configure on each downstream node
             for ds_node_id in downstream:
@@ -1158,17 +1176,16 @@ def _get_downstream_nodes(node_id: str, pipeline_data: dict) -> list[str]:
     edges = pipeline_data.get("edges", [])
     downstream: list[str] = []
     queue = [node_id]
-    visited: set[str] = set()
+    visited: set[str] = {node_id}
     while queue:
         current = queue.pop(0)
-        if current in visited:
-            continue
-        visited.add(current)
         for edge in edges:
             if edge["source"] == current:
                 target = edge["target"]
-                downstream.append(target)
-                queue.append(target)
+                if target not in visited:
+                    visited.add(target)
+                    downstream.append(target)
+                    queue.append(target)
     return downstream
 
 
