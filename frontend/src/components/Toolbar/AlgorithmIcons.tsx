@@ -153,6 +153,31 @@ export function ColumnDropperIcon({ color = "currentColor", size = 16 }: IconPro
   );
 }
 
+/** Bell curve with arrows shrinking — feature scaling */
+export function ScalerTransformIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Horizontal axis */}
+      <line x1="1" y1="13" x2="15" y2="13" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      {/* Bell curve */}
+      <path
+        d="M2 13 C3 13, 4 4, 8 4 C12 4, 13 13, 14 13"
+        stroke={color}
+        strokeWidth="1.2"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Inward arrows — scaling / normalization */}
+      <path d="M3 2L5.5 2" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M3 2L4.2 1" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M3 2L4.2 3" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M13 2L10.5 2" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M13 2L11.8 1" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M13 2L11.8 3" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (

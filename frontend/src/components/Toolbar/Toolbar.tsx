@@ -14,6 +14,7 @@ import {
   CorrelationMatrixIcon,
   OutlierDetectionIcon,
   ColumnDropperIcon,
+  ScalerTransformIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -41,6 +42,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   correlation_matrix: CorrelationMatrixIcon,
   outlier_detection: OutlierDetectionIcon,
   column_dropper: ColumnDropperIcon,
+  scaler_transform: ScalerTransformIcon,
 };
 
 /** Stable category ordering */
