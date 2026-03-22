@@ -861,7 +861,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
 def _is_internal_file(f: Path) -> bool:
     """Return True for internal metadata files that are not node outputs."""
     name = f.name
-    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json", "_transform_summary.json", ".eda-context.json")):
+    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json", "_transform_summary.json")):
         return True
     # Exclude internal manifest/result/error JSON files but keep
     # legitimate node output JSON (e.g. metrics.json).
@@ -1258,30 +1258,13 @@ async def get_eda_context(
     node_id: str,
     run_id: str | None = Query(default=None),
 ) -> dict:
-    """Read .eda-context.json sidecar for a node's output or its upstream inputs."""
+    """Lazy-read EDA context by traversing the DAG upward from this node,
+    finding all EDA sibling nodes, and combining their report outputs."""
     pipeline = _load_pipeline(pipeline_id)
     _, run_dir = _resolve_run_dir(pipeline_id, run_id)
 
-    # Check for EDA context files belonging to this node
-    eda_files = list(run_dir.glob(f"{node_id}*.eda-context.json"))
-    if eda_files:
-        try:
-            return {"eda_context": json.loads(eda_files[0].read_text())}
-        except Exception:
-            return {"eda_context": None}
-
-    # Fall back to upstream node outputs
-    for edge in pipeline.get("edges", []):
-        if edge["target"] == node_id:
-            src = edge["source"]
-            port = edge.get("source_port", "output")
-            candidates = list(run_dir.glob(f"{src}_{port}*.eda-context.json"))
-            if candidates:
-                try:
-                    return {"eda_context": json.loads(candidates[0].read_text())}
-                except Exception:
-                    pass
-    return {"eda_context": None}
+    result = _collect_eda_context_from_dag(pipeline, node_id, run_dir)
+    return {"eda_context": result}
 
 
 @router.put("/{pipeline_id}/selection")
@@ -1337,47 +1320,185 @@ def _get_downstream_nodes(node_id: str, pipeline_data: dict) -> list[str]:
 def _read_upstream_metadata(
     pipeline_id: str, target_node_id: str, pipeline_data: dict,
 ) -> dict | None:
-    """Read .meta.json from the first upstream node's output."""
-    edges = pipeline_data.get("edges", [])
-    upstream_edges = [e for e in edges if e["target"] == target_node_id]
-    if not upstream_edges:
-        return None
+    """Traverse DAG upward from target_node_id to find the nearest .meta.json.
 
-    source_id = upstream_edges[0]["source"]
+    Skips EDA nodes (they produce METRICS, not TABLE) and keeps going
+    until a node with .meta.json is found.
+    """
+    edges = pipeline_data.get("edges", [])
+    nodes = {n["id"]: n for n in pipeline_data.get("nodes", [])}
     try:
         latest_run = file_store.get_latest_run_id(pipeline_id)
         if not latest_run:
             return None
         run_dir = file_store.PROJECTS_DIR / pipeline_id / "runs" / latest_run
-        meta_files = list(run_dir.glob(f"{source_id}*.meta.json"))
-        if meta_files:
-            return json.loads(meta_files[0].read_text())
     except Exception:
-        pass
+        return None
+
+    # BFS upward
+    visited: set[str] = set()
+    queue = [target_node_id]
+
+    while queue:
+        current = queue.pop(0)
+        parent_ids = [e["source"] for e in edges if e["target"] == current]
+
+        for parent_id in parent_ids:
+            if parent_id in visited:
+                continue
+            visited.add(parent_id)
+
+            # Skip EDA nodes — they don't produce .meta.json
+            parent_node = nodes.get(parent_id)
+            if parent_node and ".eda." in parent_node.get("type", "").lower():
+                queue.append(parent_id)
+                continue
+
+            meta_files = list(run_dir.glob(f"{parent_id}*.meta.json"))
+            if meta_files:
+                try:
+                    return json.loads(meta_files[0].read_text())
+                except Exception:
+                    pass
+
+            # No .meta.json at this level, keep going up
+            queue.append(parent_id)
+
     return None
+
+
+def _extract_eda_section_from_report(report: dict) -> dict:
+    """Extract a context section from an EDA node's report JSON.
+
+    Maps report_type to a {section_key: section_data} dict that mirrors
+    the old .eda-context.json format consumed by auto-configure rules.
+    """
+    report_type = report.get("report_type", "")
+
+    if report_type == "correlation_matrix":
+        high_pairs = [
+            [p["a"], p["b"], p["r"]]
+            for p in report.get("top_pairs", [])
+            if p.get("abs_r", 0) > 0.8
+        ]
+        ctx: dict = {"high_pairs": high_pairs}
+        if "target_correlations" in report:
+            ctx["target_correlations"] = [
+                {"feature": tc["feature"], "r": tc["r"]}
+                for tc in report["target_correlations"]
+            ]
+        return {"correlation": ctx}
+
+    if report_type == "distribution_profile":
+        dist: dict = {}
+        for col_info in report.get("columns", []):
+            stats = col_info.get("stats")
+            if stats and "skewness" in stats:
+                dist[col_info["name"]] = {
+                    "skewness": stats["skewness"],
+                    "kurtosis": stats["kurtosis"],
+                    "mean": stats["mean"],
+                    "std": stats["std"],
+                }
+        return {"distribution": dist} if dist else {}
+
+    if report_type == "missing_analysis":
+        missing: dict = {}
+        for col_info in report.get("columns", []):
+            missing[col_info["name"]] = {
+                "missing_pct": col_info["missing_pct"],
+                "severity": col_info["severity"],
+            }
+        return {"missing": missing} if missing else {}
+
+    if report_type == "outlier_detection":
+        outliers: dict = {}
+        method = report.get("params", {}).get("method", "both")
+        for col_info in report.get("columns", []):
+            if col_info.get("outlier_count", 0) > 0:
+                entry: dict = {
+                    "method": method,
+                    "outlier_pct": col_info["outlier_pct"],
+                }
+                if "z_max" in col_info:
+                    entry["z_max"] = round(col_info["z_max"], 4)
+                if "upper_fence" in col_info:
+                    entry["upper_fence"] = col_info["upper_fence"]
+                outliers[col_info["name"]] = entry
+        return {"outliers": outliers} if outliers else {}
+
+    return {}
+
+
+def _collect_eda_context_from_dag(
+    pipeline_data: dict, target_node_id: str, run_dir: Path,
+) -> dict | None:
+    """Traverse DAG upward from target_node_id, find EDA sibling nodes,
+    and extract context from their report outputs.
+
+    Returns a combined dict like:
+        {"distribution": {...}, "outliers": {...}, "correlation": {...}, "missing": {...}}
+    or None if no EDA results found.
+    """
+    edges = pipeline_data.get("edges", [])
+    nodes = {n["id"]: n for n in pipeline_data.get("nodes", [])}
+    combined: dict = {}
+
+    # BFS upward through the DAG
+    visited_ancestors: set[str] = set()
+    queue = [target_node_id]
+
+    while queue:
+        current = queue.pop(0)
+
+        # Find parents of current node
+        parent_ids = [e["source"] for e in edges if e["target"] == current]
+
+        for parent_id in parent_ids:
+            if parent_id in visited_ancestors:
+                continue
+            visited_ancestors.add(parent_id)
+
+            # Find all children of this parent that are EDA nodes
+            children = [e["target"] for e in edges if e["source"] == parent_id]
+            for child_id in children:
+                child_node = nodes.get(child_id)
+                if not child_node:
+                    continue
+                child_type = child_node.get("type", "")
+                if ".eda." not in child_type.lower():
+                    continue
+
+                # Read this EDA node's report output
+                report_files = list(run_dir.glob(f"{child_id}_report.json"))
+                if not report_files:
+                    continue
+                try:
+                    report = json.loads(report_files[0].read_text())
+                    section = _extract_eda_section_from_report(report)
+                    combined.update(section)
+                except Exception:
+                    continue
+
+            # Continue traversing upward
+            queue.append(parent_id)
+
+    return combined or None
 
 
 def _read_upstream_eda_context(
     pipeline_id: str, target_node_id: str, pipeline_data: dict,
 ) -> dict | None:
-    """Read .eda-context.json from the first upstream node's output."""
-    edges = pipeline_data.get("edges", [])
-    upstream_edges = [e for e in edges if e["target"] == target_node_id]
-    if not upstream_edges:
-        return None
-
-    source_id = upstream_edges[0]["source"]
+    """Lazy-read EDA context by traversing the DAG upward and extracting
+    from EDA nodes' report outputs."""
     try:
         latest_run = file_store.get_latest_run_id(pipeline_id)
         if not latest_run:
             return None
         run_dir = file_store.PROJECTS_DIR / pipeline_id / "runs" / latest_run
-        eda_files = list(run_dir.glob(f"{source_id}*.eda-context.json"))
-        if eda_files:
-            return json.loads(eda_files[0].read_text())
+        return _collect_eda_context_from_dag(pipeline_data, target_node_id, run_dir)
     except Exception:
-        pass
-    return None
+        return None
 
 
 def _get_params_for_node(
