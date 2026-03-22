@@ -167,13 +167,78 @@ automatically selects high-correlation pairs from the correlation analysis.
 )
 def interaction_creator(inputs: dict, params: dict) -> dict:
     """Create interaction features from column pairs."""
+    import json
+    import warnings
+    from pathlib import Path
+
+    import polars as pl
+
+    _NUMERIC = (
+        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
+        pl.Float32, pl.Float64,
+    )
+
+    _OP_MAP = {
+        "multiply": "x",
+        "ratio": "div",
+        "add": "plus",
+        "subtract": "minus",
+    }
+
+    def _read_meta(parquet_path: str) -> dict:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        if meta_path.exists():
+            try:
+                return json.loads(meta_path.read_text())
+            except Exception:
+                pass
+        return {}
+
+    def _write_meta(parquet_path: str, metadata: dict) -> None:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+    def _read_eda_context(parquet_path: str) -> dict:
+        ctx_path = Path(parquet_path).with_suffix(".eda-context.json")
+        if ctx_path.exists():
+            try:
+                return json.loads(ctx_path.read_text())
+            except Exception:
+                pass
+        return {}
+
+    def _parse_pairs(raw: str) -> list[tuple[str, str]]:
+        pairs: list[tuple[str, str]] = []
+        for token in raw.split(","):
+            token = token.strip()
+            if not token:
+                continue
+            parts = token.split(":")
+            if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+                raise ValueError(
+                    f"Invalid pair format '{token}' — expected 'COL_A:COL_B'"
+                )
+            pairs.append((parts[0].strip(), parts[1].strip()))
+        return pairs
+
+    def _auto_select_pairs(eda: dict, avail: set[str]) -> list[tuple[str, str]]:
+        pairs: list[tuple[str, str]] = []
+        correlation = eda.get("correlation", {})
+        high_pairs = correlation.get("high_pairs", [])
+        for entry in high_pairs:
+            if len(entry) >= 2:
+                col_a, col_b = str(entry[0]), str(entry[1])
+                if col_a in avail and col_b in avail:
+                    pairs.append((col_a, col_b))
+        return pairs
 
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
     train_df = pl.read_parquet(train_path)
     meta = _read_meta(train_path)
     operation = params.get("operation", "multiply")
-    op_label = _OP_LABELS[operation]
+    op_label = _OP_MAP[operation]
 
     # ── Determine target column ──────────────────────────────────
     target_col = meta.get("target")
@@ -181,7 +246,7 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
     # ── Determine numeric columns ────────────────────────────────
     available_numeric = {
         c for c in train_df.columns
-        if train_df[c].dtype in _NUMERIC_DTYPES and c != target_col
+        if train_df[c].dtype in _NUMERIC and c != target_col
     }
 
     # ── Resolve pairs ────────────────────────────────────────────

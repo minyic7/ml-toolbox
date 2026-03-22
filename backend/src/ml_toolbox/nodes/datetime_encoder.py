@@ -140,6 +140,36 @@ When the `column` parameter is empty, the node auto-detects datetime columns fro
 )
 def datetime_encoder(inputs: dict, params: dict) -> dict:
     """Decompose datetime columns into numeric components."""
+    import json
+    from pathlib import Path
+
+    import polars as pl
+
+    _VALID = {"year", "month", "day", "weekday", "hour", "minute"}
+
+    def _read_meta(parquet_path: str) -> dict:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        if meta_path.exists():
+            try:
+                return json.loads(meta_path.read_text())
+            except Exception:
+                pass
+        return {}
+
+    def _write_meta(parquet_path: str, metadata: dict) -> None:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+    def _auto_detect_datetime_columns(meta: dict, df: pl.DataFrame) -> list[str]:
+        cols: list[str] = []
+        col_meta = meta.get("columns", {})
+        for col_name, info in col_meta.items():
+            if col_name in df.columns and info.get("semantic_type") == "datetime":
+                cols.append(col_name)
+        for col_name in df.columns:
+            if col_name not in cols and df[col_name].dtype in (pl.Date, pl.Datetime):
+                cols.append(col_name)
+        return cols
 
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
@@ -151,9 +181,9 @@ def datetime_encoder(inputs: dict, params: dict) -> dict:
     components_raw = params.get("components", "year,month,day,weekday")
     components = [c.strip().lower() for c in components_raw.split(",") if c.strip()]
     for comp in components:
-        if comp not in _VALID_COMPONENTS:
+        if comp not in _VALID:
             raise ValueError(
-                f"Unknown component '{comp}'. Valid: {sorted(_VALID_COMPONENTS)}"
+                f"Unknown component '{comp}'. Valid: {sorted(_VALID)}"
             )
 
     # ── Resolve target columns ───────────────────────────────────

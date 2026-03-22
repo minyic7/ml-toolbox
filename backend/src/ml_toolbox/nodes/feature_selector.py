@@ -112,6 +112,131 @@ Remove low-value features to reduce noise and speed up training. **Fits on the t
 )
 def feature_selector(inputs: dict, params: dict) -> dict:
     """Select features — fit on train, drop from all splits."""
+    import json
+    import logging
+    import math
+    from pathlib import Path
+
+    import polars as pl
+
+    _logger = logging.getLogger(__name__)
+
+    numeric_dtypes = (
+        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
+        pl.Float32, pl.Float64,
+    )
+
+    def _read_meta(parquet_path: str) -> dict:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        if meta_path.exists():
+            try:
+                return json.loads(meta_path.read_text())
+            except Exception:
+                pass
+        return {}
+
+    def _write_meta(parquet_path: str, metadata: dict) -> None:
+        meta_path = Path(parquet_path).with_suffix(".meta.json")
+        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+    def _pearson_corr(df: pl.DataFrame, col_a: str, col_b: str) -> float:
+        clean = df.select([col_a, col_b]).drop_nulls()
+        if clean.height < 2:
+            return 0.0
+        corr = clean.select(pl.corr(col_a, col_b)).item()
+        if corr is None or math.isnan(corr):
+            return 0.0
+        return float(corr)
+
+    def _mutual_information(x: object, y: object) -> float:
+        import numpy as np
+
+        x_arr = np.asarray(x, dtype=np.float64)
+        y_arr = np.asarray(y, dtype=np.float64)
+        valid = np.isfinite(x_arr) & np.isfinite(y_arr)
+        x_arr = x_arr[valid]
+        y_arr = y_arr[valid]
+        if len(x_arr) < 2:
+            return 0.0
+        n_bins = min(20, max(2, int(np.sqrt(len(x_arr)))))
+        try:
+            x_binned = np.digitize(x_arr, np.unique(np.quantile(x_arr, np.linspace(0, 1, n_bins + 1)[1:-1])))
+        except Exception:
+            return 0.0
+        try:
+            y_binned = np.digitize(y_arr, np.unique(np.quantile(y_arr, np.linspace(0, 1, n_bins + 1)[1:-1])))
+        except Exception:
+            return 0.0
+        n = len(x_arr)
+        joint: dict[tuple[int, int], int] = {}
+        for xi, yi in zip(x_binned, y_binned):
+            key = (int(xi), int(yi))
+            joint[key] = joint.get(key, 0) + 1
+        x_marginal: dict[int, int] = {}
+        y_marginal: dict[int, int] = {}
+        for (xi, yi), count in joint.items():
+            x_marginal[xi] = x_marginal.get(xi, 0) + count
+            y_marginal[yi] = y_marginal.get(yi, 0) + count
+        mi = 0.0
+        for (xi, yi), count in joint.items():
+            p_xy = count / n
+            p_x = x_marginal[xi] / n
+            p_y = y_marginal[yi] / n
+            if p_xy > 0 and p_x > 0 and p_y > 0:
+                mi += p_xy * np.log(p_xy / (p_x * p_y))
+        return max(0.0, float(mi))
+
+    def _fit_selector(
+        train_df: pl.DataFrame, feature_cols: list[str],
+        target_col: str, method: str, threshold: float,
+    ) -> list[str]:
+        cols_to_drop: list[str] = []
+        if method == "variance_threshold":
+            for col in feature_cols:
+                series = train_df[col].drop_nulls().cast(pl.Float64)
+                if len(series) == 0:
+                    cols_to_drop.append(col)
+                    continue
+                variance = float(series.var())  # type: ignore[arg-type]
+                if variance <= threshold:
+                    _logger.info("Feature '%s' variance=%.6f <= threshold=%.4f — dropping", col, variance or 0, threshold)
+                    cols_to_drop.append(col)
+        elif method == "correlation_with_target":
+            for col in feature_cols:
+                series = train_df[col].drop_nulls().cast(pl.Float64)
+                if len(series) == 0:
+                    cols_to_drop.append(col)
+                    continue
+                corr = abs(_pearson_corr(train_df, col, target_col))
+                if corr < threshold:
+                    _logger.info("Feature '%s' |corr|=%.6f < threshold=%.4f — dropping", col, corr, threshold)
+                    cols_to_drop.append(col)
+        elif method == "mutual_information":
+            for col in feature_cols:
+                series = train_df[col].cast(pl.Float64)
+                mask = series.is_not_null() & train_df[target_col].is_not_null()
+                feat_clean = series.filter(mask).to_numpy()
+                targ_clean = train_df[target_col].cast(pl.Float64).filter(mask).to_numpy()
+                if len(feat_clean) == 0:
+                    cols_to_drop.append(col)
+                    continue
+                mi = _mutual_information(feat_clean, targ_clean)
+                if mi < threshold:
+                    _logger.info("Feature '%s' MI=%.6f < threshold=%.4f — dropping", col, mi, threshold)
+                    cols_to_drop.append(col)
+        return cols_to_drop
+
+    def _update_meta_drop(metadata: dict, cols_to_drop: list[str]) -> dict:
+        if not metadata:
+            return metadata
+        updated = json.loads(json.dumps(metadata))
+        col_meta = updated.get("columns", {})
+        if isinstance(col_meta, dict):
+            for col in cols_to_drop:
+                col_meta.pop(col, None)
+        return updated
+
     method = params.get("method", "variance_threshold")
     threshold = float(params.get("threshold", 0.01))
 
@@ -121,11 +246,6 @@ def feature_selector(inputs: dict, params: dict) -> dict:
     target_col = meta.get("target", "")
 
     # ── Identify numeric feature columns ─────────────────────────
-    numeric_dtypes = (
-        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
-        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
-        pl.Float32, pl.Float64,
-    )
     feature_cols = [
         c for c in train_df.columns
         if c != target_col and train_df[c].dtype in numeric_dtypes
@@ -156,8 +276,6 @@ def feature_selector(inputs: dict, params: dict) -> dict:
 
     # ── Transform all splits ─────────────────────────────────────
     results: dict[str, str] = {}
-
-    # Update metadata: remove dropped columns
     updated_meta = _update_meta_drop(meta, cols_to_drop)
 
     for split_name in ("train", "val", "test"):
