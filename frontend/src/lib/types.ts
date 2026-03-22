@@ -207,6 +207,7 @@ export interface AnalysisWarning {
 }
 
 export interface CcAnalysis {
+  summary?: string;
   findings: string[];
   warnings: AnalysisWarning[];
   suggestions: string[];
