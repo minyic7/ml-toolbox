@@ -6,6 +6,7 @@ import { MissingReport } from "./MissingReport";
 import { CorrelationReport } from "./CorrelationReport";
 import { OutlierReport } from "./OutlierReport";
 import { RocPrReport } from "./RocPrReport";
+import { ConfusionMatrixReport } from "./ConfusionMatrixReport";
 
 interface ProfileReportProps {
   data: Record<string, unknown>;
@@ -73,6 +74,8 @@ export function ProfileReport({ data, analysis }: ProfileReportProps) {
       return <OutlierReport data={data} analysis={analysis} />;
     case "roc_pr_curves":
       return <RocPrReport data={data} analysis={analysis} />;
+    case "confusion_matrix":
+      return <ConfusionMatrixReport data={data} analysis={analysis} />;
     default:
       return <MetricsDisplay data={data} />;
   }
