@@ -8,6 +8,11 @@ import NodeGroup from "./NodeGroup";
 import {
   CsvReaderIcon,
   ParquetReaderIcon,
+  RandomHoldoutIcon,
+  DistributionProfileIcon,
+  MissingAnalysisIcon,
+  CorrelationMatrixIcon,
+  OutlierDetectionIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -26,6 +31,11 @@ const DEFAULT_CHIP_COLORS = { bg: "#F8F9FB", border: "#E2E8F0", icon: "#64748B",
 const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   csv_reader: CsvReaderIcon,
   parquet_reader: ParquetReaderIcon,
+  random_holdout: RandomHoldoutIcon,
+  distribution_profile: DistributionProfileIcon,
+  missing_analysis: MissingAnalysisIcon,
+  correlation_matrix: CorrelationMatrixIcon,
+  outlier_detection: OutlierDetectionIcon,
 };
 
 /** Stable category ordering */
