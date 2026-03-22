@@ -346,6 +346,7 @@ def missing_value_imputer(inputs: dict, params: dict) -> dict:
     """Fill missing values using statistics fitted on the train split only."""
     import json
     import warnings
+    from pathlib import Path
 
     import polars as pl
 
