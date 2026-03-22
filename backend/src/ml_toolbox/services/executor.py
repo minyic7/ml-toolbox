@@ -793,24 +793,30 @@ def _analyze_output_background(
         except Exception:
             pass
 
-    prompt = f"""Analyze this pipeline node output and provide insights.
+    prompt = f"""You are analyzing a pipeline node's output. Use the project context from CLAUDE.md.
 
 Node type: {node_type}
+Node function: {node_type.rsplit('.', 1)[-1]}
 Output file: {output_file.name}
 
-Output content:
+## Output Report
 {output_content}
 
-Metadata:
-{meta_content if meta_content else 'No metadata available'}
+## Dataset Metadata
+{meta_content if meta_content else 'No metadata available — check runs/ directory for .meta.json files'}
 
-Provide:
-1. Key findings (2-3 bullet points)
-2. Warnings (anything concerning — missing data, outliers, skew, etc.)
-3. Suggested next steps
+## Your Task
+Analyze this output and provide a concise summary for the user.
+
+1. **Key Findings** — 2-3 most important observations from this output
+2. **Warnings** — anything the user should pay attention to (data quality issues, unexpected patterns, potential problems for downstream modeling)
+3. **Suggested Next Steps** — what should the user do after seeing this output
+
+Be specific — reference actual column names, values, and statistics from the output.
+Keep it concise and actionable.
 
 Return ONLY valid JSON (no markdown fences, no extra text):
-{{"findings": ["...", "..."], "warnings": [{{"type": "medium", "column": "col_name or null", "message": "..."}}], "suggestions": ["...", "..."]}}"""
+{{"summary": "One-sentence overall summary", "findings": ["Finding 1 with specific details", "Finding 2"], "warnings": [{{"type": "high|medium|low", "column": "col_name or null", "message": "Specific warning"}}], "suggestions": ["Specific actionable suggestion 1", "Suggestion 2"]}}"""
 
     try:
         result = subprocess.run(
@@ -818,9 +824,23 @@ Return ONLY valid JSON (no markdown fences, no extra text):
             capture_output=True,
             text=True,
             timeout=60,
-            cwd=str(run_dir.parent.parent),  # project dir
+            cwd=str(DATA_DIR / "projects" / pipeline_id),
         )
-        if result.returncode == 0 and result.stdout.strip():
+        if result.returncode != 0:
+            stderr = result.stderr.strip() if result.stderr else ""
+            if "auth" in stderr.lower() or "login" in stderr.lower():
+                logger.warning(
+                    "claude -p auth failed for %s — run 'claude login' in the backend container",
+                    node_id,
+                )
+            else:
+                logger.warning(
+                    "claude -p failed for %s (rc=%s): %s",
+                    node_id, result.returncode, stderr[:200],
+                )
+            return
+
+        if result.stdout.strip():
             raw = result.stdout.strip()
 
             # The claude --output-format json wraps the response in a JSON
@@ -868,11 +888,6 @@ Return ONLY valid JSON (no markdown fences, no extra text):
                 "node_id": node_id,
             })
             logger.info("Output analysis completed for node %s", node_id)
-        else:
-            logger.warning(
-                "Output analysis subprocess failed for %s (rc=%s): %s",
-                node_id, result.returncode, result.stderr[:200] if result.stderr else "",
-            )
     except subprocess.TimeoutExpired:
         logger.warning("Output analysis timed out for %s", node_id)
     except Exception as e:

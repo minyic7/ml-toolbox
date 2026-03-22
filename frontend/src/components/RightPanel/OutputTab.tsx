@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import type { OutputPreview, OutputPortPreview } from "../../lib/types";
 import { useOutput, useRuns, useAnalysis } from "../../hooks/useOutputs";
+import { useExecutionStore } from "../../store/executionStore";
 import { getOutputDownloadUrl } from "../../lib/api";
 import {
   Select,
@@ -9,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, AlertCircle, RefreshCw } from "lucide-react";
+import { Download, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import { TablePreview } from "./TablePreview";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { ErrorTraceback } from "./ErrorTraceback";
@@ -39,7 +40,11 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
 
   const { data: runs } = useRuns(pipelineId);
   const { data: output = null, isLoading: outputLoading, isError: outputError, refetch: refetchOutput } = useOutput(pipelineId, nodeId, selectedRunId);
-  const { data: analysis = null } = useAnalysis(pipelineId, nodeId, selectedRunId);
+  const { data: analysis = null, isFetching: analysisFetching } = useAnalysis(pipelineId, nodeId, selectedRunId);
+  const nodeStatus = useExecutionStore((s) => s.nodeStatuses[nodeId]);
+
+  // Show loading when node just finished and analysis hasn't arrived yet
+  const analysisLoading = !analysis && analysisFetching || (!analysis && nodeStatus === "done");
 
   const isMultiOutput = !!(output?.outputs && output.outputs.length > 1);
 
@@ -192,6 +197,7 @@ export function OutputTab({ pipelineId, nodeId, requestedRunId, onRequestedRunHa
           selectedPort={selectedPort}
           onRunFrom={onRunFrom ? () => onRunFrom(nodeId) : undefined}
           analysis={analysis}
+          analysisLoading={analysisLoading}
         />
       )}
     </div>
@@ -234,6 +240,7 @@ function OutputContent({
   selectedPort,
   onRunFrom,
   analysis,
+  analysisLoading,
 }: {
   output: OutputPreview | null;
   downloadUrl: string;
@@ -243,6 +250,7 @@ function OutputContent({
   selectedPort?: string;
   onRunFrom?: () => void;
   analysis?: import("../../lib/types").CcAnalysis | null;
+  analysisLoading?: boolean;
 }) {
   if (!output) {
     return (
@@ -440,13 +448,38 @@ function OutputContent({
         </div>
       </div>
 
+      {/* AI Summary — shown at top when analysis is available */}
+      {analysis && <AnalysisPanel analysis={analysis} />}
+
+      {/* Loading indicator while analysis is pending */}
+      {!analysis && analysisLoading && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            borderBottom: "1px solid var(--border-default)",
+            color: "var(--text-muted)",
+          }}
+        >
+          <Loader2 style={{ width: 12, height: 12, animation: "spin 1s linear infinite" }} />
+          <span
+            style={{
+              fontSize: 11,
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 500,
+            }}
+          >
+            AI analyzing output...
+          </span>
+        </div>
+      )}
+
       {/* Preview content */}
       <div style={{ padding: "0 12px 8px" }}>
-        {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize })}
+        {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize }, analysis)}
       </div>
-
-      {/* CC Analysis panel */}
-      {analysis && <AnalysisPanel analysis={analysis} />}
     </>
   );
 }
@@ -466,7 +499,7 @@ function normalizeType(type: string): string {
   return EXT_TO_PORT_TYPE[type] ?? type;
 }
 
-function renderPreview(output: OutputPreview) {
+function renderPreview(output: OutputPreview, analysis?: import("../../lib/types").CcAnalysis | null) {
   const { preview } = output;
   const type = normalizeType(output.type);
 
@@ -493,7 +526,7 @@ function renderPreview(output: OutputPreview) {
 
     case "METRICS":
       if (preview && typeof preview === "object" && "report_type" in preview) {
-        return <ProfileReport data={preview as unknown as Record<string, unknown>} />;
+        return <ProfileReport data={preview as unknown as Record<string, unknown>} analysis={analysis} />;
       }
       return <MetricsDisplay data={preview as unknown as Record<string, unknown>} />;
 
