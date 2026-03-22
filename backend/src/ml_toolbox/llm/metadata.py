@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import pandas as pd
@@ -87,7 +88,27 @@ def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
 # ── Classification heuristics ──────────────────────────────────────────
 
 
-_TARGET_NAMES = {"target", "label", "class", "y", "outcome"}
+_TARGET_KEYWORDS = {
+    "target", "label", "y", "default", "survived", "churn",
+    "class", "outcome", "response",
+}
+_ID_KEYWORDS = {"id", "index", "row_id", "row_number", "record_id"}
+
+
+def _matches_keywords(name_lower: str, keywords: set[str]) -> bool:
+    """Case-insensitive check using word-boundary matching.
+
+    Splits the column name on common delimiters (underscore, space, hyphen)
+    and checks token membership.  Falls back to regex word-boundary search
+    so that e.g. 'defaultPayment' still matches 'default' but 'humidity'
+    does NOT match 'id'.
+    """
+    if name_lower in keywords:
+        return True
+    tokens = set(re.split(r"[_\s\-]+", name_lower))
+    if tokens & keywords:
+        return True
+    return any(re.search(r"\b" + re.escape(kw) + r"\b", name_lower) for kw in keywords)
 
 
 def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
@@ -97,12 +118,16 @@ def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
     unique_ratio = p["unique_ratio"]
     name_lower = col_name.lower().strip()
 
+    # 0. Identifier detection by name + high uniqueness
+    if _matches_keywords(name_lower, _ID_KEYWORDS) and unique_ratio > 0.9:
+        return {"semantic_type": "identifier", "role": "identifier", "confidence": 0.85}
+
     # 1. Binary + target name → possible target (confidence 0.7 signals guess)
-    if name_lower in _TARGET_NAMES and (dtype == "bool" or unique_count == 2):
+    if _matches_keywords(name_lower, _TARGET_KEYWORDS) and (dtype == "bool" or unique_count == 2):
         return {"semantic_type": "binary", "role": "target", "confidence": 0.7}
 
     # 2. Target detection by name (non-binary)
-    if name_lower in _TARGET_NAMES:
+    if _matches_keywords(name_lower, _TARGET_KEYWORDS):
         return {"semantic_type": "target", "role": "target", "confidence": 0.85}
 
     # 3. Datetime
