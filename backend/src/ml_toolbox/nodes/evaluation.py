@@ -292,3 +292,152 @@ def _build_warnings(roc_auc: float, ap: float, prevalence: float) -> list[dict]:
         })
 
     return warnings
+
+
+@node(
+    inputs={"model": PortType.MODEL},
+    outputs={"report": PortType.METRICS},
+    params={},
+    label="Feature Importance",
+    category="Evaluation",
+    description="Extract and rank feature importances from a trained model.",
+    allowed_upstream={
+        "model": ["train_sklearn_model", "train_xgboost"],
+    },
+    guide=(
+        "## Feature Importance\n\n"
+        "Rank features by how much they contribute to model predictions.\n\n"
+        "### Tree-based models (Random Forest, Gradient Boosting, XGBoost)\n"
+        "Uses `model.feature_importances_` — Gini importance (classification) "
+        "or variance reduction (regression). Measures how much each feature "
+        "reduces impurity across all splits.\n\n"
+        "**Limitations:** biased toward high-cardinality features and correlated "
+        "features split importance arbitrarily. Consider permutation importance "
+        "for a more robust estimate.\n\n"
+        "### Linear models (Logistic Regression, Linear Regression, Ridge, Lasso)\n"
+        "Uses `np.abs(model.coef_)` — magnitude of learned coefficients. "
+        "Only meaningful when features are on the same scale (use Scaler first).\n\n"
+        "**Limitations:** coefficients reflect linear relationships only. "
+        "Correlated features share coefficient weight unpredictably.\n\n"
+        "### Remember\n"
+        "Single-model importance is a starting point, not ground truth. "
+        "Different models may rank features differently."
+    ),
+)
+def feature_importance(inputs: dict, params: dict) -> dict:
+    """Extract and rank feature importances from a trained model."""
+    import json
+    from pathlib import Path
+
+    import joblib
+    import numpy as np
+
+    model = joblib.load(inputs["model"])
+
+    # Try to get feature names from the model
+    feature_names: list[str] | None = None
+    if hasattr(model, "feature_names_in_"):
+        feature_names = list(model.feature_names_in_)
+
+    # Extract importances based on model type
+    importances: np.ndarray
+    method: str
+
+    if hasattr(model, "feature_importances_"):
+        # Tree-based: RF, GBT, XGBoost, etc.
+        importances = np.asarray(model.feature_importances_, dtype=float)
+        method = "tree_importance"
+    elif hasattr(model, "coef_"):
+        # Linear: LogisticRegression, LinearRegression, Ridge, Lasso, etc.
+        coef = np.asarray(model.coef_, dtype=float)
+        # For multi-class logistic regression, coef_ is 2D — average across classes
+        if coef.ndim > 1:
+            importances = np.mean(np.abs(coef), axis=0)  # pyright: ignore[reportAssignmentType]
+        else:
+            importances = np.abs(coef)
+        method = "coefficient_magnitude"
+    else:
+        # Model type not supported
+        report = {
+            "report_type": "feature_importance",
+            "method": "unsupported",
+            "summary": {"feature_count": 0, "model_type": type(model).__name__},
+            "features": [],
+            "warnings": [
+                {
+                    "type": "unsupported_model",
+                    "message": (
+                        f"Model type {type(model).__name__} does not expose "
+                        f"feature_importances_ or coef_"
+                    ),
+                }
+            ],
+        }
+        out = _get_output_path("report", ext=".json")
+        out.write_text(json.dumps(report))
+        return {"report": str(out)}
+
+    n_features = len(importances)
+
+    # Generate feature names if not available
+    if feature_names is None:
+        feature_names = [f"feature_{i}" for i in range(n_features)]
+
+    # Normalize importances to sum to 1 (for tree-based, they usually already do)
+    total = float(np.sum(importances))
+    if total > 0:
+        normalized = importances / total
+    else:
+        normalized = importances
+
+    # Build sorted feature list (descending by importance)
+    features = []
+    for idx in np.argsort(importances)[::-1]:
+        features.append({
+            "name": feature_names[int(idx)],
+            "importance": round(float(normalized[int(idx)]), 6),
+            "raw_importance": round(float(importances[int(idx)]), 6),
+        })
+
+    # Warnings
+    warnings: list[dict] = []
+
+    # Warn about dominant features
+    if len(features) >= 2 and features[0]["importance"] > 0.5:
+        warnings.append({
+            "type": "dominant_feature",
+            "column": features[0]["name"],
+            "message": (
+                f"{features[0]['name']} accounts for "
+                f"{features[0]['importance'] * 100:.1f}% of total importance "
+                f"— check for target leakage"
+            ),
+        })
+
+    # Warn about negligible features
+    negligible = [f for f in features if f["importance"] < 0.01]
+    if negligible and len(negligible) < len(features):
+        warnings.append({
+            "type": "negligible_features",
+            "message": (
+                f"{len(negligible)} feature(s) contribute < 1% each "
+                f"— candidates for removal"
+            ),
+        })
+
+    report = {
+        "report_type": "feature_importance",
+        "method": method,
+        "summary": {
+            "feature_count": n_features,
+            "model_type": type(model).__name__,
+            "top_feature": features[0]["name"] if features else "",
+            "top_importance": features[0]["importance"] if features else 0,
+        },
+        "features": features,
+        "warnings": warnings,
+    }
+
+    out = _get_output_path("report", ext=".json")
+    out.write_text(json.dumps(report))
+    return {"report": str(out)}
