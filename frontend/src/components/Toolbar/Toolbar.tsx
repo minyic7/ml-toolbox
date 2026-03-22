@@ -15,6 +15,7 @@ import {
   OutlierDetectionIcon,
   ColumnDropperIcon,
   ScalerTransformIcon,
+  FeatureCreatorIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -43,6 +44,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   outlier_detection: OutlierDetectionIcon,
   column_dropper: ColumnDropperIcon,
   scaler_transform: ScalerTransformIcon,
+  feature_creator: FeatureCreatorIcon,
 };
 
 /** Stable category ordering */
