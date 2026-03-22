@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
 import { WarningList } from "./WarningList";
@@ -19,6 +20,8 @@ const SECTION_HEADER: React.CSSProperties = {
   marginTop: 16,
 };
 
+const MATRIX_COLLAPSE_THRESHOLD = 15;
+
 export function CorrelationReport({ data, analysis }: CorrelationReportProps) {
   const summary = data.summary as Record<string, unknown> | undefined;
   const topPairs = (data.top_pairs ?? []) as Record<string, unknown>[];
@@ -32,6 +35,9 @@ export function CorrelationReport({ data, analysis }: CorrelationReportProps) {
     message: string;
   }[];
   const aiWarnings = analysis?.warnings ?? [];
+
+  const matrixLabels = (matrix?.labels ?? []) as string[];
+  const isLargeMatrix = matrixLabels.length > MATRIX_COLLAPSE_THRESHOLD;
 
   const summaryItems = [
     { label: "Numeric Cols", value: (summary?.numeric_columns as number) ?? 0 },
@@ -64,11 +70,15 @@ export function CorrelationReport({ data, analysis }: CorrelationReportProps) {
       {matrix && (
         <>
           <div style={SECTION_HEADER}>Correlation Matrix</div>
-          <CorrelationMatrix matrix={matrix} />
+          <ColorLegend />
+          {isLargeMatrix ? (
+            <CollapsibleMatrix matrix={matrix} />
+          ) : (
+            <CorrelationMatrix matrix={matrix} />
+          )}
         </>
       )}
 
-      {/* Single warnings section: AI if available, else hardcoded */}
       {aiWarnings.length > 0 ? (
         <WarningList
           warnings={aiWarnings.map((w) => ({
@@ -85,6 +95,42 @@ export function CorrelationReport({ data, analysis }: CorrelationReportProps) {
   );
 }
 
+/* ---------- Color legend ---------- */
+
+function ColorLegend() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: 8,
+        fontSize: 9,
+        fontFamily: "'Inter', sans-serif",
+        color: "var(--text-secondary)",
+      }}
+    >
+      <span>-1</span>
+      <div
+        style={{
+          width: 120,
+          height: 10,
+          borderRadius: 3,
+          background:
+            "linear-gradient(to right, rgba(37,99,235,0.6), #ffffff, rgba(220,38,38,0.6))",
+          border: "1px solid var(--border-default)",
+        }}
+      />
+      <span>+1</span>
+      <span style={{ marginLeft: 6, color: "var(--text-muted)" }}>
+        blue = negative, red = positive
+      </span>
+    </div>
+  );
+}
+
+/* ---------- Helpers ---------- */
+
 function correlationBadge(r: number): { label: string; bg: string; text: string } {
   const absR = Math.abs(r);
   if (absR >= 0.7) return { label: "high", bg: "#fecaca", text: "#991b1b" };
@@ -99,6 +145,15 @@ function correlationCellColor(r: number): string {
   if (r < 0) return `rgba(37, 99, 235, ${opacity})`;
   return "transparent";
 }
+
+const cellStyle: React.CSSProperties = {
+  padding: "4px 8px",
+  color: "var(--text-primary)",
+  borderBottom: "1px solid var(--border-default)",
+  whiteSpace: "nowrap",
+};
+
+/* ---------- Top pairs table ---------- */
 
 function TopPairsTable({ pairs }: { pairs: Record<string, unknown>[] }) {
   return (
@@ -155,7 +210,7 @@ function TopPairsTable({ pairs }: { pairs: Record<string, unknown>[] }) {
               >
                 <td style={cellStyle}>{String(p.feature_a ?? "")}</td>
                 <td style={cellStyle}>{String(p.feature_b ?? "")}</td>
-                <td style={cellStyle}>{r.toFixed(4)}</td>
+                <td style={cellStyle}>{r.toFixed(3)}</td>
                 <td style={cellStyle}>
                   <span
                     style={{
@@ -180,18 +235,20 @@ function TopPairsTable({ pairs }: { pairs: Record<string, unknown>[] }) {
   );
 }
 
-const cellStyle: React.CSSProperties = {
-  padding: "4px 8px",
-  color: "var(--text-primary)",
-  borderBottom: "1px solid var(--border-default)",
-  whiteSpace: "nowrap",
-};
+/* ---------- Target correlations ---------- */
 
 function TargetCorrelationsTable({
   correlations,
 }: {
   correlations: Record<string, unknown>[];
 }) {
+  // Sort by |r| descending
+  const sorted = [...correlations].sort((a, b) => {
+    const absA = Math.abs((a.correlation as number) ?? 0);
+    const absB = Math.abs((b.correlation as number) ?? 0);
+    return absB - absA;
+  });
+
   return (
     <div
       style={{
@@ -232,7 +289,7 @@ function TargetCorrelationsTable({
           </tr>
         </thead>
         <tbody>
-          {correlations.map((c, i) => {
+          {sorted.map((c, i) => {
             const r = (c.correlation as number) ?? 0;
             const absR = Math.abs(r);
             return (
@@ -246,7 +303,7 @@ function TargetCorrelationsTable({
                 }}
               >
                 <td style={cellStyle}>{String(c.feature ?? "")}</td>
-                <td style={cellStyle}>{r.toFixed(4)}</td>
+                <td style={cellStyle}>{r.toFixed(3)}</td>
                 <td style={cellStyle}>
                   <div
                     style={{
@@ -278,6 +335,48 @@ function TargetCorrelationsTable({
   );
 }
 
+/* ---------- Collapsible matrix for large column sets ---------- */
+
+function CollapsibleMatrix({ matrix }: { matrix: Record<string, unknown> }) {
+  const [expanded, setExpanded] = useState(false);
+  const labels = (matrix.labels ?? []) as string[];
+
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 10,
+          fontFamily: "'Inter', sans-serif",
+          color: "var(--text-muted)",
+          marginBottom: 6,
+        }}
+      >
+        Large matrix ({labels.length} columns) — showing top correlated pairs above.
+      </div>
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        style={{
+          padding: "4px 12px",
+          fontSize: 10,
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 500,
+          border: "1px solid var(--border-default)",
+          borderRadius: 4,
+          cursor: "pointer",
+          backgroundColor: "transparent",
+          color: "var(--text-secondary)",
+          marginBottom: 8,
+        }}
+      >
+        {expanded ? "Hide full matrix" : "Show full matrix"}
+      </button>
+      {expanded && <CorrelationMatrix matrix={matrix} />}
+    </div>
+  );
+}
+
+/* ---------- Correlation matrix ---------- */
+
 function CorrelationMatrix({ matrix }: { matrix: Record<string, unknown> }) {
   const labels = (matrix.labels ?? []) as string[];
   const values = (matrix.values ?? []) as number[][];
@@ -308,6 +407,9 @@ function CorrelationMatrix({ matrix }: { matrix: Record<string, unknown> }) {
                 backgroundColor: "var(--output-thead-bg, #f5f5f5)",
                 borderBottom: "1px solid var(--border-default)",
                 borderRight: "1px solid var(--border-default)",
+                position: "sticky",
+                left: 0,
+                zIndex: 1,
               }}
             />
             {labels.map((l) => (
@@ -344,6 +446,10 @@ function CorrelationMatrix({ matrix }: { matrix: Record<string, unknown> }) {
                   maxWidth: 80,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  position: "sticky",
+                  left: 0,
+                  backgroundColor: "var(--output-thead-bg, #f5f5f5)",
+                  zIndex: 1,
                 }}
                 title={labels[i]}
               >
@@ -363,7 +469,7 @@ function CorrelationMatrix({ matrix }: { matrix: Record<string, unknown> }) {
                     borderBottom: "1px solid var(--border-default)",
                     borderRight: "1px solid var(--border-default)",
                   }}
-                  title={`${labels[i]} × ${labels[j]} = ${val.toFixed(4)}`}
+                  title={`${labels[i]} \u00d7 ${labels[j]} = ${val.toFixed(3)}`}
                 >
                   {val.toFixed(2)}
                 </td>
