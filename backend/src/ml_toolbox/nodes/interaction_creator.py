@@ -44,17 +44,6 @@ def _write_meta(parquet_path: str, metadata: dict) -> None:
     meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
 
-def _read_eda_context(parquet_path: str) -> dict:
-    """Read .eda-context.json sidecar, return {} on failure."""
-    ctx_path = Path(parquet_path).with_suffix(".eda-context.json")
-    if ctx_path.exists():
-        try:
-            return json.loads(ctx_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
 def _parse_pairs(raw: str) -> list[tuple[str, str]]:
     """Parse 'A:B, C:D' format into list of column pairs."""
     pairs: list[tuple[str, str]] = []
@@ -68,19 +57,6 @@ def _parse_pairs(raw: str) -> list[tuple[str, str]]:
                 f"Invalid pair format '{token}' — expected 'COL_A:COL_B'"
             )
         pairs.append((parts[0].strip(), parts[1].strip()))
-    return pairs
-
-
-def _auto_select_pairs(eda: dict, available_numeric: set[str]) -> list[tuple[str, str]]:
-    """Auto-select high-correlation pairs from EDA context."""
-    pairs: list[tuple[str, str]] = []
-    correlation = eda.get("correlation", {})
-    high_pairs = correlation.get("high_pairs", [])
-    for entry in high_pairs:
-        if len(entry) >= 2:
-            col_a, col_b = str(entry[0]), str(entry[1])
-            if col_a in available_numeric and col_b in available_numeric:
-                pairs.append((col_a, col_b))
     return pairs
 
 
@@ -199,15 +175,6 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
         meta_path = Path(parquet_path).with_suffix(".meta.json")
         meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
-    def _read_eda_context(parquet_path: str) -> dict:
-        ctx_path = Path(parquet_path).with_suffix(".eda-context.json")
-        if ctx_path.exists():
-            try:
-                return json.loads(ctx_path.read_text())
-            except Exception:
-                pass
-        return {}
-
     def _parse_pairs(raw: str) -> list[tuple[str, str]]:
         pairs: list[tuple[str, str]] = []
         for token in raw.split(","):
@@ -220,17 +187,6 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
                     f"Invalid pair format '{token}' — expected 'COL_A:COL_B'"
                 )
             pairs.append((parts[0].strip(), parts[1].strip()))
-        return pairs
-
-    def _auto_select_pairs(eda: dict, avail: set[str]) -> list[tuple[str, str]]:
-        pairs: list[tuple[str, str]] = []
-        correlation = eda.get("correlation", {})
-        high_pairs = correlation.get("high_pairs", [])
-        for entry in high_pairs:
-            if len(entry) >= 2:
-                col_a, col_b = str(entry[0]), str(entry[1])
-                if col_a in avail and col_b in avail:
-                    pairs.append((col_a, col_b))
         return pairs
 
     # ── Read train data ──────────────────────────────────────────
@@ -266,13 +222,12 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
                         f"Available: {sorted(train_df.columns)}"
                     )
     else:
-        eda = _read_eda_context(train_path)
-        pairs = _auto_select_pairs(eda, available_numeric)
-        if not pairs:
-            raise ValueError(
-                "No pairs specified and no high-correlation pairs found in EDA context. "
-                "Provide pairs explicitly (format: A:B, C:D)."
-            )
+        # No pairs specified — auto-configure should have set this param
+        # based on EDA context (correlation analysis). Fail if still empty.
+        raise ValueError(
+            "No pairs specified. Run Correlation Matrix EDA first or "
+            "provide pairs explicitly (format: A:B, C:D)."
+        )
 
     # ── Apply interactions to a DataFrame ────────────────────────
     new_col_meta: list[dict] = []

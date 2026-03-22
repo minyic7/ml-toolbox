@@ -110,35 +110,6 @@ try:
                 except ImportError:
                     pass
 
-    # ── Propagate sidecar files from inputs to outputs ──────────
-    # If an input file has .meta.json or .eda-context.json sidecars,
-    # copy them alongside each TABLE output so downstream nodes inherit
-    # column metadata and EDA context.
-    import shutil
-
-    for _input_name, input_path_str in inputs.items():
-        input_path = Path(str(input_path_str))
-        for sidecar_suffix in [".meta.json", ".eda-context.json"]:
-            sidecar_path = input_path.with_suffix(sidecar_suffix)
-            if not sidecar_path.exists():
-                # Also check for {node_id}_portname{suffix} pattern
-                candidates = list(input_path.parent.glob(
-                    f"{input_path.stem}{sidecar_suffix}"
-                ))
-                if candidates:
-                    sidecar_path = candidates[0]
-                else:
-                    continue
-            # Copy to each TABLE output
-            if isinstance(result, dict):
-                for out_key, out_value in result.items():
-                    out_type = output_types.get(out_key, "")
-                    if out_type == "TABLE" and isinstance(out_value, str):
-                        out_p = Path(out_value)
-                        dest = out_p.with_suffix(sidecar_suffix)
-                        if not dest.exists():
-                            shutil.copy2(str(sidecar_path), str(dest))
-
     out_path = manifest_path.parent / (manifest_path.stem + "_result.json")
     out_path.write_text(json.dumps(result))
 except Exception:

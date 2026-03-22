@@ -57,7 +57,7 @@ def _translate_params_for_sandbox(
 
 
 _SIDECAR_SUFFIXES = (
-    ".meta.json", ".eda-context.json", "_manifest_error.json", "_logs.txt",
+    ".meta.json", "_manifest_error.json", "_logs.txt",
     ".hash", "_manifest.json", "_result.json", ".analysis.json",
 )
 
@@ -688,15 +688,13 @@ def _post_execution_hook(
             daemon=True,
         ).start()
 
-    # EDA context propagation: after an EDA node runs, propagate .eda-context.json
-    # to all sibling downstream nodes of the parent, then re-auto-configure them.
+    # After an EDA node runs, re-trigger auto-configure on downstream siblings
+    # so they pick up the latest EDA context via lazy DAG traversal.
     if ".eda." in node_type.lower() and pipeline_data is not None:
-        # Deep-copy pipeline_data so the background thread sees a stable
-        # snapshot even if the main thread mutates the dict later.
         pipeline_snapshot = copy.deepcopy(pipeline_data)
         threading.Thread(
-            target=_propagate_eda_context,
-            args=(pipeline_id, node_id, run_dir, pipeline_snapshot, broadcast),
+            target=_reconfigure_downstream_after_eda,
+            args=(pipeline_id, node_id, pipeline_snapshot, broadcast),
             daemon=True,
         ).start()
 
@@ -708,111 +706,56 @@ def _post_execution_hook(
     ).start()
 
 
-def _propagate_eda_context(
+def _reconfigure_downstream_after_eda(
     pipeline_id: str,
     eda_node_id: str,
-    run_dir: Path,
     pipeline_data: dict,
     broadcast: Callable[[str, dict], None],
 ) -> None:
-    """After an EDA node runs, propagate .eda-context.json to sibling downstream nodes.
+    """After an EDA node runs, re-trigger auto-configure on downstream siblings.
 
-    EDA nodes write .eda-context.json alongside their input file (the parent's
-    output).  But that sidecar never reaches sibling downstream nodes because
-    the sandbox runner only propagates sidecars during node execution, and the
-    parent has already finished by the time EDA writes.
-
-    This function copies the context file to every downstream sibling's expected
-    input location, walks deeper into the DAG, and re-triggers auto-configure
-    on each affected node.
+    EDA context is now resolved lazily via DAG traversal (no sidecar files).
+    This function just finds downstream non-EDA nodes and re-runs auto-configure
+    so they pick up the latest EDA results.
     """
-    import json as _json
-
-    def _merge_eda_context(source_path: Path, dest_path: Path) -> None:
-        """Merge source EDA context into dest, preserving existing sections."""
-        source_data = _json.loads(source_path.read_text())
-        if dest_path.exists():
-            try:
-                dest_data = _json.loads(dest_path.read_text())
-            except Exception:
-                dest_data = {}
-        else:
-            dest_data = {}
-        dest_data.update(source_data)
-        dest_path.write_text(_json.dumps(dest_data, indent=2))
-
     try:
         edges = pipeline_data.get("edges", [])
+        nodes = {n["id"]: n for n in pipeline_data.get("nodes", [])}
 
-        # 1. Find parent node: who feeds into this EDA node?
-        eda_input_edges = [e for e in edges if e["target"] == eda_node_id]
-        if not eda_input_edges:
-            return
-        parent_id = eda_input_edges[0]["source"]
-        parent_port = eda_input_edges[0].get("source_port", "output")
+        # Find parent node(s) of this EDA node
+        parent_ids = {e["source"] for e in edges if e["target"] == eda_node_id}
 
-        # 2. Find the .eda-context.json that EDA just wrote (alongside parent's output)
-        eda_context_files = list(
-            run_dir.glob(f"{parent_id}_{parent_port}*.eda-context.json")
-        )
-        if not eda_context_files:
-            eda_context_files = list(
-                run_dir.glob(f"{parent_id}*.eda-context.json")
-            )
-        if not eda_context_files:
-            return
-        eda_context_file = eda_context_files[0]
-
-        # 3. Find all downstream edges from parent (excluding this EDA node)
-        parent_downstream = [
-            e for e in edges
-            if e["source"] == parent_id and e["target"] != eda_node_id
-        ]
-
-        # 4. Copy .eda-context.json alongside each sibling's input parquet
-        for edge in parent_downstream:
-            source_port = edge.get("source_port", "output")
-            dest_pattern = f"{parent_id}_{source_port}"
-            dest_candidates = list(run_dir.glob(f"{dest_pattern}*.parquet"))
-            if dest_candidates:
-                dest = dest_candidates[0].with_suffix(".eda-context.json")
-                _merge_eda_context(eda_context_file, dest)
-
-        # 5. Walk deeper into the DAG — propagate to grandchildren and beyond.
-        #    For each edge, copy the context alongside the child's *input*
-        #    parquet (named after the feeding parent), not its output.
+        # Collect all non-EDA downstream nodes from each parent
         visited: set[str] = set()
-        bfs: deque[str] = deque(e["target"] for e in parent_downstream)
-        while bfs:
-            current = bfs.popleft()
+        queue: deque[str] = deque()
+        for parent_id in parent_ids:
+            for e in edges:
+                if e["source"] == parent_id and e["target"] != eda_node_id:
+                    queue.append(e["target"])
+
+        while queue:
+            current = queue.popleft()
             if current in visited:
                 continue
             visited.add(current)
-            # Find edges feeding into `current` and copy context alongside
-            # each input parquet.
-            for e in edges:
-                if e["target"] != current:
-                    continue
-                src = e["source"]
-                sport = e.get("source_port", "output")
-                for inp_file in run_dir.glob(f"{src}_{sport}*.parquet"):
-                    dest = inp_file.with_suffix(".eda-context.json")
-                    _merge_eda_context(eda_context_file, dest)
-            # Enqueue this node's children
+            node = nodes.get(current)
+            if not node:
+                continue
+            # Skip EDA nodes — they don't need auto-configure
+            if ".eda." in node.get("type", "").lower():
+                continue
+            # Enqueue children
             for e in edges:
                 if e["source"] == current:
-                    bfs.append(e["target"])
+                    queue.append(e["target"])
 
-        # 6. Broadcast so the frontend knows context was updated
+        # Broadcast so the frontend knows EDA context was updated
         broadcast(pipeline_id, {
             "type": "eda_context_updated",
             "source_node_id": eda_node_id,
         })
 
-        # 7. Re-trigger auto-configure on each affected downstream node.
-        #    Skip nodes that are currently executing in the sandbox — their
-        #    params will be picked up on next run instead.
-        #    Import lazily to avoid circular dependency (pipelines → executor).
+        # Re-trigger auto-configure on each affected node
         from ml_toolbox.routers.pipelines import _auto_configure_node
 
         for target_id in visited:
@@ -823,7 +766,7 @@ def _propagate_eda_context(
 
     except Exception:
         logger.exception(
-            "Failed to propagate EDA context from node %s", eda_node_id,
+            "Failed to reconfigure downstream after EDA node %s", eda_node_id,
         )
 
 

@@ -49,34 +49,6 @@ def _write_meta(parquet_path: str, metadata: dict) -> None:
     meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
 
-def _read_eda_context(parquet_path: str) -> dict:
-    """Read .eda-context.json sidecar, return {} on failure."""
-    ctx_path = Path(parquet_path).with_suffix(".eda-context.json")
-    if ctx_path.exists():
-        try:
-            return json.loads(ctx_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _auto_select_columns(eda: dict, available_numeric: list[str]) -> list[str]:
-    """Auto-select columns from EDA context where skewness > 1 or outlier_pct > 0.05."""
-    selected: set[str] = set()
-
-    dist = eda.get("distribution", {})
-    for col, info in dist.items():
-        if col in available_numeric:
-            skew = info.get("skewness", 0)
-            if isinstance(skew, (int, float)) and skew > 1:
-                selected.add(col)
-
-    outliers = eda.get("outliers", {})
-    for col, info in outliers.items():
-        if col in available_numeric:
-            pct = info.get("outlier_pct", 0)
-            if isinstance(pct, (int, float)) and pct > 0.05:
-                selected.add(col)
 
     return sorted(selected)
 
@@ -171,31 +143,6 @@ def log_transform(inputs: dict, params: dict) -> dict:
         meta_path = Path(parquet_path).with_suffix(".meta.json")
         meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
-    def _read_eda_context(parquet_path: str) -> dict:
-        ctx_path = Path(parquet_path).with_suffix(".eda-context.json")
-        if ctx_path.exists():
-            try:
-                return json.loads(ctx_path.read_text())
-            except Exception:
-                pass
-        return {}
-
-    def _auto_select_columns(eda: dict, avail: list[str]) -> list[str]:
-        selected: set[str] = set()
-        dist = eda.get("distribution", {})
-        for col, info in dist.items():
-            if col in avail:
-                skew = info.get("skewness", 0)
-                if isinstance(skew, (int, float)) and skew > 1:
-                    selected.add(col)
-        outliers = eda.get("outliers", {})
-        for col, info in outliers.items():
-            if col in avail:
-                pct = info.get("outlier_pct", 0)
-                if isinstance(pct, (int, float)) and pct > 0.05:
-                    selected.add(col)
-        return sorted(selected)
-
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
     train_df = pl.read_parquet(train_path)
@@ -233,12 +180,9 @@ def log_transform(inputs: dict, params: dict) -> dict:
                 continue
             columns.append(col)
     else:
-        # Auto-select from EDA context
-        eda = _read_eda_context(train_path)
-        columns = _auto_select_columns(eda, available_numeric)
-        if not columns:
-            # Fallback: apply to all numeric columns
-            columns = available_numeric
+        # No columns specified — auto-configure should have set this param
+        # based on EDA context. Fall back to all numeric columns.
+        columns = available_numeric
 
     if not columns:
         raise ValueError("No columns to transform — provide columns or ensure numeric columns exist.")
