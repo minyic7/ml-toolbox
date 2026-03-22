@@ -21,6 +21,7 @@ import {
   LogisticRegressionIcon,
   GradientBoostingIcon,
   FeatureSelectorIcon,
+  FeatureImportanceIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -55,6 +56,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   logistic_regression: LogisticRegressionIcon,
   gradient_boosting_train: GradientBoostingIcon,
   feature_selector: FeatureSelectorIcon,
+  feature_importance: FeatureImportanceIcon,
 };
 
 /** Stable category ordering */

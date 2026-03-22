@@ -8,6 +8,7 @@ import { OutlierReport } from "./OutlierReport";
 import { RocPrReport } from "./RocPrReport";
 import { ConfusionMatrixReport } from "./ConfusionMatrixReport";
 import { TrainingMetricsReport } from "./TrainingMetricsReport";
+import { FeatureImportanceReport } from "./FeatureImportanceReport";
 
 interface ProfileReportProps {
   data: Record<string, unknown>;
@@ -79,6 +80,8 @@ export function ProfileReport({ data, analysis }: ProfileReportProps) {
       return <ConfusionMatrixReport data={data} analysis={analysis} />;
     case "training_metrics":
       return <TrainingMetricsReport data={data} analysis={analysis} />;
+    case "feature_importance":
+      return <FeatureImportanceReport data={data} analysis={analysis} />;
     default:
       return <MetricsDisplay data={data} />;
   }
