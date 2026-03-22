@@ -35,7 +35,7 @@ export function MissingReport({ data, analysis }: MissingReportProps) {
   const summaryItems = [
     { label: "Total Rows", value: totalRows },
     { label: "Total Missing", value: totalMissing },
-    { label: "Complete Rows %", value: `${typeof completeRows === "number" ? completeRows.toFixed(1) : completeRows}%` },
+    { label: "Complete Rows %", value: `${(completeRows * 100).toFixed(1)}%` },
     { label: "Cols w/ Missing", value: colsWithMissing },
   ];
 
@@ -51,7 +51,16 @@ export function MissingReport({ data, analysis }: MissingReportProps) {
     <div style={{ padding: 12 }}>
       <SummaryCards items={summaryItems} />
 
-      <ColumnTable columns={columns} headers={tableHeaders} />
+      <ColumnTable
+        columns={columns.map((c) => ({
+          ...c,
+          missing_pct:
+            typeof c.missing_pct === "number"
+              ? `${(c.missing_pct * 100).toFixed(1)}%`
+              : c.missing_pct,
+        }))}
+        headers={tableHeaders}
+      />
 
       <MissingBars columns={columns} totalRows={totalRows} />
 
