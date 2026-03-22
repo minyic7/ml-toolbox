@@ -580,13 +580,14 @@ class PipelineExecutor:
                         "outputs": outputs,
                     })
 
-                    # Auto-infer schema for ingest nodes
+                    # Auto-infer schema for ingest nodes + EDA context propagation
                     _post_execution_hook(
                         pipeline_id=pipeline_id,
                         node_id=node_id,
                         node_type=node.get("type", ""),
                         run_dir=run_dir,
                         broadcast=self._broadcast,
+                        pipeline_data=pipeline,
                     )
                 except Exception as exc:
                     had_error = True
@@ -664,6 +665,7 @@ def _post_execution_hook(
     node_type: str,
     run_dir: Path,
     broadcast: Callable[[str, dict], None],
+    pipeline_data: dict | None = None,
 ) -> None:
     """Trigger background tasks after node execution."""
     # Schema inference for ingest nodes
@@ -674,12 +676,117 @@ def _post_execution_hook(
             daemon=True,
         ).start()
 
+    # EDA context propagation: after an EDA node runs, propagate .eda-context.json
+    # to all sibling downstream nodes of the parent, then re-auto-configure them.
+    if ".eda." in node_type.lower() and pipeline_data is not None:
+        threading.Thread(
+            target=_propagate_eda_context,
+            args=(pipeline_id, node_id, run_dir, pipeline_data, broadcast),
+            daemon=True,
+        ).start()
+
     # Output analysis via subprocess Claude Code for all nodes
     threading.Thread(
         target=_analyze_output_background,
         args=(pipeline_id, node_id, node_type, run_dir, broadcast),
         daemon=True,
     ).start()
+
+
+def _propagate_eda_context(
+    pipeline_id: str,
+    eda_node_id: str,
+    run_dir: Path,
+    pipeline_data: dict,
+    broadcast: Callable[[str, dict], None],
+) -> None:
+    """After an EDA node runs, propagate .eda-context.json to sibling downstream nodes.
+
+    EDA nodes write .eda-context.json alongside their input file (the parent's
+    output).  But that sidecar never reaches sibling downstream nodes because
+    the sandbox runner only propagates sidecars during node execution, and the
+    parent has already finished by the time EDA writes.
+
+    This function copies the context file to every downstream sibling's expected
+    input location, walks deeper into the DAG, and re-triggers auto-configure
+    on each affected node.
+    """
+    import shutil
+
+    try:
+        edges = pipeline_data.get("edges", [])
+
+        # 1. Find parent node: who feeds into this EDA node?
+        eda_input_edges = [e for e in edges if e["target"] == eda_node_id]
+        if not eda_input_edges:
+            return
+        parent_id = eda_input_edges[0]["source"]
+        parent_port = eda_input_edges[0].get("source_port", "output")
+
+        # 2. Find the .eda-context.json that EDA just wrote (alongside parent's output)
+        eda_context_files = list(
+            run_dir.glob(f"{parent_id}_{parent_port}*.eda-context.json")
+        )
+        if not eda_context_files:
+            eda_context_files = list(
+                run_dir.glob(f"{parent_id}*.eda-context.json")
+            )
+        if not eda_context_files:
+            return
+        eda_context_file = eda_context_files[0]
+
+        # 3. Find all downstream edges from parent (excluding this EDA node)
+        parent_downstream = [
+            e for e in edges
+            if e["source"] == parent_id and e["target"] != eda_node_id
+        ]
+
+        # 4. Copy .eda-context.json alongside each sibling's input parquet
+        for edge in parent_downstream:
+            source_port = edge.get("source_port", "output")
+            dest_pattern = f"{parent_id}_{source_port}"
+            dest_candidates = list(run_dir.glob(f"{dest_pattern}*.parquet"))
+            if dest_candidates:
+                dest = dest_candidates[0].with_suffix(".eda-context.json")
+                shutil.copy2(str(eda_context_file), str(dest))
+
+        # 5. Walk deeper into the DAG — propagate to grandchildren and beyond
+        visited: set[str] = set()
+        queue = [e["target"] for e in parent_downstream]
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+            # Copy alongside this node's output parquets
+            for output_file in run_dir.glob(f"{current}*.parquet"):
+                if _is_sidecar_file(output_file):
+                    continue
+                dest = output_file.with_suffix(".eda-context.json")
+                if not dest.exists():
+                    shutil.copy2(str(eda_context_file), str(dest))
+            # Enqueue this node's children
+            for e in edges:
+                if e["source"] == current:
+                    queue.append(e["target"])
+
+        # 6. Broadcast so the frontend knows context was updated
+        broadcast(pipeline_id, {
+            "type": "eda_context_updated",
+            "source_node_id": eda_node_id,
+        })
+
+        # 7. Re-trigger auto-configure on each affected downstream node
+        #    Import lazily to avoid circular dependency (pipelines → executor).
+        from ml_toolbox.routers.pipelines import _auto_configure_node
+
+        for target_id in visited:
+            _auto_configure_node(pipeline_id, target_id)
+
+    except Exception:
+        logger.exception(
+            "Failed to propagate EDA context from node %s", eda_node_id,
+        )
 
 
 def _infer_schema_background(
