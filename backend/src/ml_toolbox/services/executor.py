@@ -726,7 +726,20 @@ def _propagate_eda_context(
     input location, walks deeper into the DAG, and re-triggers auto-configure
     on each affected node.
     """
-    import shutil
+    import json as _json
+
+    def _merge_eda_context(source_path: Path, dest_path: Path) -> None:
+        """Merge source EDA context into dest, preserving existing sections."""
+        source_data = _json.loads(source_path.read_text())
+        if dest_path.exists():
+            try:
+                dest_data = _json.loads(dest_path.read_text())
+            except Exception:
+                dest_data = {}
+        else:
+            dest_data = {}
+        dest_data.update(source_data)
+        dest_path.write_text(_json.dumps(dest_data, indent=2))
 
     try:
         edges = pipeline_data.get("edges", [])
@@ -763,7 +776,7 @@ def _propagate_eda_context(
             dest_candidates = list(run_dir.glob(f"{dest_pattern}*.parquet"))
             if dest_candidates:
                 dest = dest_candidates[0].with_suffix(".eda-context.json")
-                shutil.copy2(str(eda_context_file), str(dest))
+                _merge_eda_context(eda_context_file, dest)
 
         # 5. Walk deeper into the DAG — propagate to grandchildren and beyond.
         #    For each edge, copy the context alongside the child's *input*
@@ -784,8 +797,7 @@ def _propagate_eda_context(
                 sport = e.get("source_port", "output")
                 for inp_file in run_dir.glob(f"{src}_{sport}*.parquet"):
                     dest = inp_file.with_suffix(".eda-context.json")
-                    if not dest.exists():
-                        shutil.copy2(str(eda_context_file), str(dest))
+                    _merge_eda_context(eda_context_file, dest)
             # Enqueue this node's children
             for e in edges:
                 if e["source"] == current:

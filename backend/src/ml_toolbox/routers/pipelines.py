@@ -861,7 +861,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
 def _is_internal_file(f: Path) -> bool:
     """Return True for internal metadata files that are not node outputs."""
     name = f.name
-    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json", "_transform_summary.json")):
+    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json", "_transform_summary.json", ".eda-context.json")):
         return True
     # Exclude internal manifest/result/error JSON files but keep
     # legitimate node output JSON (e.g. metrics.json).
