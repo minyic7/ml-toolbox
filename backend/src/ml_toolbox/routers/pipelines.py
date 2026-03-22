@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import mimetypes
@@ -18,6 +19,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ml_toolbox.protocol.decorators import NODE_REGISTRY
+from ml_toolbox.config import DATA_DIR
 from ml_toolbox.services import file_store, store
 from ml_toolbox.services.executor import (
     PipelineExecutor,
@@ -478,6 +480,11 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
 
     data["edges"].append(edge)
     store.save(pipeline_id, data)
+
+    # Trigger auto-configure for the target node in background
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, _auto_configure_node, pipeline_id, body.target)
+
     return edge
 
 
@@ -1115,3 +1122,187 @@ async def notify_metadata_updated(pipeline_id: str, node_id: str) -> dict:
     """
     broadcast_sync(pipeline_id, {"type": "metadata_updated", "node_id": node_id})
     return {"status": "notified"}
+
+
+# ── Auto-configure node params via subprocess Claude ─────────────
+
+
+def _auto_configure_node(
+    pipeline_id: str, target_node_id: str,
+) -> None:
+    """Spawn a short-lived Claude Code subprocess to suggest param values
+    for *target_node_id* based on upstream .meta.json files.
+
+    Runs via ``loop.run_in_executor`` — failures are logged and silently
+    ignored.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("claude") is None:
+        logger.debug("claude CLI not found, skipping auto-configure for %s", target_node_id)
+        return
+
+    # Load fresh pipeline data (not a stale snapshot from the request)
+    try:
+        pipeline_data = store.load(pipeline_id)
+    except FileNotFoundError:
+        return
+
+    # Find target node
+    target_node = next(
+        (n for n in pipeline_data["nodes"] if n["id"] == target_node_id), None
+    )
+    if not target_node:
+        return
+
+    node_type = target_node.get("type", "")
+    node_label = target_node.get("name") or node_type.rsplit(".", 1)[-1]
+
+    # Collect upstream metadata — each source separated with a header
+    upstream_edges = [
+        e for e in pipeline_data["edges"] if e["target"] == target_node_id
+    ]
+    if not upstream_edges:
+        return
+
+    meta_sections: list[str] = []
+    for edge in upstream_edges:
+        source_id = edge["source"]
+        source_node = next(
+            (n for n in pipeline_data["nodes"] if n["id"] == source_id), None
+        )
+        source_label = _node_label(source_node) if source_node else source_id
+        try:
+            latest_run = file_store.get_latest_run_id(pipeline_id)
+            if latest_run:
+                run_dir = file_store.PROJECTS_DIR / pipeline_id / "runs" / latest_run
+                meta_files = list(run_dir.glob(f"{source_id}*.meta.json"))
+                if meta_files:
+                    meta_sections.append(
+                        f"--- Upstream node: {source_label} ({source_id}) ---\n"
+                        + meta_files[0].read_text()[:3000]
+                    )
+        except Exception:
+            pass
+
+    if not meta_sections:
+        return  # No metadata available — nothing to auto-configure
+
+    meta_content = "\n\n".join(meta_sections)
+
+    # Build param context
+    current_params = target_node.get("params", [])
+    param_info = {
+        p["name"]: p.get("default")
+        for p in current_params
+        if isinstance(p, dict)
+    }
+    param_names = list(param_info.keys())
+
+    if not param_names:
+        return
+
+    prompt = f"""Configure parameters for a pipeline node based on upstream data metadata.
+
+Node: {node_label}
+Node type: {node_type}
+Available params: {param_names}
+Current param defaults: {json.dumps(param_info)}
+
+Upstream metadata:
+{meta_content}
+
+Based on the metadata, determine optimal param values. Only change params that benefit from the metadata context (e.g. target_column, stratify_column, columns, method).
+
+Return ONLY valid JSON with param names and values to set:
+{{"target_column": "col_name", "columns": "col1, col2"}}
+
+Only include params that should change. Return {{}} if defaults are fine."""
+
+    try:
+        result = subprocess.run(
+            ["claude", "-p", prompt, "--output-format", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(DATA_DIR / "projects" / pipeline_id),
+        )
+
+        if result.returncode != 0:
+            stderr = result.stderr.strip() if result.stderr else ""
+            if "auth" in stderr.lower() or "login" in stderr.lower():
+                logger.warning(
+                    "claude -p auth failed for auto-configure %s — run 'claude login' in the backend container",
+                    target_node_id,
+                )
+            else:
+                logger.warning(
+                    "claude -p failed for auto-configure %s (rc=%s): %s",
+                    target_node_id, result.returncode, stderr[:200],
+                )
+            return
+
+        raw = result.stdout.strip()
+        if not raw:
+            return
+
+        # Parse JSON envelope from --output-format json
+        try:
+            envelope = json.loads(raw)
+            if isinstance(envelope, dict) and "result" in envelope:
+                inner = envelope["result"]
+            else:
+                inner = raw
+        except (json.JSONDecodeError, TypeError):
+            inner = raw
+
+        # Strip markdown fences if present
+        if isinstance(inner, str):
+            stripped = inner.strip()
+            if stripped.startswith("```"):
+                lines = stripped.split("\n")
+                lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                stripped = "\n".join(lines)
+            params_to_set = json.loads(stripped)
+        else:
+            params_to_set = inner
+
+        if not params_to_set or not isinstance(params_to_set, dict):
+            return
+
+        # Acquire per-pipeline lock for safe read-modify-write
+        with store.pipeline_lock(pipeline_id):
+            fresh_data = store.load(pipeline_id)
+            fresh_target = next(
+                (n for n in fresh_data["nodes"] if n["id"] == target_node_id), None
+            )
+            if not fresh_target:
+                return
+
+            changed = False
+            for param_def in fresh_target.get("params", []):
+                if isinstance(param_def, dict) and param_def.get("name") in params_to_set:
+                    param_def["default"] = params_to_set[param_def["name"]]
+                    changed = True
+
+            if not changed:
+                return
+
+            store.save(pipeline_id, fresh_data)
+
+        broadcast_sync(pipeline_id, {
+            "type": "pipeline_updated",
+            "node_id": target_node_id,
+        })
+        logger.info(
+            "Auto-configured params for node %s: %s",
+            target_node_id, list(params_to_set.keys()),
+        )
+
+    except subprocess.TimeoutExpired:
+        logger.warning("Auto-configure timed out for %s", target_node_id)
+    except Exception as e:
+        logger.warning("Auto-configure failed for %s: %s", target_node_id, e)
