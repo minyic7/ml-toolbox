@@ -128,6 +128,31 @@ export function OutlierDetectionIcon({ color = "currentColor", size = 16 }: Icon
   );
 }
 
+// ── Transform ──────────────────────────────────────────────────
+
+/** Table with column struck through — column dropper */
+export function ColumnDropperIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Table header row */}
+      <rect x="1" y="1.5" width="14" height="3" rx="0.8" stroke={color} strokeWidth="1.2" />
+      {/* Column dividers in header */}
+      <line x1="5.5" y1="1.5" x2="5.5" y2="4.5" stroke={color} strokeWidth="0.8" />
+      <line x1="10.5" y1="1.5" x2="10.5" y2="4.5" stroke={color} strokeWidth="0.8" />
+      {/* Body rows — left and right columns visible */}
+      <line x1="1.5" y1="7" x2="4.5" y2="7" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="1.5" y1="9.5" x2="4.5" y2="9.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="1.5" y1="12" x2="4.5" y2="12" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="11.5" y1="7" x2="14.5" y2="7" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="11.5" y1="9.5" x2="14.5" y2="9.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="11.5" y1="12" x2="14.5" y2="12" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      {/* Diagonal strike-through on middle column */}
+      <line x1="6.5" y1="5.5" x2="9.5" y2="13" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="9.5" y1="5.5" x2="6.5" y2="13" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
