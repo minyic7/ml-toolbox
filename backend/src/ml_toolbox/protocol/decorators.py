@@ -15,7 +15,7 @@ def node(
     category: str | None = None,
     description: str | None = None,
     guide: str | None = None,
-    allowed_upstream: list[str] | None = None,
+    allowed_upstream: dict[str, list[str]] | list[str] | None = None,
 ):
     """Decorator that registers a node function into the global NODE_REGISTRY."""
 
@@ -51,6 +51,14 @@ def node(
         # Dedent if the function was nested
         fn_source = inspect.cleandoc(fn_source) if fn_source[0] == " " else fn_source
 
+        # Normalize allowed_upstream to per-port dict format.
+        # - list[str]: legacy format — apply same list to all input ports
+        # - dict[str, list[str]]: per-port (new)
+        if isinstance(allowed_upstream, list):
+            allowed_upstream_dict = {port_name: allowed_upstream for port_name in inputs}
+        else:
+            allowed_upstream_dict = allowed_upstream or {}
+
         NODE_REGISTRY[node_id] = {
             "type": node_id,
             "label": label or auto_label,
@@ -61,7 +69,7 @@ def node(
             "outputs": [{"name": k, "type": v.value} for k, v in outputs.items()],
             "params": serialized_params,
             "default_code": fn_source,
-            "allowed_upstream": allowed_upstream or [],
+            "allowed_upstream": allowed_upstream_dict,
         }
 
         return fn

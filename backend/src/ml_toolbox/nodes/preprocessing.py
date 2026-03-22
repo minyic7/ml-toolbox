@@ -35,7 +35,9 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     label="Random Hold-out",
     category="Preprocessing",
     description="Split a DataFrame into train, validation, and test sets using random hold-out.",
-    allowed_upstream=["Ingest"],
+    allowed_upstream={
+        "df": ["csv_reader", "parquet_reader"],
+    },
     guide="""## Random Hold-out Split
 
 The simplest data splitting strategy: randomly partition your dataset into three sets.

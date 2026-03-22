@@ -90,6 +90,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
     outputs,
     isKnownType,
     occupiedInputPorts,
+    allowedUpstream,
     onTabClick,
     onRunFrom,
     onDeleteNode,
@@ -105,6 +106,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
   // Connection compatibility dimming
   const draggingFromNodeId = useExecutionStore((s) => s.draggingFromNodeId);
   const draggingSourceOutputTypes = useExecutionStore((s) => s.draggingSourceOutputTypes);
+  const draggingSourceNodeFn = useExecutionStore((s) => s.draggingSourceNodeFn);
 
   const isCompatible = useMemo(() => {
     if (!draggingFromNodeId) return true; // not dragging
@@ -113,19 +115,23 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
     // No inputs → not a valid target (root node)
     if (inputs.length === 0) return false;
 
-    // Check if any unoccupied input port has a matching type
+    // Check if any unoccupied input port has a matching type AND allowed_upstream
     const occupiedSet = new Set(occupiedInputPorts);
-    const availableInputTypes = inputs
-      .filter((inp) => !occupiedSet.has(inp.name))
-      .map((inp) => inp.type);
+    const availablePorts = inputs.filter((inp) => !occupiedSet.has(inp.name));
 
-    if (availableInputTypes.length === 0) return false; // all inputs occupied
+    if (availablePorts.length === 0) return false; // all inputs occupied
 
-    // Check if any source output type matches any available input type
-    return draggingSourceOutputTypes.some((outType) =>
-      availableInputTypes.includes(outType),
-    );
-  }, [draggingFromNodeId, draggingSourceOutputTypes, id, inputs, occupiedInputPorts]);
+    return availablePorts.some((port) => {
+      // Port type must match
+      if (!draggingSourceOutputTypes.includes(port.type)) return false;
+      // Check per-port allowed_upstream
+      const allowed = allowedUpstream[port.name];
+      if (allowed && allowed.length > 0 && draggingSourceNodeFn) {
+        return allowed.includes(draggingSourceNodeFn);
+      }
+      return true; // no constraint or no source fn info
+    });
+  }, [draggingFromNodeId, draggingSourceOutputTypes, draggingSourceNodeFn, id, inputs, occupiedInputPorts, allowedUpstream]);
 
   const isDimmed = !isCompatible;
   const errorSummary = traceback
