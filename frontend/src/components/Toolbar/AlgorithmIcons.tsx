@@ -220,6 +220,30 @@ export function ScalerTransformIcon({ color = "currentColor", size = 16 }: IconP
   );
 }
 
+/** Function f(x) with plus sign — feature engineering / creation */
+export function FeatureCreatorIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* f(x) text — feature function */}
+      <text
+        x="8"
+        y="8.5"
+        textAnchor="middle"
+        fill={color}
+        fontSize="6.5"
+        fontFamily="serif"
+        fontStyle="italic"
+        fontWeight="bold"
+      >
+        f(x)
+      </text>
+      {/* Plus sign — creating new features */}
+      <line x1="12" y1="11" x2="12" y2="15" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="10" y1="13" x2="14" y2="13" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
