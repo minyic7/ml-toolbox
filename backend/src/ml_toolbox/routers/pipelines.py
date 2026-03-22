@@ -1060,7 +1060,7 @@ async def put_metadata(
                 # to prevent path-traversal via client-supplied metadata.
                 if source_path:
                     resolved = Path(source_path).resolve()
-                    if not str(resolved).startswith(str(DATA_DIR.resolve())):
+                    if not resolved.is_relative_to(DATA_DIR.resolve()):
                         source_path = None
                 if source_path and Path(source_path).is_file():
                     src = Path(source_path)
