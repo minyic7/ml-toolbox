@@ -338,6 +338,56 @@ export function ModelComparisonIcon({ color = "currentColor", size = 16 }: IconP
   );
 }
 
+/** Checkmark inside a gauge arc — classification evaluation */
+export function ClassificationMetricsIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Gauge arc */}
+      <path
+        d="M3 12A5.5 5.5 0 0 1 13 12"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      {/* Tick marks on gauge */}
+      <line x1="3" y1="12" x2="3" y2="10.5" stroke={color} strokeWidth="1" strokeLinecap="round" />
+      <line x1="8" y1="6.5" x2="8" y2="5" stroke={color} strokeWidth="1" strokeLinecap="round" />
+      <line x1="13" y1="12" x2="13" y2="10.5" stroke={color} strokeWidth="1" strokeLinecap="round" />
+      {/* Checkmark */}
+      <path
+        d="M6 10L7.5 11.5L10.5 8"
+        stroke={color}
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Line chart trending down with R² — regression evaluation */
+export function RegressionMetricsIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Axes */}
+      <path d="M2 2V13H14" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Scatter dots */}
+      <circle cx="4.5" cy="10.5" r="1" fill={color} />
+      <circle cx="6.5" cy="8.5" r="1" fill={color} />
+      <circle cx="9" cy="7" r="1" fill={color} />
+      <circle cx="11.5" cy="5" r="1" fill={color} />
+      {/* Trend line */}
+      <path
+        d="M3.5 11.5L12.5 4"
+        stroke={color}
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        strokeDasharray="2.5 1.5"
+      />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (

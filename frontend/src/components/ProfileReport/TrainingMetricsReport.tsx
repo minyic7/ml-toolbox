@@ -1,28 +1,11 @@
 import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
+import { WarningList } from "./WarningList";
 
 interface TrainingMetricsReportProps {
   data: Record<string, unknown>;
   analysis?: CcAnalysis | null;
 }
-
-type SplitMetrics = {
-  accuracy?: number;
-  f1?: number;
-  precision?: number;
-  recall?: number;
-  auc?: number;
-};
-
-const SPLIT_ORDER = ["train", "val", "test"] as const;
-
-const METRIC_LABELS: Record<string, string> = {
-  accuracy: "Accuracy",
-  f1: "F1",
-  precision: "Precision",
-  recall: "Recall",
-  auc: "AUC",
-};
 
 const SECTION_HEADER: React.CSSProperties = {
   fontSize: 11,
@@ -36,150 +19,300 @@ const SECTION_HEADER: React.CSSProperties = {
   marginTop: 16,
 };
 
-export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
-  const splits = SPLIT_ORDER.filter(
-    (s) => data[s] && typeof data[s] === "object",
-  );
+/** Format a metric value for display. */
+function fmtMetric(v: unknown): string {
+  if (typeof v !== "number") return String(v ?? "—");
+  if (Number.isInteger(v)) return v.toLocaleString();
+  return v.toFixed(4);
+}
 
-  if (splits.length === 0) {
-    return (
-      <div className="output-empty" style={{ padding: 12 }}>
-        No training metrics available
-      </div>
-    );
+/** Color-code a metric comparison — green if better, red if worse. */
+function diffColor(
+  trainVal: number | undefined,
+  splitVal: number | undefined,
+  higherIsBetter: boolean,
+): string | undefined {
+  if (trainVal === undefined || splitVal === undefined) return undefined;
+  const diff = splitVal - trainVal;
+  if (Math.abs(diff) < 0.005) return undefined; // within noise
+  const isBetter = higherIsBetter ? diff > 0 : diff < 0;
+  return isBetter ? "#16a34a" : "#dc2626";
+}
+
+const HIGHER_IS_BETTER: Record<string, boolean> = {
+  accuracy: true,
+  f1_macro: true,
+  precision_macro: true,
+  recall_macro: true,
+  auc: true,
+  r2: true,
+  mae: false,
+  rmse: false,
+};
+
+export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
+  const taskType = data.task_type as string;
+  const splits = data.splits as Record<string, Record<string, number>> | undefined;
+  const splitOrder = (data.split_order ?? []) as string[];
+  const metricInfo = (data.metric_info ?? {}) as Record<string, string>;
+  const warnings = (data.warnings ?? []) as {
+    type: string;
+    column?: string;
+    message: string;
+  }[];
+
+  if (!splits || splitOrder.length === 0) {
+    return <div className="output-empty">No metrics computed</div>;
   }
 
-  // Use train metrics for summary cards (primary split)
-  const primaryMetrics = data[splits[0]] as SplitMetrics;
+  // Collect all metric keys (excluding "support")
+  const firstSplit = splits[splitOrder[0]];
+  const metricKeys = Object.keys(firstSplit).filter((k) => k !== "support");
+
+  // Summary cards: total samples, task type, split count
+  const totalSamples = splitOrder.reduce(
+    (sum, s) => sum + (splits[s]?.support ?? 0),
+    0,
+  );
   const summaryItems = [
-    { label: "Accuracy", value: primaryMetrics.accuracy ?? 0 },
-    { label: "F1 Score", value: primaryMetrics.f1 ?? 0 },
-    ...(primaryMetrics.auc != null
-      ? [{ label: "AUC", value: primaryMetrics.auc }]
-      : []),
+    {
+      label: "Task Type",
+      value: taskType === "classification" ? "Classification" : "Regression",
+    },
+    { label: "Splits", value: splitOrder.length },
+    { label: "Total Samples", value: totalSamples },
   ];
 
-  const metricKeys = Object.keys(METRIC_LABELS).filter((k) =>
-    splits.some((s) => (data[s] as SplitMetrics)[k as keyof SplitMetrics] != null),
-  );
+  // Best split for the primary metric (first metric key)
+  const primaryMetric = metricKeys[0];
+  if (primaryMetric && splitOrder.length > 1) {
+    const hib = HIGHER_IS_BETTER[primaryMetric] ?? true;
+    let bestSplit = splitOrder[0];
+    let bestVal = splits[bestSplit]?.[primaryMetric] ?? 0;
+    for (const s of splitOrder.slice(1)) {
+      const val = splits[s]?.[primaryMetric] ?? 0;
+      if (hib ? val > bestVal : val < bestVal) {
+        bestSplit = s;
+        bestVal = val;
+      }
+    }
+    summaryItems.push({
+      label: `Best ${primaryMetric}`,
+      value: `${fmtMetric(bestVal)} (${bestSplit})`,
+    });
+  }
+
+  const trainMetrics = splits["train"];
 
   return (
     <div style={{ padding: 12 }}>
       <SummaryCards items={summaryItems} />
 
+      {/* Metrics comparison table */}
       <div style={SECTION_HEADER}>Metrics by Split</div>
-      <div
-        style={{
-          overflowX: "auto",
-          border: "1px solid var(--border-default)",
-          borderRadius: 6,
-          marginBottom: 12,
-        }}
-      >
+      <div style={{ overflowX: "auto" }}>
         <table
           style={{
             width: "100%",
             borderCollapse: "collapse",
+            fontSize: 12,
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 10,
           }}
         >
           <thead>
             <tr>
-              <th style={thStyle}>Metric</th>
-              {splits.map((s) => (
-                <th key={s} style={thStyle}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
+              <th
+                style={{
+                  textAlign: "left",
+                  padding: "6px 10px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  fontFamily: "'Inter', sans-serif",
+                  borderBottom: "1px solid var(--border-default)",
+                }}
+              >
+                Metric
+              </th>
+              {splitOrder.map((split) => (
+                <th
+                  key={split}
+                  style={{
+                    textAlign: "right",
+                    padding: "6px 10px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    fontFamily: "'Inter', sans-serif",
+                    borderBottom: "1px solid var(--border-default)",
+                  }}
+                >
+                  {split}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {metricKeys.map((metricKey, i) => (
+            {metricKeys.map((metric) => (
               <tr
-                key={metricKey}
+                key={metric}
                 style={{
-                  backgroundColor:
-                    i % 2 === 1
-                      ? "var(--output-row-hover, rgba(0,0,0,0.02))"
-                      : "transparent",
+                  borderBottom: "1px solid var(--border-default)",
                 }}
               >
-                <td style={{ ...cellStyle, fontWeight: 600 }}>
-                  {METRIC_LABELS[metricKey]}
+                <td
+                  style={{
+                    padding: "8px 10px",
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 11,
+                  }}
+                  title={metricInfo[metric] ?? ""}
+                >
+                  {metric}
                 </td>
-                {splits.map((s) => {
-                  const val = (data[s] as SplitMetrics)[
-                    metricKey as keyof SplitMetrics
-                  ];
+                {splitOrder.map((split) => {
+                  const val = splits[split]?.[metric];
+                  const hib = HIGHER_IS_BETTER[metric] ?? true;
+                  const color =
+                    split !== "train" && trainMetrics
+                      ? diffColor(trainMetrics[metric], val, hib)
+                      : undefined;
                   return (
-                    <td key={s} style={cellStyle}>
-                      {val != null ? <MetricWithBar value={val} /> : "—"}
+                    <td
+                      key={split}
+                      style={{
+                        textAlign: "right",
+                        padding: "8px 10px",
+                        color: color ?? "var(--text-primary)",
+                        fontWeight: color ? 600 : 400,
+                      }}
+                    >
+                      {fmtMetric(val)}
                     </td>
                   );
                 })}
               </tr>
             ))}
+            {/* Support row */}
+            <tr>
+              <td
+                style={{
+                  padding: "8px 10px",
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                }}
+              >
+                support
+              </td>
+              {splitOrder.map((split) => (
+                <td
+                  key={split}
+                  style={{
+                    textAlign: "right",
+                    padding: "8px 10px",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {(splits[split]?.support ?? 0).toLocaleString()}
+                </td>
+              ))}
+            </tr>
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
 
-/* ---------- Styles ---------- */
+      {/* Per-split metric cards for quick visual comparison */}
+      {splitOrder.length > 1 && (
+        <>
+          <div style={{ ...SECTION_HEADER, marginTop: 20 }}>
+            Split Comparison
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${Math.min(splitOrder.length, 3)}, 1fr)`,
+              gap: 10,
+            }}
+          >
+            {splitOrder.map((split) => {
+              const m = splits[split];
+              if (!m) return null;
+              return (
+                <div
+                  key={split}
+                  style={{
+                    border: "1px solid var(--border-default)",
+                    borderRadius: 8,
+                    padding: "10px 12px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      color: "var(--text-muted)",
+                      letterSpacing: "0.05em",
+                      marginBottom: 8,
+                      fontFamily: "'Inter', sans-serif",
+                    }}
+                  >
+                    {split}
+                  </div>
+                  {metricKeys.map((metric) => (
+                    <div
+                      key={metric}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "3px 0",
+                        fontSize: 11,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: "var(--text-secondary)",
+                          fontFamily: "'Inter', sans-serif",
+                        }}
+                      >
+                        {metric}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontWeight: 600,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {fmtMetric(m[metric])}
+                      </span>
+                    </div>
+                  ))}
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text-muted)",
+                      marginTop: 6,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    n={m.support?.toLocaleString()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
-const thStyle: React.CSSProperties = {
-  padding: "6px 8px",
-  textAlign: "left",
-  fontFamily: "'Inter', sans-serif",
-  fontSize: 10,
-  fontWeight: 600,
-  color: "var(--text-secondary)",
-  backgroundColor: "var(--output-thead-bg, #f5f5f5)",
-  borderBottom: "1px solid var(--border-default)",
-};
-
-const cellStyle: React.CSSProperties = {
-  padding: "4px 8px",
-  color: "var(--text-primary)",
-  borderBottom: "1px solid var(--border-default)",
-  whiteSpace: "nowrap",
-};
-
-/* ---------- Metric value with inline bar ---------- */
-
-function MetricWithBar({ value }: { value: number }) {
-  const pct = value * 100;
-  const color =
-    value >= 0.8
-      ? "rgba(34, 197, 94, 0.7)"
-      : value >= 0.5
-        ? "rgba(234, 179, 8, 0.7)"
-        : "rgba(239, 68, 68, 0.7)";
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 90 }}>
-      <span style={{ width: 38, textAlign: "right" }}>{pct.toFixed(1)}%</span>
-      <div
-        style={{
-          flex: 1,
-          height: 8,
-          backgroundColor: "var(--border-default)",
-          borderRadius: 3,
-          overflow: "hidden",
-          minWidth: 40,
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            backgroundColor: color,
-            borderRadius: 3,
-          }}
-        />
-      </div>
+      <WarningList warnings={warnings} />
     </div>
   );
 }
