@@ -2,17 +2,9 @@
 
 from __future__ import annotations
 
-import json
-import logging
 from pathlib import Path
 
-import joblib
-import numpy as np
-import pandas as pd
-
 from ml_toolbox.protocol import PortType, Text, Toggle, node
-
-logger = logging.getLogger(__name__)
 
 
 def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
@@ -385,7 +377,8 @@ def model_comparison(inputs: dict, params: dict) -> dict:
     if not target_col or target_col not in test_df.columns:
         # Last resort: last column
         target_col = test_df.columns[-1]
-        logger.warning("Target column not specified; using last column: %s", target_col)
+        import warnings
+        warnings.warn(f"Target column not specified; using last column: {target_col}", stacklevel=1)
 
     X_test = test_df.drop(columns=[target_col])
     y_test: np.ndarray = test_df[target_col].to_numpy()

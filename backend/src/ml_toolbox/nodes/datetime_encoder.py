@@ -2,39 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
-
-import polars as pl
 
 from ml_toolbox.protocol import PortType, Text, Toggle, node
 
-logger = logging.getLogger(__name__)
-
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
-    """Return the output path for a node artifact."""
+    """Overridden by sandbox runner at runtime."""
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
-
-
-_VALID_COMPONENTS = {"year", "month", "day", "weekday", "hour", "minute"}
-
-
-def _auto_detect_datetime_columns(df: pl.DataFrame) -> list[str]:
-    """Find datetime columns from DataFrame dtype or datetime-like column names."""
-    _DATETIME_NAME_HINTS = {"date", "datetime", "timestamp", "time", "created", "updated"}
-    cols: list[str] = []
-
-    for col_name in df.columns:
-        if df[col_name].dtype in (pl.Date, pl.Datetime):
-            cols.append(col_name)
-        elif df[col_name].dtype in (pl.Utf8, pl.String):
-            if any(hint in col_name.lower() for hint in _DATETIME_NAME_HINTS):
-                cols.append(col_name)
-
-    return cols
 
 
 @node(

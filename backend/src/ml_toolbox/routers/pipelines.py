@@ -1504,6 +1504,9 @@ def _get_params_for_node(
     # ── EDA-context-aware rules ─────────────────────────────────
 
     if node_fn == "log_transform":
+        result: dict[str, Any] = {}
+        if target_col:
+            result["target_column"] = target_col
         if eda_context:
             dist = eda_context.get("distribution", {})
             outliers = eda_context.get("outliers", {})
@@ -1516,33 +1519,53 @@ def _get_params_for_node(
                     cols.add(col)
             sorted_cols = sorted(c for c in cols if c != target_col)
             if sorted_cols:
-                return {"columns": ", ".join(sorted_cols)}
+                result["columns"] = ", ".join(sorted_cols)
+                return result
         # Fallback: all continuous non-target columns
         fallback = [c for c in continuous if c != target_col]
-        return {"columns": ", ".join(fallback)} if fallback else {}
+        if fallback:
+            result["columns"] = ", ".join(fallback)
+        return result
 
     if node_fn == "interaction_creator":
+        result = {}
+        if target_col:
+            result["target_column"] = target_col
         if eda_context:
             pairs = eda_context.get("correlation", {}).get("high_pairs", [])
             pair_strs = [f"{a}:{b}" for a, b, r in pairs if abs(r) > 0.5]
-            return {"pairs": ", ".join(pair_strs)} if pair_strs else {}
-        return {}
+            if pair_strs:
+                result["pairs"] = ", ".join(pair_strs)
+        return result
 
     if node_fn == "datetime_encoder":
+        result = {}
+        if target_col:
+            result["target_column"] = target_col
         dt_cols = [
             name for name, m in columns_meta.items()
             if m.get("semantic_type") == "datetime"
         ]
-        return {"column": dt_cols[0]} if dt_cols else {}
+        if dt_cols:
+            result["column"] = dt_cols[0]
+        return result
 
     if node_fn == "column_dropper":
+        result = {}
+        if target_col:
+            result["target_column"] = target_col
         drop = [
             name for name, m in columns_meta.items()
             if m.get("role") == "identifier"
         ]
-        return {"columns_to_drop": ", ".join(drop)} if drop else {}
+        if drop:
+            result["columns_to_drop"] = ", ".join(drop)
+        return result
 
     if node_fn == "missing_imputer":
+        result = {}
+        if target_col:
+            result["target_column"] = target_col
         if eda_context:
             missing = eda_context.get("missing", {})
             high_missing = [
@@ -1550,8 +1573,9 @@ def _get_params_for_node(
                 if m.get("missing_pct", 0) > 0.3
             ]
             if high_missing:
-                return {"strategy": "constant", "constant_value": "0"}
-        return {}
+                result["strategy"] = "constant"
+                result["constant_value"] = "0"
+        return result
 
     if node_fn == "feature_selector":
         result: dict[str, Any] = {}

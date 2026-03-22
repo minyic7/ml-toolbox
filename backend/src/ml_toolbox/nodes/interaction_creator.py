@@ -2,53 +2,16 @@
 
 from __future__ import annotations
 
-import json
-import logging
-import warnings
 from pathlib import Path
-
-import polars as pl
 
 from ml_toolbox.protocol import PortType, Select, Text, node
 
-logger = logging.getLogger(__name__)
-
-_NUMERIC_DTYPES = (
-    pl.Int8, pl.Int16, pl.Int32, pl.Int64,
-    pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
-    pl.Float32, pl.Float64,
-)
-
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
-    """Return the output path for a node artifact."""
+    """Overridden by sandbox runner at runtime."""
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
-
-
-def _parse_pairs(raw: str) -> list[tuple[str, str]]:
-    """Parse 'A:B, C:D' format into list of column pairs."""
-    pairs: list[tuple[str, str]] = []
-    for token in raw.split(","):
-        token = token.strip()
-        if not token:
-            continue
-        parts = token.split(":")
-        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
-            raise ValueError(
-                f"Invalid pair format '{token}' — expected 'COL_A:COL_B'"
-            )
-        pairs.append((parts[0].strip(), parts[1].strip()))
-    return pairs
-
-
-_OP_LABELS = {
-    "multiply": "x",
-    "ratio": "div",
-    "add": "plus",
-    "subtract": "minus",
-}
 
 
 @node(
