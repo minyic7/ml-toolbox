@@ -7,6 +7,7 @@ import type { NodeIcon } from "./NodeIconChip";
 import NodeGroup from "./NodeGroup";
 import {
   CsvReaderIcon,
+  ExcelReaderIcon,
   ParquetReaderIcon,
   RandomHoldoutIcon,
   DistributionProfileIcon,
@@ -35,6 +36,7 @@ const DEFAULT_CHIP_COLORS = { bg: "#F8F9FB", border: "#E2E8F0", icon: "#64748B",
 /** Custom SVG icon for every node type */
 const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   csv_reader: CsvReaderIcon,
+  excel_reader: ExcelReaderIcon,
   parquet_reader: ParquetReaderIcon,
   random_holdout: RandomHoldoutIcon,
   distribution_profile: DistributionProfileIcon,

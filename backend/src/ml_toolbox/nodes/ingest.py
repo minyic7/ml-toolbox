@@ -74,3 +74,44 @@ def parquet_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
     out = _get_output_path("df")
     df.write_parquet(out)
     return {"df": str(out)}
+
+
+@node(
+    outputs={"df": PortType.TABLE},
+    params={
+        "path": Text(default="", description="Absolute path to the Excel file on disk", placeholder="/path/to/data.xlsx"),
+        "sheet_name": Text(default="", description="Sheet name to read (empty = first sheet)", placeholder="Sheet1"),
+        "header_row": Text(default="0", description="Row number containing column headers (0-based)", placeholder="0"),
+        "skip_rows": Text(default="0", description="Number of rows to skip from the top before reading", placeholder="0"),
+    },
+    label="Excel Reader",
+    category="Ingest",
+    description="Load an Excel file (.xlsx / .xls) into a TABLE output.",
+    allowed_upstream=[],
+)
+def excel_reader(inputs: dict, params: dict) -> dict:  # noqa: ARG001
+    """Load an Excel file (.xlsx / .xls) into a TABLE output."""
+    import pandas as pd
+
+    path = params.get("path", "")
+    if not path:
+        raise ValueError("path parameter is required — upload a file or enter a file path")
+
+    sheet_name: str | int = params.get("sheet_name", "") or 0
+    header_row = int(params.get("header_row", "0") or "0")
+    skip_rows = int(params.get("skip_rows", "0") or "0")
+
+    # Determine engine based on file extension
+    engine = "xlrd" if path.lower().endswith(".xls") else "openpyxl"
+
+    df = pd.read_excel(
+        path,
+        sheet_name=sheet_name,
+        header=header_row,
+        skiprows=skip_rows,
+        engine=engine,
+    )
+
+    out = _get_output_path("df")
+    df.to_parquet(out, index=False)
+    return {"df": str(out)}
