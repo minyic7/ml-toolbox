@@ -1,8 +1,10 @@
+import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
 import { WarningList } from "./WarningList";
 
 interface CorrelationReportProps {
   data: Record<string, unknown>;
+  analysis?: CcAnalysis | null;
 }
 
 const SECTION_HEADER: React.CSSProperties = {
@@ -17,7 +19,7 @@ const SECTION_HEADER: React.CSSProperties = {
   marginTop: 16,
 };
 
-export function CorrelationReport({ data }: CorrelationReportProps) {
+export function CorrelationReport({ data, analysis }: CorrelationReportProps) {
   const summary = data.summary as Record<string, unknown> | undefined;
   const topPairs = (data.top_pairs ?? []) as Record<string, unknown>[];
   const targetCorrelations = (data.target_correlations ?? null) as
@@ -29,6 +31,7 @@ export function CorrelationReport({ data }: CorrelationReportProps) {
     column?: string;
     message: string;
   }[];
+  const aiWarnings = analysis?.warnings ?? [];
 
   const summaryItems = [
     { label: "Numeric Cols", value: (summary?.numeric_columns as number) ?? 0 },
@@ -65,7 +68,19 @@ export function CorrelationReport({ data }: CorrelationReportProps) {
         </>
       )}
 
-      <WarningList warnings={warnings} />
+      {/* Single warnings section: AI if available, else hardcoded */}
+      {aiWarnings.length > 0 ? (
+        <WarningList
+          warnings={aiWarnings.map((w) => ({
+            type: w.type,
+            column: w.column ?? undefined,
+            message: w.message,
+          }))}
+          source="ai"
+        />
+      ) : (
+        <WarningList warnings={warnings} />
+      )}
     </div>
   );
 }
