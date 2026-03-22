@@ -25,18 +25,18 @@ const BULLET_STYLE: React.CSSProperties = {
 };
 
 export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
-  const { findings, warnings, suggestions } = analysis;
+  const { summary, findings, warnings, suggestions } = analysis;
   const hasFindings = findings && findings.length > 0;
   const hasWarnings = warnings && warnings.length > 0;
   const hasSuggestions = suggestions && suggestions.length > 0;
 
-  if (!hasFindings && !hasWarnings && !hasSuggestions) return null;
+  if (!summary && !hasFindings && !hasWarnings && !hasSuggestions) return null;
 
   return (
     <div
       style={{
         padding: 12,
-        borderTop: "1px solid var(--border-default)",
+        borderBottom: "1px solid var(--border-default)",
       }}
     >
       <div
@@ -60,17 +60,45 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
             color: "var(--text-muted)",
           }}
         >
-          AI Analysis
+          AI Summary
         </span>
       </div>
 
+      {summary && (
+        <p
+          style={{
+            fontSize: 13,
+            fontFamily: "'Inter', sans-serif",
+            color: "var(--text-primary)",
+            marginTop: 0,
+            marginBottom: 8,
+            lineHeight: 1.4,
+          }}
+        >
+          {summary}
+        </p>
+      )}
+
       {hasFindings && (
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 8 }}>
           <div style={SECTION_HEADER}>Key Findings</div>
           <ul style={{ margin: 0, paddingLeft: 16 }}>
             {findings.map((f, i) => (
               <li key={i} style={BULLET_STYLE}>
                 {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hasSuggestions && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={SECTION_HEADER}>Next Steps</div>
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {suggestions.map((s, i) => (
+              <li key={i} style={BULLET_STYLE}>
+                {s}
               </li>
             ))}
           </ul>
@@ -86,19 +114,6 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
           }))}
           source="ai"
         />
-      )}
-
-      {hasSuggestions && (
-        <div style={{ marginTop: 12 }}>
-          <div style={SECTION_HEADER}>Suggested Next Steps</div>
-          <ul style={{ margin: 0, paddingLeft: 16 }}>
-            {suggestions.map((s, i) => (
-              <li key={i} style={BULLET_STYLE}>
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
     </div>
   );

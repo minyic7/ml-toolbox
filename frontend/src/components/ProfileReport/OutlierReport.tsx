@@ -1,9 +1,11 @@
 import { Fragment, useState, useCallback } from "react";
+import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
 import { WarningList } from "./WarningList";
 
 interface OutlierReportProps {
   data: Record<string, unknown>;
+  analysis?: CcAnalysis | null;
 }
 
 type Method = "iqr" | "zscore" | "both";
@@ -21,7 +23,7 @@ const SECTION_HEADER: React.CSSProperties = {
   marginTop: 16,
 };
 
-export function OutlierReport({ data }: OutlierReportProps) {
+export function OutlierReport({ data, analysis }: OutlierReportProps) {
   const method = (data.method as string as Method) || "iqr";
   const params = data.params as Record<string, unknown> | undefined;
   const summary = data.summary as Record<string, unknown> | undefined;
@@ -31,6 +33,7 @@ export function OutlierReport({ data }: OutlierReportProps) {
     column?: string;
     message: string;
   }[];
+  const aiWarnings = analysis?.warnings ?? [];
 
   const colsWithOutliers = columns.filter(
     (c) => (c.outlier_count as number) > 0,
@@ -57,6 +60,16 @@ export function OutlierReport({ data }: OutlierReportProps) {
       <OutlierTable columns={columns} method={method} />
 
       <WarningList warnings={warnings} />
+      {aiWarnings.length > 0 && (
+        <WarningList
+          warnings={aiWarnings.map((w) => ({
+            type: w.type,
+            column: w.column ?? undefined,
+            message: w.message,
+          }))}
+          source="ai"
+        />
+      )}
     </div>
   );
 }
