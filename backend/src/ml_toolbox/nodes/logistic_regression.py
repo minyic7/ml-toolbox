@@ -165,7 +165,10 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
-            target_col = meta.get("target")
+            for _cn, _cm in meta.get("columns", {}).items():
+                if isinstance(_cm, dict) and _cm.get("role") == "target":
+                    target_col = _cn
+                    break
         except Exception:
             pass
 

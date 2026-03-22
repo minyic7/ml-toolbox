@@ -202,7 +202,11 @@ def log_transform(inputs: dict, params: dict) -> dict:
     meta = _read_meta(train_path)
 
     # ── Determine target column (excluded from transforms) ───────
-    target_col = meta.get("target")
+    target_col = None
+    for _col_name, _col_meta in meta.get("columns", {}).items():
+        if isinstance(_col_meta, dict) and _col_meta.get("role") == "target":
+            target_col = _col_name
+            break
 
     # ── Determine numeric columns ────────────────────────────────
     available_numeric = [
@@ -275,5 +279,17 @@ def log_transform(inputs: dict, params: dict) -> dict:
 
     if inputs.get("test"):
         result["test"] = _write_split(_apply(pl.read_parquet(inputs["test"])), "test")
+
+    # ── Write transform summary sidecar ──────────────────────────
+    auto_selected = not columns_param
+    summary = {
+        "method": "log1p",
+        "transformed_columns": columns,
+        "skipped_columns": [c for c in available_numeric if c not in columns],
+        "target_column": target_col,
+        "auto_selected": auto_selected,
+    }
+    summary_path = _get_output_path("transform_summary", ext=".json")
+    summary_path.write_text(json.dumps(summary, indent=2))
 
     return result

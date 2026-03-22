@@ -241,7 +241,11 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
     op_label = _OP_MAP[operation]
 
     # ── Determine target column ──────────────────────────────────
-    target_col = meta.get("target")
+    target_col = None
+    for _col_name, _col_meta in meta.get("columns", {}).items():
+        if isinstance(_col_meta, dict) and _col_meta.get("role") == "target":
+            target_col = _col_name
+            break
 
     # ── Determine numeric columns ────────────────────────────────
     available_numeric = {

@@ -271,7 +271,9 @@ def _read_target_column(test_path: str) -> str | None:
     meta_path = Path(test_path).with_suffix(".meta.json")
     if meta_path.exists():
         meta = json.loads(meta_path.read_text())
-        return meta.get("target")
+        for col_name, col_meta in meta.get("columns", {}).items():
+            if isinstance(col_meta, dict) and col_meta.get("role") == "target":
+                return col_name
     return None
 
 
