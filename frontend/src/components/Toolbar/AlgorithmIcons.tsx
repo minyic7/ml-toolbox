@@ -306,6 +306,21 @@ export function FeatureSelectorIcon({ color = "currentColor", size = 16 }: IconP
   );
 }
 
+// ── Evaluation ─────────────────────────────────────────────────
+
+/** Horizontal bars sorted descending — feature importance ranking */
+export function FeatureImportanceIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Horizontal bars — decreasing width */}
+      <rect x="1" y="2" width="13" height="2.5" rx="0.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.25" />
+      <rect x="1" y="5.5" width="9.5" height="2.5" rx="0.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.15" />
+      <rect x="1" y="9" width="6" height="2.5" rx="0.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.1" />
+      <rect x="1" y="12.5" width="3" height="2.5" rx="0.5" stroke={color} strokeWidth="1.1" fill={color} fillOpacity="0.05" />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
