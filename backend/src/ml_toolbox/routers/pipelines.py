@@ -1292,10 +1292,11 @@ def _get_downstream_nodes(node_id: str, pipeline_data: dict) -> list[str]:
 def _read_upstream_metadata(
     pipeline_id: str, target_node_id: str, pipeline_data: dict,
 ) -> dict | None:
-    """Traverse DAG upward from target_node_id to find the nearest .meta.json.
+    """Complete BFS from target_node_id through the DAG. Ingest (reader)
+    nodes are terminal — collect their .meta.json and stop expanding.
+    Non-ingest nodes are expanded to all neighbors (parents + children).
 
-    Skips EDA nodes (they produce METRICS, not TABLE) and keeps going
-    until a node with .meta.json is found.
+    Returns the first .meta.json found, or None.
     """
     edges = pipeline_data.get("edges", [])
     nodes = {n["id"]: n for n in pipeline_data.get("nodes", [])}
@@ -1307,34 +1308,40 @@ def _read_upstream_metadata(
     except Exception:
         return None
 
-    # BFS upward
+    # Build adjacency list (bidirectional)
+    neighbors: dict[str, set[str]] = {}
+    for e in edges:
+        neighbors.setdefault(e["source"], set()).add(e["target"])
+        neighbors.setdefault(e["target"], set()).add(e["source"])
+
     visited: set[str] = set()
     queue = [target_node_id]
 
     while queue:
         current = queue.pop(0)
-        parent_ids = [e["source"] for e in edges if e["target"] == current]
+        if current in visited:
+            continue
+        visited.add(current)
 
-        for parent_id in parent_ids:
-            if parent_id in visited:
-                continue
-            visited.add(parent_id)
+        node = nodes.get(current)
+        if not node:
+            continue
 
-            # Skip EDA nodes — they don't produce .meta.json
-            parent_node = nodes.get(parent_id)
-            if parent_node and ".eda." in parent_node.get("type", "").lower():
-                queue.append(parent_id)
-                continue
+        is_ingest = ".ingest." in node.get("type", "").lower()
 
-            meta_files = list(run_dir.glob(f"{parent_id}*.meta.json"))
+        if is_ingest:
+            # Collect .meta.json and stop — don't expand past reader nodes
+            meta_files = list(run_dir.glob(f"{current}*.meta.json"))
             if meta_files:
                 try:
                     return json.loads(meta_files[0].read_text())
                 except Exception:
                     pass
-
-            # No .meta.json at this level, keep going up
-            queue.append(parent_id)
+        else:
+            # Non-ingest node — expand to all neighbors
+            for neighbor_id in neighbors.get(current, set()):
+                if neighbor_id not in visited:
+                    queue.append(neighbor_id)
 
     return None
 
