@@ -15,6 +15,9 @@ export const CATEGORY_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   preprocessing: "var(--category-preprocessing)",
   eda: "var(--category-eda)",
+  transform: "var(--category-transform)",
+  training: "var(--category-training)",
+  evaluation: "var(--category-evaluation)",
 };
 
 /** Accent border color for each node category (4px left border on NodeCard) */
@@ -22,4 +25,7 @@ export const CATEGORY_ACCENT_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
   preprocessing: "var(--category-preprocessing)",
   eda: "var(--category-eda)",
+  transform: "var(--category-transform)",
+  training: "var(--category-training)",
+  evaluation: "var(--category-evaluation)",
 };
