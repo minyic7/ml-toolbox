@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Table2 } from "lucide-react";
+import { Table2, BarChart3 } from "lucide-react";
 import { useExecutionStore } from "../../store/executionStore";
-import { getMetadata } from "../../lib/api";
+import { getMetadata, getEdaContext } from "../../lib/api";
 import type { NodeInstance, NodeDefinition, Edge } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
 import SchemaModal from "./SchemaModal";
+import EdaContextModal from "./EdaContextModal";
 
 interface BottomDrawerProps {
   pipelineId: string;
@@ -26,6 +27,23 @@ interface BottomDrawerProps {
 
 const DRAWER_HEADER_HEIGHT = 38;
 
+const contextBtnStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 5,
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "var(--text-muted)",
+  background: "transparent",
+  border: "1px solid var(--border-default)",
+  borderRadius: 6,
+  padding: "5px 10px",
+  cursor: "pointer",
+  fontFamily: "'Inter', sans-serif",
+};
+
 export default function BottomDrawer({
   pipelineId,
   node,
@@ -44,8 +62,11 @@ export default function BottomDrawer({
   const isOpen = node !== null;
   const isRunning = useExecutionStore((s) => s.isRunning);
   const [schemaModalOpen, setSchemaModalOpen] = useState(false);
+  const [edaModalOpen, setEdaModalOpen] = useState(false);
 
   const isIngestNode = definition?.category === "Ingest";
+
+  // Fetch metadata for schema button (all nodes)
   const { data: metadata } = useQuery({
     queryKey: ["metadata", pipelineId, node?.id],
     queryFn: async () => {
@@ -55,10 +76,18 @@ export default function BottomDrawer({
       }
       return null;
     },
-    enabled: isIngestNode && !!pipelineId && !!node?.id,
+    enabled: !!pipelineId && !!node?.id,
   });
   const hasMetadata = !!metadata?.columns;
   const columnCount = hasMetadata ? Object.keys(metadata.columns).length : 0;
+
+  // Fetch EDA context availability
+  const { data: edaData } = useQuery({
+    queryKey: ["eda-context", pipelineId, node?.id],
+    queryFn: () => getEdaContext(pipelineId, node!.id),
+    enabled: !!pipelineId && !!node?.id,
+  });
+  const hasEdaContext = !!edaData?.eda_context;
 
   return (
     <div
@@ -113,32 +142,39 @@ export default function BottomDrawer({
               nodeId={node.id}
               nodeInputs={definition.inputs}
             />
-            {isIngestNode && hasMetadata && (
-              <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border-default)" }}>
-                <button
-                  onClick={() => setSchemaModalOpen(true)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    color: "var(--accent-primary)",
-                    background: "transparent",
-                    border: "1px solid var(--border-default)",
-                    borderRadius: 6,
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    fontFamily: "'Inter', sans-serif",
-                  }}
-                >
-                  <Table2 size={12} />
-                  Schema ({columnCount} columns)
-                </button>
-              </div>
-            )}
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: "8px 16px",
+                borderTop: "1px solid var(--border-default)",
+              }}
+            >
+              <button
+                onClick={() => setSchemaModalOpen(true)}
+                style={{
+                  ...contextBtnStyle,
+                  ...(hasMetadata
+                    ? { color: "var(--accent-primary)" }
+                    : {}),
+                }}
+              >
+                <Table2 size={12} />
+                Schema{hasMetadata ? ` (${columnCount})` : ""}
+              </button>
+              <button
+                onClick={() => setEdaModalOpen(true)}
+                style={{
+                  ...contextBtnStyle,
+                  ...(hasEdaContext
+                    ? { color: "var(--accent-primary)" }
+                    : {}),
+                }}
+              >
+                <BarChart3 size={12} />
+                EDA Context
+              </button>
+            </div>
           </div>
           <div
             style={{
@@ -181,13 +217,22 @@ export default function BottomDrawer({
           </div>
         </>
       )}
-      {node && isIngestNode && (
-        <SchemaModal
-          open={schemaModalOpen}
-          onClose={() => setSchemaModalOpen(false)}
-          pipelineId={pipelineId}
-          nodeId={node.id}
-        />
+      {node && (
+        <>
+          <SchemaModal
+            open={schemaModalOpen}
+            onClose={() => setSchemaModalOpen(false)}
+            pipelineId={pipelineId}
+            nodeId={node.id}
+            readOnly={!isIngestNode}
+          />
+          <EdaContextModal
+            open={edaModalOpen}
+            onClose={() => setEdaModalOpen(false)}
+            pipelineId={pipelineId}
+            nodeId={node.id}
+          />
+        </>
       )}
     </div>
   );
