@@ -47,6 +47,7 @@ function makeData(overrides: Partial<NodeCardData> = {}): NodeCardData {
     code: "",
     isKnownType: true,
     occupiedInputPorts: [],
+    allowedUpstream: {},
     ...overrides,
   };
 }

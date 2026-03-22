@@ -317,7 +317,8 @@ function CanvasInner({
         // Set dragging source for node compatibility dimming
         if (node) {
           const outputTypes = node.outputs.map((p) => p.type);
-          setDraggingFrom(params.nodeId, outputTypes);
+          const nodeFn = node.type.includes(".") ? node.type.split(".").pop()! : node.type;
+          setDraggingFrom(params.nodeId, outputTypes, nodeFn);
         }
       }
     },
@@ -327,7 +328,7 @@ function CanvasInner({
   const onConnectEnd = useCallback(() => {
     setConnectStartParams(null);
     setDraggingPortType(null);
-    setDraggingFrom(null, []);
+    setDraggingFrom(null, [], null);
   }, [setDraggingPortType, setDraggingFrom]);
 
   const isValidConnection: IsValidConnection = useCallback(
