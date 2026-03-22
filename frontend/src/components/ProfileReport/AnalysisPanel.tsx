@@ -1,5 +1,5 @@
+import { useState } from "react";
 import type { CcAnalysis } from "../../lib/types";
-import { WarningList } from "./WarningList";
 
 interface AnalysisPanelProps {
   analysis: CcAnalysis;
@@ -25,28 +25,39 @@ const BULLET_STYLE: React.CSSProperties = {
 };
 
 export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
-  const { summary, findings, warnings, suggestions } = analysis;
+  const [collapsed, setCollapsed] = useState(false);
+  const { summary, findings, suggestions } = analysis;
   const hasFindings = findings && findings.length > 0;
-  const hasWarnings = warnings && warnings.length > 0;
   const hasSuggestions = suggestions && suggestions.length > 0;
 
-  if (!summary && !hasFindings && !hasWarnings && !hasSuggestions) return null;
+  if (!summary && !hasFindings && !hasSuggestions) return null;
 
   return (
     <div
       style={{
-        padding: 12,
-        borderBottom: "1px solid var(--border-default)",
+        marginTop: 16,
+        border: "1px solid var(--border-default)",
+        borderRadius: 6,
+        overflow: "hidden",
       }}
     >
-      <div
+      <button
+        onClick={() => setCollapsed((c) => !c)}
         style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
-          marginBottom: 12,
+          width: "100%",
+          padding: "8px 12px",
+          border: "none",
+          cursor: "pointer",
+          backgroundColor: "var(--output-thead-bg, #f5f5f5)",
+          textAlign: "left",
         }}
       >
+        <span style={{ fontSize: 8, color: "var(--text-secondary)" }}>
+          {collapsed ? "\u25b6" : "\u25bc"}
+        </span>
         <span
           style={{
             fontSize: 9,
@@ -60,60 +71,53 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
             color: "var(--text-muted)",
           }}
         >
-          AI Summary
+          AI Analysis
         </span>
-      </div>
+      </button>
 
-      {summary && (
-        <p
-          style={{
-            fontSize: 13,
-            fontFamily: "'Inter', sans-serif",
-            color: "var(--text-primary)",
-            marginTop: 0,
-            marginBottom: 8,
-            lineHeight: 1.4,
-          }}
-        >
-          {summary}
-        </p>
-      )}
+      {!collapsed && (
+        <div style={{ padding: 12 }}>
+          {summary && (
+            <p
+              style={{
+                fontSize: 13,
+                fontFamily: "'Inter', sans-serif",
+                color: "var(--text-primary)",
+                marginTop: 0,
+                marginBottom: 8,
+                lineHeight: 1.4,
+              }}
+            >
+              {summary}
+            </p>
+          )}
 
-      {hasFindings && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={SECTION_HEADER}>Key Findings</div>
-          <ul style={{ margin: 0, paddingLeft: 16 }}>
-            {findings.map((f, i) => (
-              <li key={i} style={BULLET_STYLE}>
-                {f}
-              </li>
-            ))}
-          </ul>
+          {hasFindings && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={SECTION_HEADER}>Key Findings</div>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {findings.map((f, i) => (
+                  <li key={i} style={BULLET_STYLE}>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {hasSuggestions && (
+            <div style={{ marginBottom: 0 }}>
+              <div style={SECTION_HEADER}>Next Steps</div>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {suggestions.map((s, i) => (
+                  <li key={i} style={BULLET_STYLE}>
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      )}
-
-      {hasSuggestions && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={SECTION_HEADER}>Next Steps</div>
-          <ul style={{ margin: 0, paddingLeft: 16 }}>
-            {suggestions.map((s, i) => (
-              <li key={i} style={BULLET_STYLE}>
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {hasWarnings && (
-        <WarningList
-          warnings={warnings.map((w) => ({
-            type: w.type,
-            column: w.column ?? undefined,
-            message: w.message,
-          }))}
-          source="ai"
-        />
       )}
     </div>
   );

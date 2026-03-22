@@ -812,8 +812,15 @@ Analyze this output and provide a concise summary for the user.
 2. **Warnings** — anything the user should pay attention to (data quality issues, unexpected patterns, potential problems for downstream modeling)
 3. **Suggested Next Steps** — what should the user do after seeing this output
 
+Rules:
+- Each finding must be ONE sentence, max 20 words
+- Each warning message must be ONE sentence, max 25 words
+- Summary must be ONE sentence, max 30 words
+- Suggestions must be actionable and specific, ONE sentence each
+- Do NOT repeat information that is already visible in the data table
+- Focus on insights the user cannot easily see themselves
+
 Be specific — reference actual column names, values, and statistics from the output.
-Keep it concise and actionable.
 
 Return ONLY valid JSON (no markdown fences, no extra text):
 {{"summary": "One-sentence overall summary", "findings": ["Finding 1 with specific details", "Finding 2"], "warnings": [{{"type": "high|medium|low", "column": "col_name or null", "message": "Specific warning"}}], "suggestions": ["Specific actionable suggestion 1", "Suggestion 2"]}}"""
