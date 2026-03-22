@@ -101,6 +101,9 @@ const PIPELINE_DOT_COLORS = [
   "var(--category-ingest)",
   "var(--category-preprocessing)",
   "var(--category-eda)",
+  "var(--category-transform)",
+  "var(--category-training)",
+  "var(--category-evaluation)",
 ];
 export function pipelineDotColor(pipelineId: string): string {
   let hash = 0;
