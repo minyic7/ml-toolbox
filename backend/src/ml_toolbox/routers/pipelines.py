@@ -1414,9 +1414,21 @@ def _collect_eda_context_from_dag(
     """
     edges = pipeline_data.get("edges", [])
     nodes = {n["id"]: n for n in pipeline_data.get("nodes", [])}
-    combined: dict = {}
 
-    # BFS upward through the DAG
+    # If the target node is itself an EDA node, return only its own report
+    target_node = nodes.get(target_node_id)
+    if target_node and ".eda." in target_node.get("type", "").lower():
+        report_files = list(run_dir.glob(f"{target_node_id}_report.json"))
+        if not report_files:
+            return None
+        try:
+            report = json.loads(report_files[0].read_text())
+            return _extract_eda_section_from_report(report) or None
+        except Exception:
+            return None
+
+    # For non-EDA nodes: BFS upward through the DAG to find all EDA siblings
+    combined: dict = {}
     visited_ancestors: set[str] = set()
     queue = [target_node_id]
 
