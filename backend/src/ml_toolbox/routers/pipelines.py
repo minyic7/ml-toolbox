@@ -1069,6 +1069,34 @@ async def put_metadata(
 
         threading.Thread(target=_recast, daemon=True).start()
 
+    # Propagate metadata to downstream nodes and re-configure their params
+    def _propagate() -> None:
+        try:
+            pipeline_data = store.load(pipeline_id)
+            downstream = _get_downstream_nodes(node_id, pipeline_data)
+            if not downstream:
+                return
+
+            # Copy .meta.json to downstream output locations
+            for ds_node_id in downstream:
+                ds_meta_files = list(run_dir.glob(f"{ds_node_id}*.meta.json"))
+                for mf in ds_meta_files:
+                    mf.write_text(json.dumps(body, indent=2, ensure_ascii=False))
+
+            # Re-run auto-configure on each downstream node
+            for ds_node_id in downstream:
+                _auto_configure_node(pipeline_id, ds_node_id)
+
+            broadcast_sync(pipeline_id, {
+                "type": "metadata_propagated",
+                "source_node_id": node_id,
+                "updated_nodes": downstream,
+            })
+        except Exception as e:
+            logger.warning("Metadata propagation failed for %s: %s", node_id, e)
+
+    threading.Thread(target=_propagate, daemon=True).start()
+
     return {"status": "saved"}
 
 
@@ -1123,6 +1151,25 @@ async def notify_metadata_updated(pipeline_id: str, node_id: str) -> dict:
 
 
 # ── Auto-configure node params via deterministic rule engine ─────
+
+
+def _get_downstream_nodes(node_id: str, pipeline_data: dict) -> list[str]:
+    """Return all transitive downstream node IDs from *node_id*."""
+    edges = pipeline_data.get("edges", [])
+    downstream: list[str] = []
+    queue = [node_id]
+    visited: set[str] = set()
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        for edge in edges:
+            if edge["source"] == current:
+                target = edge["target"]
+                downstream.append(target)
+                queue.append(target)
+    return downstream
 
 
 def _read_upstream_metadata(
