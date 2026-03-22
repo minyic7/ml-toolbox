@@ -1,8 +1,12 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Table2 } from "lucide-react";
 import { useExecutionStore } from "../../store/executionStore";
+import { getMetadata } from "../../lib/api";
 import type { NodeInstance, NodeDefinition, Edge } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
-import SchemaEditor from "./SchemaEditor";
+import SchemaModal from "./SchemaModal";
 
 interface BottomDrawerProps {
   pipelineId: string;
@@ -39,6 +43,22 @@ export default function BottomDrawer({
 }: BottomDrawerProps) {
   const isOpen = node !== null;
   const isRunning = useExecutionStore((s) => s.isRunning);
+  const [schemaModalOpen, setSchemaModalOpen] = useState(false);
+
+  const isIngestNode = definition?.category === "Ingest";
+  const { data: metadata } = useQuery({
+    queryKey: ["metadata", pipelineId, node?.id],
+    queryFn: async () => {
+      const res = await getMetadata(pipelineId, node!.id);
+      if (res.metadata && typeof res.metadata === "object" && "columns" in res.metadata) {
+        return res.metadata as { columns: Record<string, unknown> };
+      }
+      return null;
+    },
+    enabled: isIngestNode && !!pipelineId && !!node?.id,
+  });
+  const hasMetadata = !!metadata?.columns;
+  const columnCount = hasMetadata ? Object.keys(metadata.columns).length : 0;
 
   return (
     <div
@@ -93,30 +113,30 @@ export default function BottomDrawer({
               nodeId={node.id}
               nodeInputs={definition.inputs}
             />
-            {definition.category === "Ingest" && (
-              <div
-                style={{
-                  borderTop: "1px solid var(--border-default)",
-                  marginTop: 4,
-                }}
-              >
-                <div
+            {isIngestNode && hasMetadata && (
+              <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border-default)" }}>
+                <button
+                  onClick={() => setSchemaModalOpen(true)}
                   style={{
-                    padding: "8px 16px 4px",
-                    fontFamily: "'Inter', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    fontWeight: 600,
                     textTransform: "uppercase",
                     letterSpacing: "0.05em",
-                    color: "var(--text-muted)",
+                    color: "var(--accent-primary)",
+                    background: "transparent",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    fontFamily: "'Inter', sans-serif",
                   }}
                 >
-                  Schema
-                </div>
-                <SchemaEditor
-                  pipelineId={pipelineId}
-                  nodeId={node.id}
-                />
+                  <Table2 size={12} />
+                  Schema ({columnCount} columns)
+                </button>
               </div>
             )}
           </div>
@@ -160,6 +180,14 @@ export default function BottomDrawer({
             </button>
           </div>
         </>
+      )}
+      {node && isIngestNode && (
+        <SchemaModal
+          open={schemaModalOpen}
+          onClose={() => setSchemaModalOpen(false)}
+          pipelineId={pipelineId}
+          nodeId={node.id}
+        />
       )}
     </div>
   );
