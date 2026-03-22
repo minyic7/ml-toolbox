@@ -27,36 +27,14 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     return p / f"{name}{ext}"
 
 
-def _read_meta(input_path: str) -> dict:
-    """Read .meta.json sidecar alongside a parquet file."""
-    meta_path = Path(input_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _detect_task_type(meta: dict, target_col: str, train_df: pl.DataFrame) -> str:
-    """Determine 'classification' or 'regression' from metadata and data.
+def _detect_task_type(target_col: str, train_df: pl.DataFrame) -> str:
+    """Determine 'classification' or 'regression' from data heuristics.
 
     Rules:
-    - categorical / binary semantic_type → classification
-    - continuous semantic_type → regression
     - integer dtype with few unique values (≤ 20) → classification
     - float dtype → regression
     - fallback: classification
     """
-    col_meta = meta.get("columns", {}).get(target_col, {})
-    semantic = col_meta.get("semantic_type", "")
-
-    if semantic in ("categorical", "binary"):
-        return "classification"
-    if semantic == "continuous":
-        return "regression"
-
-    # Infer from actual data
     if target_col in train_df.columns:
         dtype = train_df[target_col].dtype
         if dtype in (pl.Float32, pl.Float64):
@@ -84,6 +62,7 @@ _REGRESSION_CRITERIA = ("squared_error", "absolute_error")
         "metrics": PortType.METRICS,
     },
     params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
         "max_depth": Slider(
             min=1, max=50, step=1, default=10,
             description="Maximum tree depth — primary regularization knob",
@@ -105,7 +84,7 @@ _REGRESSION_CRITERIA = ("squared_error", "absolute_error")
     category="Training",
     description=(
         "Train a Decision Tree model. Auto-detects classification vs regression "
-        "from the target column type."
+        "from the target column data."
     ),
     allowed_upstream={
         "train": [
@@ -130,7 +109,7 @@ _REGRESSION_CRITERIA = ("squared_error", "absolute_error")
     guide="""## Decision Tree
 
 Train a **Decision Tree** for classification or regression. The task type is
-auto-detected from the target column metadata.
+auto-detected from the target column data.
 
 ### Pros
 - **Highly interpretable** — the tree structure can be visualised and explained
@@ -149,9 +128,7 @@ auto-detected from the target column metadata.
 | `criterion` | Split metric. Auto-corrected to match the detected task type. |
 
 ### Auto-detection
-The node reads `.meta.json` to determine the task type:
-- **categorical / binary** semantic type → classification
-- **continuous** semantic type → regression
+The node detects the task type from the target column data:
 - **integer with ≤ 20 unique values** → classification
 - **float** → regression
 """,
@@ -171,21 +148,16 @@ def decision_tree(inputs: dict, params: dict) -> dict:
 
     # ── Read training data ────────────────────────────────────────
     train_df = pl.read_parquet(inputs["train"])
-    meta = _read_meta(inputs["train"])
-    target_col = ""
-    for _cn, _cm in meta.get("columns", {}).items():
-        if isinstance(_cm, dict) and _cm.get("role") == "target":
-            target_col = _cn
-            break
+    target_col = params.get("target_column", "")
 
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
             f"Target column '{target_col}' not found. "
-            "Ensure upstream node produces a .meta.json with a 'target' key."
+            "Target column not specified. Run auto-configure or set target_column manually."
         )
 
     # ── Detect task type ──────────────────────────────────────────
-    task_type = _detect_task_type(meta, target_col, train_df)
+    task_type = _detect_task_type(target_col, train_df)
     logger.info("Detected task type: %s", task_type)
 
     # ── Resolve criterion ─────────────────────────────────────────
@@ -307,6 +279,7 @@ def decision_tree(inputs: dict, params: dict) -> dict:
         "metrics": PortType.METRICS,
     },
     params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
         "n_estimators": Slider(
             min=10,
             max=500,
@@ -336,7 +309,7 @@ def decision_tree(inputs: dict, params: dict) -> dict:
     },
     label="Random Forest",
     category="Training",
-    description="Train a Random Forest model (classifier or regressor). Auto-detects task type from target column metadata.",
+    description="Train a Random Forest model (classifier or regressor). Auto-detects task type from target column data.",
     allowed_upstream={
         "train": [
             "random_holdout", "stratified_holdout",
@@ -374,9 +347,9 @@ A **Random Forest** is an ensemble of decision trees trained on random subsets o
 | **n_jobs** | Parallel workers | `-1` uses all CPU cores. Set to `1` for debugging. |
 
 ### Auto-detection
-The node reads `.meta.json` to determine the task type:
-- **binary / multiclass** target → `RandomForestClassifier`
-- **continuous** target → `RandomForestRegressor`
+The node detects the task type from the target column data:
+- **integer with ≤ 20 unique values** → `RandomForestClassifier`
+- **float / many unique values** → `RandomForestRegressor`
 
 ### Feature Importance
 The output `metrics.json` includes `feature_importances` — a ranked list of features by importance (Gini importance). The **Feature Importance** evaluation node can read and visualize this.
@@ -412,33 +385,25 @@ def random_forest(inputs: dict, params: dict) -> dict:
     # ── Read train data ──────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
-    # ── Read .meta.json sidecar ──────────────────────────────────
-    meta_path = Path(inputs["train"]).with_suffix(".meta.json")
-    meta: dict = {}
-    target_col: str | None = None
-    semantic_type: str | None = None
-
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            for _cn, _cm in meta.get("columns", {}).items():
-                if isinstance(_cm, dict) and _cm.get("role") == "target":
-                    target_col = _cn
-                    break
-            if target_col:
-                col_meta = meta.get("columns", {}).get(target_col, {})
-                semantic_type = col_meta.get("semantic_type")
-        except Exception:
-            pass
+    # ── Read target column from params ───────────────────────────
+    target_col = params.get("target_column", "")
 
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
-            "Cannot determine target column. Ensure upstream data has a .meta.json "
-            "sidecar with a 'target' field."
+            f"Target column '{target_col}' not found. "
+            "Target column not specified. Run auto-configure or set target_column manually."
         )
 
-    # ── Auto-detect task type ────────────────────────────────────
-    is_classification = semantic_type in ("binary", "multiclass")
+    # ── Auto-detect task type from data ──────────────────────────
+    y_dtype = train_df[target_col].dtype
+    n_unique = train_df[target_col].nunique()
+    is_classification = (
+        pd.api.types.is_integer_dtype(y_dtype) and n_unique <= 20
+    ) or (
+        pd.api.types.is_float_dtype(y_dtype)
+        and (train_df[target_col].dropna() % 1 == 0).all()
+        and n_unique <= 20
+    )
 
     # ── Prepare features and target ──────────────────────────────
     feature_cols = [c for c in train_df.columns if c != target_col]

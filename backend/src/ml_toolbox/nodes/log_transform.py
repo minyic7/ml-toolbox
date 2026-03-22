@@ -32,23 +32,6 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     return p / f"{name}{ext}"
 
 
-def _read_meta(parquet_path: str) -> dict:
-    """Read .meta.json sidecar for a parquet file, return {} on failure."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _write_meta(parquet_path: str, metadata: dict) -> None:
-    """Write .meta.json sidecar alongside a parquet file."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
-
 @node(
     inputs={
         "train": PortType.TABLE,
@@ -65,6 +48,10 @@ def _write_meta(parquet_path: str, metadata: dict) -> None:
             default="",
             description="Columns to log1p transform (comma-separated, empty = auto from EDA context)",
             placeholder="col1, col2, col3",
+        ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
         ),
     },
     label="Log Transform",
@@ -126,30 +113,12 @@ def log_transform(inputs: dict, params: dict) -> dict:
         pl.Float32, pl.Float64,
     )
 
-    def _read_meta(parquet_path: str) -> dict:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        if meta_path.exists():
-            try:
-                return json.loads(meta_path.read_text())
-            except Exception:
-                pass
-        return {}
-
-    def _write_meta(parquet_path: str, metadata: dict) -> None:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
     train_df = pl.read_parquet(train_path)
-    meta = _read_meta(train_path)
 
     # ── Determine target column (excluded from transforms) ───────
-    target_col = None
-    for _col_name, _col_meta in meta.get("columns", {}).items():
-        if isinstance(_col_meta, dict) and _col_meta.get("role") == "target":
-            target_col = _col_name
-            break
+    target_col = params.get("target_column", "")
 
     # ── Determine numeric columns ────────────────────────────────
     available_numeric = [
@@ -204,10 +173,6 @@ def log_transform(inputs: dict, params: dict) -> dict:
     def _write_split(df: pl.DataFrame, split_name: str) -> str:
         out_path = _get_output_path(split_name)
         df.write_parquet(out_path)
-        if meta:
-            updated = dict(meta)
-            updated["generated_by"] = "log_transform"
-            _write_meta(str(out_path), updated)
         return str(out_path)
 
     # ── Process all splits ───────────────────────────────────────

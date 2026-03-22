@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
@@ -38,6 +37,10 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
             default="",
             description="Comma-separated column names to scale (empty = all numeric columns)",
             placeholder="col1, col2, col3",
+        ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
         ),
     },
     label="Scaler Transform",
@@ -88,7 +91,6 @@ Scale numeric features so they share a common range or distribution. **Always fi
 )
 def scaler_transform(inputs: dict, params: dict) -> dict:
     """Scale numeric features — fit on train, transform all splits."""
-    import json
     import logging
     from pathlib import Path
 
@@ -101,23 +103,6 @@ def scaler_transform(inputs: dict, params: dict) -> dict:
         pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
         pl.Float32, pl.Float64,
     )
-
-    def _get_numeric_cols(df: pl.DataFrame, col_metadata: dict) -> list[str]:
-        if col_metadata:
-            numeric = []
-            for name, meta in col_metadata.items():
-                if name not in df.columns:
-                    continue
-                role = meta.get("role", "")
-                if role in ("ignore", "identifier"):
-                    continue
-                dtype_str = meta.get("dtype", "").lower()
-                if any(t in dtype_str for t in ("int", "float", "numeric", "decimal")):
-                    numeric.append(name)
-                elif df[name].dtype in numeric_dtypes:
-                    numeric.append(name)
-            return numeric
-        return [name for name, dtype in zip(df.columns, df.dtypes) if dtype in numeric_dtypes]
 
     def _fit(train_df: pl.DataFrame, scale_cols: list[str], method: str) -> dict[str, dict]:
         fit: dict[str, dict] = {}
@@ -169,49 +154,22 @@ def scaler_transform(inputs: dict, params: dict) -> dict:
             df = df.with_columns(exprs)
         return df
 
-    def _write_meta_sidecar(
-        output_path: Path, col_metadata: dict, fit_params: dict[str, dict], target_col: str | None,
-    ) -> None:
-        if not col_metadata:
-            return
-        updated = {}
-        for name, meta in col_metadata.items():
-            entry = dict(meta)
-            if name in fit_params:
-                entry["dtype"] = "Float64"
-            updated[name] = entry
-        sidecar = {"columns": updated, "generated_by": "scaler_transform"}
-        if target_col:
-            sidecar["target"] = target_col
-        meta_out = output_path.with_suffix(".meta.json")
-        meta_out.write_text(json.dumps(sidecar, indent=2))
-
     method = params.get("method", "StandardScaler")
     columns_param = params.get("columns", "")
 
     # ── Read train data ──────────────────────────────────────────
     train_df = pl.read_parquet(inputs["train"])
 
-    # ── Read .meta.json sidecar ──────────────────────────────────
-    meta_path = Path(inputs["train"]).with_suffix(".meta.json")
-    col_metadata: dict = {}
-    target_col: str | None = None
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            col_metadata = meta.get("columns", {})
-            for _cn, _cm in col_metadata.items():
-                if isinstance(_cm, dict) and _cm.get("role") == "target":
-                    target_col = _cn
-                    break
-        except Exception:
-            pass
+    target_col = params.get("target_column", "") or None
 
     # ── Determine columns to scale ───────────────────────────────
     if columns_param.strip():
         requested = [c.strip() for c in columns_param.split(",") if c.strip()]
     else:
-        requested = _get_numeric_cols(train_df, col_metadata)
+        requested = [
+            name for name, dtype in zip(train_df.columns, train_df.dtypes)
+            if dtype in numeric_dtypes and name != target_col
+        ]
 
     # Filter out target column and non-numeric columns
     scale_cols: list[str] = []
@@ -248,39 +206,7 @@ def scaler_transform(inputs: dict, params: dict) -> dict:
         df.write_parquet(out_path)
         results[split_name] = str(out_path)
 
-        _write_meta_sidecar(out_path, col_metadata, fit_params, target_col)
-
     return results
-
-
-def _get_numeric_columns(
-    df: pl.DataFrame,
-    col_metadata: dict,
-) -> list[str]:
-    """Return numeric column names from metadata or DataFrame schema."""
-    numeric_dtypes = (
-        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
-        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
-        pl.Float32, pl.Float64,
-    )
-
-    if col_metadata:
-        # Use metadata to identify numeric columns
-        numeric = []
-        for name, meta in col_metadata.items():
-            if name not in df.columns:
-                continue
-            role = meta.get("role", "")
-            if role in ("ignore", "identifier"):
-                continue
-            dtype_str = meta.get("dtype", "").lower()
-            if any(t in dtype_str for t in ("int", "float", "numeric", "decimal")):
-                numeric.append(name)
-            elif df[name].dtype in numeric_dtypes:
-                numeric.append(name)
-        return numeric
-
-    return [name for name, dtype in zip(df.columns, df.dtypes) if dtype in numeric_dtypes]
 
 
 def _fit(
@@ -357,29 +283,3 @@ def _transform(
     return df
 
 
-def _write_meta_sidecar(
-    output_path: Path,
-    col_metadata: dict,
-    fit_params: dict[str, dict],
-    target_col: str | None,
-) -> None:
-    """Write .meta.json sidecar, updating dtype to Float64 for scaled columns."""
-    if not col_metadata:
-        return
-
-    updated = {}
-    for name, meta in col_metadata.items():
-        entry = dict(meta)
-        if name in fit_params:
-            entry["dtype"] = "Float64"
-        updated[name] = entry
-
-    sidecar = {
-        "columns": updated,
-        "generated_by": "scaler_transform",
-    }
-    if target_col:
-        sidecar["target"] = target_col
-
-    meta_out = output_path.with_suffix(".meta.json")
-    meta_out.write_text(json.dumps(sidecar, indent=2))

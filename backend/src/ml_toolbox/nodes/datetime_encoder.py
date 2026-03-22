@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
@@ -20,40 +19,20 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     return p / f"{name}{ext}"
 
 
-def _read_meta(parquet_path: str) -> dict:
-    """Read .meta.json sidecar for a parquet file, return {} on failure."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _write_meta(parquet_path: str, metadata: dict) -> None:
-    """Write .meta.json sidecar alongside a parquet file."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
-
 _VALID_COMPONENTS = {"year", "month", "day", "weekday", "hour", "minute"}
 
 
-def _auto_detect_datetime_columns(meta: dict, df: pl.DataFrame) -> list[str]:
-    """Find datetime columns from metadata semantic_type or DataFrame dtype."""
+def _auto_detect_datetime_columns(df: pl.DataFrame) -> list[str]:
+    """Find datetime columns from DataFrame dtype or datetime-like column names."""
+    _DATETIME_NAME_HINTS = {"date", "datetime", "timestamp", "time", "created", "updated"}
     cols: list[str] = []
 
-    # Check metadata first
-    col_meta = meta.get("columns", {})
-    for col_name, info in col_meta.items():
-        if col_name in df.columns and info.get("semantic_type") == "datetime":
-            cols.append(col_name)
-
-    # Also check DataFrame dtypes
     for col_name in df.columns:
-        if col_name not in cols and df[col_name].dtype in (pl.Date, pl.Datetime):
+        if df[col_name].dtype in (pl.Date, pl.Datetime):
             cols.append(col_name)
+        elif df[col_name].dtype in (pl.Utf8, pl.String):
+            if any(hint in col_name.lower() for hint in _DATETIME_NAME_HINTS):
+                cols.append(col_name)
 
     return cols
 
@@ -72,7 +51,7 @@ def _auto_detect_datetime_columns(meta: dict, df: pl.DataFrame) -> list[str]:
     params={
         "column": Text(
             default="",
-            description="DateTime column to decompose (empty = auto-detect from metadata)",
+            description="DateTime column to decompose (empty = auto-detect from dtype)",
             placeholder="date_column",
         ),
         "components": Text(
@@ -83,6 +62,10 @@ def _auto_detect_datetime_columns(meta: dict, df: pl.DataFrame) -> list[str]:
         "drop_original": Toggle(
             default=True,
             description="Drop the original datetime column after decomposition",
+        ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
         ),
     },
     label="DateTime Encoder",
@@ -129,8 +112,8 @@ Decompose datetime columns into numeric components that ML models can use.
 
 ### Auto-detect (empty column param)
 When the `column` parameter is empty, the node auto-detects datetime columns from:
-- `.meta.json` where `semantic_type` is `"datetime"`
 - DataFrame columns with `Date` or `Datetime` dtype
+- String columns with datetime-like names (date, datetime, timestamp, etc.)
 
 ### Edge cases
 - **String columns** are auto-parsed as datetime (ISO format)
@@ -140,41 +123,27 @@ When the `column` parameter is empty, the node auto-detects datetime columns fro
 )
 def datetime_encoder(inputs: dict, params: dict) -> dict:
     """Decompose datetime columns into numeric components."""
-    import json
     from pathlib import Path
 
     import polars as pl
 
     _VALID = {"year", "month", "day", "weekday", "hour", "minute"}
+    _DATETIME_NAME_HINTS = {"date", "datetime", "timestamp", "time", "created", "updated"}
 
-    def _read_meta(parquet_path: str) -> dict:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        if meta_path.exists():
-            try:
-                return json.loads(meta_path.read_text())
-            except Exception:
-                pass
-        return {}
-
-    def _write_meta(parquet_path: str, metadata: dict) -> None:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
-    def _auto_detect_datetime_columns(meta: dict, df: pl.DataFrame) -> list[str]:
+    def _auto_detect_datetime_columns(df: pl.DataFrame) -> list[str]:
         cols: list[str] = []
-        col_meta = meta.get("columns", {})
-        for col_name, info in col_meta.items():
-            if col_name in df.columns and info.get("semantic_type") == "datetime":
-                cols.append(col_name)
         for col_name in df.columns:
-            if col_name not in cols and df[col_name].dtype in (pl.Date, pl.Datetime):
+            if df[col_name].dtype in (pl.Date, pl.Datetime):
                 cols.append(col_name)
+            elif df[col_name].dtype in (pl.Utf8, pl.String):
+                if any(hint in col_name.lower() for hint in _DATETIME_NAME_HINTS):
+                    cols.append(col_name)
         return cols
 
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
     train_df = pl.read_parquet(train_path)
-    meta = _read_meta(train_path)
+    target_col = params.get("target_column", "")
     drop_original = params.get("drop_original", True)
 
     # ── Parse components ─────────────────────────────────────────
@@ -197,16 +166,13 @@ def datetime_encoder(inputs: dict, params: dict) -> dict:
                 f"Available: {sorted(train_df.columns)}"
             )
     else:
-        target_columns = _auto_detect_datetime_columns(meta, train_df)
+        target_columns = _auto_detect_datetime_columns(train_df)
         if not target_columns:
             raise ValueError(
                 "No datetime columns found — provide a column name explicitly."
             )
 
     # ── Apply decomposition to a DataFrame ───────────────────────
-    new_col_meta: list[dict] = []
-    columns_to_drop: list[str] = []
-
     def _apply(df: pl.DataFrame) -> pl.DataFrame:
         for col in target_columns:
             if col not in df.columns:
@@ -252,38 +218,10 @@ def datetime_encoder(inputs: dict, params: dict) -> dict:
 
         return df
 
-    # Build metadata for new columns (compute once)
-    for col in target_columns:
-        for comp in components:
-            new_col_meta.append({
-                "name": f"{col}_{comp}",
-                "dtype": "Int32",
-                "semantic_type": "ordinal",
-                "role": "feature",
-            })
-        if drop_original:
-            columns_to_drop.append(col)
-
     # ── Write split helper ───────────────────────────────────────
     def _write_split(df: pl.DataFrame, split_name: str) -> str:
         out_path = _get_output_path(split_name)
         df.write_parquet(out_path)
-        if meta:
-            updated = dict(meta)
-            cols = dict(updated.get("columns", {}))
-            # Add new component columns
-            for cm in new_col_meta:
-                cols[cm["name"]] = {
-                    "dtype": cm["dtype"],
-                    "semantic_type": cm["semantic_type"],
-                    "role": cm["role"],
-                }
-            # Remove dropped columns from metadata
-            for dropped in columns_to_drop:
-                cols.pop(dropped, None)
-            updated["columns"] = cols
-            updated["generated_by"] = "datetime_encoder"
-            _write_meta(str(out_path), updated)
         return str(out_path)
 
     # ── Process all splits ───────────────────────────────────────

@@ -53,38 +53,12 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
     target_column = params.get("target_column", "")
     columns_param = params.get("columns", "")
 
-    # Read .meta.json sidecar if available
-    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
-    col_metadata: dict = {}
-    if meta_path.exists():
-        try:
-            col_metadata = json.loads(meta_path.read_text())
-        except Exception:
-            pass
-
     # Determine which columns to use
     if columns_param and columns_param.strip():
         # Manual override: only use specified columns
         selected = [c.strip() for c in columns_param.split(",") if c.strip()]
         numeric_df = numeric_df[[c for c in selected if c in numeric_df.columns]]
-    elif col_metadata.get("columns"):
-        # Use metadata: only correlate continuous columns (handle dict or list format)
-        columns_meta = col_metadata["columns"]
-        if isinstance(columns_meta, dict):
-            continuous_cols = [
-                name for name, meta in columns_meta.items()
-                if meta.get("semantic_type") == "continuous" and name in numeric_df.columns
-            ]
-        else:
-            continuous_cols = [
-                c["name"] for c in columns_meta
-                if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
-            ]
-        if continuous_cols:
-            numeric_df = numeric_df[continuous_cols]
-        # Use target from metadata if not specified
-        if not target_column and col_metadata.get("target"):
-            target_column = col_metadata["target"]
+    # Otherwise use all numeric columns from the DataFrame
 
     cols = list(numeric_df.columns)
     n_cols = len(cols)
@@ -245,15 +219,6 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
 
     target_column = params.get("target_column", "")
     columns_param = params.get("columns", "")
-
-    # Read .meta.json sidecar if available
-    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
-    col_metadata: dict = {}
-    if meta_path.exists():
-        try:
-            col_metadata = json.loads(meta_path.read_text())
-        except Exception:
-            pass
 
     # Filter columns if specified
     if columns_param and columns_param.strip():
@@ -558,35 +523,12 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
     zscore_threshold = float(params.get("zscore_threshold", 3.0))
     columns_param = params.get("columns", "")
 
-    # Read .meta.json sidecar if available
-    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
-    col_metadata: dict = {}
-    if meta_path.exists():
-        try:
-            col_metadata = json.loads(meta_path.read_text())
-        except Exception:
-            pass
-
     # Determine which columns to analyze
     if columns_param and columns_param.strip():
         # Manual override: only use specified columns
         selected = [c.strip() for c in columns_param.split(",") if c.strip()]
         numeric_df = numeric_df[[c for c in selected if c in numeric_df.columns]]
-    elif col_metadata.get("columns"):
-        # Use metadata: only analyze continuous columns (handle dict or list format)
-        columns_meta = col_metadata["columns"]
-        if isinstance(columns_meta, dict):
-            continuous_cols = [
-                name for name, meta in columns_meta.items()
-                if meta.get("semantic_type") == "continuous" and name in numeric_df.columns
-            ]
-        else:
-            continuous_cols = [
-                c["name"] for c in columns_meta
-                if c.get("semantic_type") == "continuous" and c["name"] in numeric_df.columns
-            ]
-        if continuous_cols:
-            numeric_df = numeric_df[continuous_cols]
+    # Otherwise use all numeric columns from the DataFrame
 
     total_rows = len(df)
     columns_results: list[dict] = []

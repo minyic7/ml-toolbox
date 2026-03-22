@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ml_toolbox.protocol import PortType, Toggle, node
+from ml_toolbox.protocol import PortType, Text, Toggle, node
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "metrics": PortType.METRICS,
     },
     params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
         "fit_intercept": Toggle(
             default=True,
             description="Whether to calculate the intercept. Set to false if data is already centred.",
@@ -135,24 +136,13 @@ def linear_regression(inputs: dict, params: dict) -> dict:
     # ── Read train data ──────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
-    # ── Read .meta.json sidecar ──────────────────────────────────
-    meta_path = Path(inputs["train"]).with_suffix(".meta.json")
-    target_col: str | None = None
-
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            for _cn, _cm in meta.get("columns", {}).items():
-                if isinstance(_cm, dict) and _cm.get("role") == "target":
-                    target_col = _cn
-                    break
-        except Exception:
-            pass
+    # ── Read target column from params ───────────────────────────
+    target_col = params.get("target_column", "")
 
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
-            "Cannot determine target column. Ensure upstream data has a .meta.json "
-            "sidecar with a 'target' field."
+            f"Target column '{target_col}' not found. "
+            "Target column not specified. Run auto-configure or set target_column manually."
         )
 
     # ── Prepare features and target ──────────────────────────────

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
 import polars as pl
 
-from ml_toolbox.protocol import PortType, Select, Slider, node
+from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 logger = logging.getLogger(__name__)
 
@@ -23,23 +22,6 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
-
-
-def _read_meta(parquet_path: str) -> dict:
-    """Read .meta.json sidecar for a parquet file, return {} on failure."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _write_meta(parquet_path: str, metadata: dict) -> None:
-    """Write .meta.json sidecar alongside a parquet file."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
 
 @node(
@@ -57,6 +39,10 @@ def _write_meta(parquet_path: str, metadata: dict) -> None:
             step=0.01,
             default=0.01,
             description="Selection threshold — features scoring below this are removed",
+        ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
         ),
     },
     label="Feature Selector",
@@ -107,12 +93,11 @@ Remove low-value features to reduce noise and speed up training. **Fits on the t
 ### Edge cases
 - **Target column** is never removed, even if it scores below the threshold
 - **All features below threshold** → error (can't remove everything)
-- **Correlation / MI methods require a target column** — fails fast if `.meta.json` doesn't specify one
+- **Correlation / MI methods require a target column** — fails fast if `target_column` param is not set
 """,
 )
 def feature_selector(inputs: dict, params: dict) -> dict:
     """Select features — fit on train, drop from all splits."""
-    import json
     import logging
     import math
     from pathlib import Path
@@ -126,19 +111,6 @@ def feature_selector(inputs: dict, params: dict) -> dict:
         pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
         pl.Float32, pl.Float64,
     )
-
-    def _read_meta(parquet_path: str) -> dict:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        if meta_path.exists():
-            try:
-                return json.loads(meta_path.read_text())
-            except Exception:
-                pass
-        return {}
-
-    def _write_meta(parquet_path: str, metadata: dict) -> None:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
 
     def _pearson_corr(df: pl.DataFrame, col_a: str, col_b: str) -> float:
         clean = df.select([col_a, col_b]).drop_nulls()
@@ -227,23 +199,12 @@ def feature_selector(inputs: dict, params: dict) -> dict:
                     cols_to_drop.append(col)
         return cols_to_drop
 
-    def _update_meta_drop(metadata: dict, cols_to_drop: list[str]) -> dict:
-        if not metadata:
-            return metadata
-        updated = json.loads(json.dumps(metadata))
-        col_meta = updated.get("columns", {})
-        if isinstance(col_meta, dict):
-            for col in cols_to_drop:
-                col_meta.pop(col, None)
-        return updated
-
     method = params.get("method", "variance_threshold")
     threshold = float(params.get("threshold", 0.01))
 
     # ── Read train data ──────────────────────────────────────────
     train_df = pl.read_parquet(inputs["train"])
-    meta = _read_meta(inputs["train"])
-    target_col = meta.get("target", "")
+    target_col = params.get("target_column", "")
 
     # ── Identify numeric feature columns ─────────────────────────
     feature_cols = [
@@ -255,12 +216,12 @@ def feature_selector(inputs: dict, params: dict) -> dict:
     if method in ("correlation_with_target", "mutual_information"):
         if not target_col:
             raise ValueError(
-                f"Method '{method}' requires a target column, but none found in .meta.json. "
-                "Ensure upstream nodes produce a .meta.json with a 'target' field."
+                f"Method '{method}' requires a target column, but none was provided. "
+                "Set the 'target_column' parameter or ensure auto-configure detects it."
             )
         if target_col not in train_df.columns:
             raise ValueError(
-                f"Target column '{target_col}' specified in .meta.json but not found in data."
+                f"Target column '{target_col}' not found in data."
             )
 
     # ── Fit: compute scores on train ─────────────────────────────
@@ -276,7 +237,6 @@ def feature_selector(inputs: dict, params: dict) -> dict:
 
     # ── Transform all splits ─────────────────────────────────────
     results: dict[str, str] = {}
-    updated_meta = _update_meta_drop(meta, cols_to_drop)
 
     for split_name in ("train", "val", "test"):
         input_path = inputs.get(split_name)
@@ -288,7 +248,6 @@ def feature_selector(inputs: dict, params: dict) -> dict:
 
         out_path = _get_output_path(split_name)
         df.write_parquet(out_path)
-        _write_meta(str(out_path), updated_meta)
         results[split_name] = str(out_path)
 
     return results
@@ -418,13 +377,3 @@ def _mutual_information(x: object, y: object) -> float:
     return max(0.0, float(mi))
 
 
-def _update_meta_drop(metadata: dict, cols_to_drop: list[str]) -> dict:
-    """Return updated metadata with dropped columns removed."""
-    if not metadata:
-        return metadata
-    updated = json.loads(json.dumps(metadata))  # deep copy
-    col_meta = updated.get("columns", {})
-    if isinstance(col_meta, dict):
-        for col in cols_to_drop:
-            col_meta.pop(col, None)
-    return updated
