@@ -261,6 +261,25 @@ export function GradientBoostingIcon({ color = "currentColor", size = 16 }: Icon
   );
 }
 
+/** Funnel filtering columns — feature selection */
+export function FeatureSelectorIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Funnel shape */}
+      <path
+        d="M1.5 2.5h13L10 7.5v4L6 13V7.5L1.5 2.5z"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {/* Horizontal lines inside funnel — features being filtered */}
+      <line x1="4" y1="4.5" x2="12" y2="4.5" stroke={color} strokeWidth="0.8" strokeLinecap="round" />
+      <line x1="6.5" y1="6.5" x2="9.5" y2="6.5" stroke={color} strokeWidth="0.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
