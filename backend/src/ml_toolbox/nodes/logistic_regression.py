@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ml_toolbox.protocol import PortType, Select, Slider, node
+from ml_toolbox.protocol import PortType, Select, Slider, Text, node
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "metrics": PortType.METRICS,
     },
     params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
         "C": Slider(
             min=0.001,
             max=100.0,
@@ -69,7 +70,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     },
     label="Logistic Regression",
     category="Training",
-    description="Train a scikit-learn LogisticRegression classifier. Reads target from .meta.json, outputs predictions, model (.joblib), and metrics (.json).",
+    description="Train a scikit-learn LogisticRegression classifier. Outputs predictions, model (.joblib), and metrics (.json).",
     allowed_upstream={
         "train": [
             "random_holdout",
@@ -157,25 +158,16 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
     # sklearn uses None instead of "none" string
     penalty_val: str | None = None if penalty_raw == "none" else penalty_raw
 
-    # ── Read train data + meta ────────────────────────────────────
+    # ── Read train data ────────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
-    meta_path = Path(inputs["train"]).with_suffix(".meta.json")
-    target_col: str | None = None
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            for _cn, _cm in meta.get("columns", {}).items():
-                if isinstance(_cm, dict) and _cm.get("role") == "target":
-                    target_col = _cn
-                    break
-        except Exception:
-            pass
+    # ── Read target column from params ───────────────────────────
+    target_col = params.get("target_column", "")
 
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
-            f"Cannot determine target column. meta.json target='{target_col}', "
-            f"available columns: {list(train_df.columns)}"
+            f"Target column '{target_col}' not found. "
+            "Target column not specified. Run auto-configure or set target_column manually."
         )
 
     # ── X/y split ─────────────────────────────────────────────────

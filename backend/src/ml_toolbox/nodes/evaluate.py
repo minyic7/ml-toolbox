@@ -10,8 +10,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from ml_toolbox.protocol import PortType, Toggle, node
-from ml_toolbox.protocol.params import Select
+from ml_toolbox.protocol import PortType, Text, Toggle, node
 
 logger = logging.getLogger(__name__)
 
@@ -264,18 +263,6 @@ def _find_best(metric_name: str, model_scores: dict[str, float]) -> list[str]:
     return [name for name, val in model_scores.items() if val == best_val]
 
 
-# ── Helper: extract target from metadata ────────────────────────
-
-def _read_target_column(test_path: str) -> str | None:
-    """Read target column name from .meta.json sidecar if it exists."""
-    meta_path = Path(test_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        meta = json.loads(meta_path.read_text())
-        for col_name, col_meta in meta.get("columns", {}).items():
-            if isinstance(col_meta, dict) and col_meta.get("role") == "target":
-                return col_name
-    return None
-
 
 # ── Model name extraction ───────────────────────────────────────
 
@@ -318,11 +305,7 @@ _ALLOWED_TEST_UPSTREAM = [
         "report": PortType.METRICS,
     },
     params={
-        "target_column": Select(
-            ["auto"],
-            default="auto",
-            description="Target column — 'auto' reads from .meta.json sidecar",
-        ),
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
     },
     label="Model Comparison",
     category="Evaluation",
@@ -392,13 +375,17 @@ def model_comparison(inputs: dict, params: dict) -> dict:
     test_df = pd.read_parquet(test_path)
 
     # Determine target column
-    target_col = params.get("target_column", "auto")
-    if target_col == "auto":
-        target_col = _read_target_column(test_path)
+    target_col = params.get("target_column", "")
+    if not target_col or target_col == "auto":
+        # Convention-based fallback
+        for name in ("target", "label", "y"):
+            if name in test_df.columns:
+                target_col = name
+                break
     if not target_col or target_col not in test_df.columns:
-        # Fallback: last column
+        # Last resort: last column
         target_col = test_df.columns[-1]
-        logger.warning("Target column not found in metadata; using last column: %s", target_col)
+        logger.warning("Target column not specified; using last column: %s", target_col)
 
     X_test = test_df.drop(columns=[target_col])
     y_test: np.ndarray = test_df[target_col].to_numpy()

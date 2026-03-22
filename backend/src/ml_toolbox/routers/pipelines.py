@@ -1177,7 +1177,7 @@ async def put_metadata(
 
         threading.Thread(target=_recast, daemon=True).start()
 
-    # Propagate metadata to downstream nodes and re-configure their params
+    # Re-configure downstream nodes after metadata edit
     def _propagate() -> None:
         try:
             pipeline_data = store.load(pipeline_id)
@@ -1185,36 +1185,8 @@ async def put_metadata(
             if not downstream:
                 return
 
-            source_columns: dict = body.get("columns", {})
-            drop_roles = {"ignore", "identifier"}
-
-            # Merge classification changes into downstream .meta.json files,
-            # preserving downstream-specific column sets.
-            for ds_node_id in downstream:
-                ds_meta_files = list(run_dir.glob(f"{ds_node_id}*.meta.json"))
-                for mf in ds_meta_files:
-                    try:
-                        ds_meta = json.loads(mf.read_text())
-                    except Exception:
-                        ds_meta = {}
-                    ds_columns = ds_meta.get("columns", {})
-                    for col_name, src_col in source_columns.items():
-                        # Remove dropped columns from downstream metadata
-                        if src_col.get("role") in drop_roles:
-                            ds_columns.pop(col_name, None)
-                            continue
-                        # Only update columns that exist in both source and downstream
-                        if col_name in ds_columns:
-                            for key in ("role", "semantic_type"):
-                                if key in src_col:
-                                    ds_columns[col_name][key] = src_col[key]
-                                elif key in ds_columns[col_name]:
-                                    # Source cleared the field — remove it downstream
-                                    del ds_columns[col_name][key]
-                    ds_meta["columns"] = ds_columns
-                    mf.write_text(json.dumps(ds_meta, indent=2, ensure_ascii=False))
-
             # Re-run auto-configure on each downstream node
+            # (they read metadata lazily via DAG traversal)
             for ds_node_id in downstream:
                 _auto_configure_node(pipeline_id, ds_node_id)
 
@@ -1582,12 +1554,51 @@ def _get_params_for_node(
         return {}
 
     if node_fn == "feature_selector":
+        result: dict[str, Any] = {}
         if eda_context:
             corr = eda_context.get("correlation", {})
             target_corrs = corr.get("target_correlations", [])
             if target_corrs:
-                return {"method": "correlation_with_target", "threshold": "0.05"}
+                result = {"method": "correlation_with_target", "threshold": "0.05"}
+        if target_col:
+            result["target_column"] = target_col
+        return result
+
+    if node_fn == "category_encoder":
+        cat_cols = [
+            name for name, m in columns_meta.items()
+            if m.get("semantic_type") in ("categorical", "ordinal", "binary")
+            and m.get("role") != "target" and m.get("role") != "identifier"
+        ]
+        result = {}
+        if cat_cols:
+            result["columns"] = ", ".join(cat_cols)
+        if target_col:
+            result["target_column"] = target_col
+        return result
+
+    if node_fn == "scaler_transform":
+        scale_cols = [
+            c for c in continuous if c != target_col and c not in identifiers
+        ]
+        result = {}
+        if scale_cols:
+            result["columns"] = ", ".join(scale_cols)
+        if target_col:
+            result["target_column"] = target_col
+        return result
+
+    if node_fn == "stratified_holdout":
+        if target_col:
+            return {"target_column": target_col}
         return {}
+
+    # ── Universal target_column pass-through ─────────────────────
+    # Training, evaluation, and other nodes that need target_column
+    # in sandbox code. Only effective if the node defines a
+    # target_column param in its @node decorator.
+    if target_col:
+        return {"target_column": target_col}
 
     return {}
 

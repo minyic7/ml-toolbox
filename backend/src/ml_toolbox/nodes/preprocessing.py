@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from ml_toolbox.protocol import PortType, Slider, Text, Toggle, node
@@ -135,18 +134,6 @@ def random_holdout(inputs: dict, params: dict) -> dict:
     return {"train": str(train_path), "val": str(val_path), "test": str(test_path)}
 
 
-def _write_split_meta(
-    output_path: Path,
-    source_meta: dict,
-    split_name: str,
-    seed: int,
-    row_count: int,
-) -> None:
-    """Write .meta.json sidecar for a split output, carrying forward source metadata."""
-    meta = {**source_meta, "split": split_name, "seed": seed, "row_count": row_count}
-    meta_out = output_path.with_suffix(".meta.json")
-    meta_out.write_text(json.dumps(meta, indent=2))
-
 
 @node(
     inputs={"df": PortType.TABLE},
@@ -161,6 +148,7 @@ def _write_split_meta(
         "seed": Text(default="42",
                      description="Random seed for reproducible splits (any integer)",
                      placeholder="42"),
+        "target_column": Text(default="", description="Target column for stratification (auto-detected from schema)"),
     },
     label="Stratified Hold-out",
     category="Preprocessing",
@@ -178,17 +166,16 @@ Like Random Hold-out, but **preserves the class distribution** of your target co
 - Your dataset is small-to-medium and class counts are uneven
 
 ### How it works
-1. Reads `.meta.json` to find the column with `role=target`
+1. Uses the `target_column` parameter (auto-configured from schema) for stratification
 2. Validates the target is **categorical or integer** (not continuous float)
 3. Validates every class has **at least 3 samples** (needed for a 3-way split)
 4. Uses sklearn `train_test_split` with `stratify` — two-step split (test first, then train/val)
-5. Each output `.meta.json` records which split it is and the seed used
 
 ### Minimum sample requirements
 Stratification needs at least **2 samples per class per split**. With a 3-way split, that means each class needs a minimum of ~3 samples total. Classes with fewer samples will cause a clear error message.
 
 ### Relationship to target column
-The target column is read from the upstream `.meta.json` sidecar file. Make sure your data source (CSV Reader, Parquet Reader) has a `.meta.json` that marks one column with `"role": "target"`.
+The target column is set via the `target_column` parameter, which is auto-configured from the upstream schema.
 
 ### Parameters
 | Parameter | Purpose |
@@ -221,34 +208,17 @@ def stratified_holdout(inputs: dict, params: dict) -> dict:
             f"({train_ratio} + {val_ratio} + {test_ratio})"
         )
 
-    # ── Read .meta.json → find target column ──────────────────────
-    meta_path = Path(inputs["df"]).with_suffix(".meta.json")
-    if not meta_path.exists():
-        raise FileNotFoundError(
-            f"No .meta.json sidecar found at {meta_path}. "
-            "Stratified split requires a target column — ensure the upstream node "
-            "produces a .meta.json with a column marked role=target."
-        )
-
-    source_meta = json.loads(meta_path.read_text())
-    target_col = source_meta.get("target", "")
-    if not target_col:
-        # Fallback: scan columns for role=target
-        columns = source_meta.get("columns", {})
-        for col_name, col_info in columns.items():
-            if col_info.get("role") == "target":
-                target_col = col_name
-                break
-
+    # ── Determine target column from params ────────────────────────
+    target_col = params.get("target_column", "")
     if not target_col:
         raise ValueError(
-            "No target column found in .meta.json. Stratified split requires a column "
-            'with "role": "target". Check your upstream node configuration.'
+            "No target column specified. Stratified split requires a target column "
+            "for stratification. Set the 'target_column' parameter."
         )
 
     if target_col not in df.columns:
         raise ValueError(
-            f"Target column '{target_col}' from .meta.json not found in DataFrame. "
+            f"Target column '{target_col}' not found in DataFrame. "
             f"Available columns: {df.columns}"
         )
 
@@ -316,10 +286,5 @@ def stratified_holdout(inputs: dict, params: dict) -> dict:
     train_df.write_parquet(train_path)
     val_df.write_parquet(val_path)
     test_df.write_parquet(test_path)
-
-    # ── Write .meta.json sidecars ─────────────────────────────────
-    _write_split_meta(train_path, source_meta, "train", seed, train_df.height)
-    _write_split_meta(val_path, source_meta, "val", seed, val_df.height)
-    _write_split_meta(test_path, source_meta, "test", seed, test_df.height)
 
     return {"train": str(train_path), "val": str(val_path), "test": str(test_path)}

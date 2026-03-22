@@ -27,23 +27,6 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     return p / f"{name}{ext}"
 
 
-def _read_meta(parquet_path: str) -> dict:
-    """Read .meta.json sidecar for a parquet file, return {} on failure."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _write_meta(parquet_path: str, metadata: dict) -> None:
-    """Write .meta.json sidecar alongside a parquet file."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
-
 def _parse_pairs(raw: str) -> list[tuple[str, str]]:
     """Parse 'A:B, C:D' format into list of column pairs."""
     pairs: list[tuple[str, str]] = []
@@ -84,6 +67,10 @@ _OP_LABELS = {
             default="",
             description="Column pairs to combine (format: A:B, C:D — empty = auto from EDA context)",
             placeholder="col_a:col_b, col_c:col_d",
+        ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
         ),
         "operation": Select(
             ["multiply", "ratio", "add", "subtract"],
@@ -162,19 +149,6 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
         "subtract": "minus",
     }
 
-    def _read_meta(parquet_path: str) -> dict:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        if meta_path.exists():
-            try:
-                return json.loads(meta_path.read_text())
-            except Exception:
-                pass
-        return {}
-
-    def _write_meta(parquet_path: str, metadata: dict) -> None:
-        meta_path = Path(parquet_path).with_suffix(".meta.json")
-        meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
     def _parse_pairs(raw: str) -> list[tuple[str, str]]:
         pairs: list[tuple[str, str]] = []
         for token in raw.split(","):
@@ -192,16 +166,11 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
     train_df = pl.read_parquet(train_path)
-    meta = _read_meta(train_path)
     operation = params.get("operation", "multiply")
     op_label = _OP_MAP[operation]
 
     # ── Determine target column ──────────────────────────────────
-    target_col = None
-    for _col_name, _col_meta in meta.get("columns", {}).items():
-        if isinstance(_col_meta, dict) and _col_meta.get("role") == "target":
-            target_col = _col_name
-            break
+    target_col = params.get("target_column", "")
 
     # ── Determine numeric columns ────────────────────────────────
     available_numeric = {
@@ -280,18 +249,6 @@ def interaction_creator(inputs: dict, params: dict) -> dict:
     def _write_split(df: pl.DataFrame, split_name: str) -> str:
         out_path = _get_output_path(split_name)
         df.write_parquet(out_path)
-        if meta:
-            updated = dict(meta)
-            cols = dict(updated.get("columns", {}))
-            for cm in new_col_meta:
-                cols[cm["name"]] = {
-                    "dtype": cm["dtype"],
-                    "semantic_type": cm["semantic_type"],
-                    "role": cm["role"],
-                }
-            updated["columns"] = cols
-            updated["generated_by"] = "interaction_creator"
-            _write_meta(str(out_path), updated)
         return str(out_path)
 
     # ── Process all splits ───────────────────────────────────────

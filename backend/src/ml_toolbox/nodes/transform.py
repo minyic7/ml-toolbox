@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -19,119 +18,6 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
-
-
-def _read_meta(parquet_path: str) -> dict:
-    """Read .meta.json sidecar for a parquet file, return {} on failure."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _write_meta(parquet_path: str, metadata: dict) -> None:
-    """Write .meta.json sidecar alongside a parquet file."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
-
-
-def _get_categorical_columns(
-    df_columns: list[str],
-    df_dtypes: dict[str, str],
-    columns_param: str,
-    metadata: dict,
-    target_column: str,
-) -> list[str]:
-    """Determine which columns to encode.
-
-    Priority: explicit columns param > metadata semantic_type > dtype heuristic.
-    Always excludes the target column.
-    """
-    if columns_param and columns_param.strip():
-        cols = [c.strip() for c in columns_param.split(",") if c.strip()]
-        return [c for c in cols if c in df_columns and c != target_column]
-
-    # Use metadata to find categorical columns
-    col_meta = metadata.get("columns", {})
-    if isinstance(col_meta, dict) and col_meta:
-        cats = [
-            name for name, meta in col_meta.items()
-            if meta.get("semantic_type") == "categorical"
-            and meta.get("role") not in ("target", "ignore", "identifier")
-            and name in df_columns
-            and name != target_column
-        ]
-        if cats:
-            return cats
-
-    # Fallback: use string/object dtype columns
-    return [
-        c for c in df_columns
-        if df_dtypes.get(c, "") in ("object", "string", "str", "String", "Utf8", "Categorical", "category")
-        and c != target_column
-    ]
-
-
-def _find_target_column(metadata: dict) -> str:
-    """Find the target column from metadata."""
-    col_meta = metadata.get("columns", {})
-    if isinstance(col_meta, dict):
-        for name, meta in col_meta.items():
-            if meta.get("role") == "target":
-                return name
-    return ""
-
-
-def _update_metadata_label_ordinal(
-    metadata: dict, encoded_columns: list[str], mappings: dict[str, dict],
-) -> dict:
-    """Update metadata after label/ordinal encoding: String -> Int."""
-    meta = json.loads(json.dumps(metadata))  # deep copy
-    col_meta = meta.get("columns", {})
-    if isinstance(col_meta, dict):
-        for col_name in encoded_columns:
-            if col_name in col_meta:
-                col_meta[col_name]["dtype"] = "int64"
-                col_meta[col_name]["semantic_type"] = "encoded"
-                mapping = mappings.get(col_name, {})
-                col_meta[col_name]["encoding"] = {
-                    "method": "label",
-                    "mapping": mapping,
-                }
-    return meta
-
-
-def _update_metadata_onehot(
-    metadata: dict,
-    encoded_columns: list[str],
-    category_sets: dict[str, list[str]],
-) -> dict:
-    """Update metadata after one-hot encoding: remove original, add binary cols."""
-    meta = json.loads(json.dumps(metadata))  # deep copy
-    col_meta = meta.get("columns", {})
-    if isinstance(col_meta, dict):
-        for col_name in encoded_columns:
-            # Remove original column metadata
-            original_meta = col_meta.pop(col_name, {})
-            role = original_meta.get("role", "feature")
-            # Add new binary columns
-            for cat_value in category_sets.get(col_name, []):
-                new_col_name = f"{col_name}_{cat_value}"
-                col_meta[new_col_name] = {
-                    "dtype": "int64",
-                    "semantic_type": "binary",
-                    "role": role,
-                    "nullable": False,
-                    "encoding": {
-                        "method": "one_hot",
-                        "source_column": col_name,
-                        "value": cat_value,
-                    },
-                }
-    return meta
 
 
 # ─── Column Dropper ─────────────────────────────────────────────────
@@ -153,6 +39,10 @@ def _update_metadata_onehot(
             description="Comma-separated list of columns to remove from all splits",
             placeholder="id, name, timestamp",
         ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
+        ),
     },
     label="Column Dropper",
     description="Drop selected columns from train/val/test splits. Target column is protected.",
@@ -167,7 +57,6 @@ Remove unwanted columns from your dataset across all splits (train, validation, 
 
 ### What it does
 - Drops the specified columns from every connected split
-- Updates `.meta.json` so downstream nodes see the correct schema
 - **Protects the target column** — if you accidentally select the target, it is kept and a warning is printed
 
 ### When to use
@@ -189,16 +78,14 @@ Remove unwanted columns from your dataset across all splits (train, validation, 
 | `columns_to_drop` | Comma-separated column names (e.g. `id, name, timestamp`) |
 
 ### Target protection
-The target column (read from `.meta.json`) is **never dropped**, even if listed in
+The target column (from `target_column` param, auto-configured) is **never dropped**, even if listed in
 `columns_to_drop`. A warning is printed instead. This prevents accidentally removing
 the variable you are trying to predict.
 """,
 )
 def column_dropper(inputs: dict, params: dict) -> dict:
     """Drop selected columns from train/val/test splits."""
-    import json
     import warnings
-    from pathlib import Path
 
     import polars as pl
 
@@ -210,19 +97,10 @@ def column_dropper(inputs: dict, params: dict) -> dict:
         raise ValueError("columns_to_drop is empty — select at least one column to drop.")
 
     # ── Read train (mandatory) ───────────────────────────────────
-    train_path = Path(inputs["train"])
-    train_df = pl.read_parquet(train_path)
+    train_df = pl.read_parquet(inputs["train"])
 
-    # ── Read .meta.json for target column ────────────────────────
-    meta_path = train_path.with_suffix(".meta.json")
-    meta = {}
-    if meta_path.exists():
-        meta = json.loads(meta_path.read_text())
-    target_col = ""
-    for _cn, _cm in meta.get("columns", {}).items():
-        if isinstance(_cm, dict) and _cm.get("role") == "target":
-            target_col = _cn
-            break
+    # ── Target column from params (auto-configured upstream) ─────
+    target_col = params.get("target_column", "")
 
     # ── Validate columns exist in schema ─────────────────────────
     schema_cols = set(train_df.columns)
@@ -247,23 +125,11 @@ def column_dropper(inputs: dict, params: dict) -> dict:
     if not actual_drop:
         raise ValueError("No columns to drop after excluding the protected target column.")
 
-    # ── Helper: drop columns + write output + update meta ────────
+    # ── Helper: drop columns + write output ──────────────────────
     def _process_split(df: pl.DataFrame, split_name: str) -> str:
         out_df = df.drop(actual_drop)
         out_path = _get_output_path(split_name)
         out_df.write_parquet(out_path)
-
-        # Write updated .meta.json (remove dropped columns)
-        if meta:
-            updated_meta = dict(meta)
-            if "columns" in updated_meta:
-                updated_meta["columns"] = {
-                    k: v for k, v in updated_meta["columns"].items()
-                    if k not in actual_drop
-                }
-            meta_out = Path(str(out_path)).with_suffix(".meta.json")
-            meta_out.write_text(json.dumps(updated_meta, indent=2))
-
         return str(out_path)
 
     result: dict[str, str] = {}
@@ -315,6 +181,10 @@ def column_dropper(inputs: dict, params: dict) -> dict:
             description="Comma-separated columns to impute (empty = all columns with missing values)",
             placeholder="col1, col2, col3",
         ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
+        ),
     },
     label="Missing Value Imputer",
     category="Transform",
@@ -343,14 +213,12 @@ Fill values (mean, median, mode) are **computed from the train split only**, the
 ### Edge cases
 - Columns where **all** values are null are skipped (can't compute a statistic from nothing)
 - Using mean/median on a non-numeric column is skipped with a warning
-- The **target column** is never imputed (detected from .meta.json)
+- The **target column** is never imputed (from `target_column` param, auto-configured)
 """,
 )
 def missing_value_imputer(inputs: dict, params: dict) -> dict:
     """Fill missing values using statistics fitted on the train split only."""
-    import json
     import warnings
-    from pathlib import Path
 
     import polars as pl
 
@@ -359,23 +227,10 @@ def missing_value_imputer(inputs: dict, params: dict) -> dict:
     columns_param = params.get("columns", "")
 
     # ── Read train split (mandatory) ─────────────────────────────
-    train_path = Path(inputs["train"])
-    train_df = pl.read_parquet(train_path)
+    train_df = pl.read_parquet(inputs["train"])
 
-    # ── Read .meta.json for target column ────────────────────────
-    meta_path = train_path.with_suffix(".meta.json")
-    meta: dict = {}
-    target_column: str = ""
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            target_column = ""
-            for _cn, _cm in meta.get("columns", {}).items():
-                if isinstance(_cm, dict) and _cm.get("role") == "target":
-                    target_column = _cn
-                    break
-        except Exception:
-            pass
+    # ── Target column from params (auto-configured upstream) ─────
+    target_column = params.get("target_column", "")
 
     # ── Validate constant strategy ───────────────────────────────
     if strategy == "constant" and not constant_value:
@@ -460,14 +315,10 @@ def missing_value_imputer(inputs: dict, params: dict) -> dict:
             df = df.with_columns(exprs)
         return df
 
-    # ── Helper: write output + pass-through .meta.json ───────────
+    # ── Helper: write output ─────────────────────────────────────
     def _write_split(df: pl.DataFrame, split_name: str) -> str:
         out_path = _get_output_path(split_name)
         df.write_parquet(out_path)
-        # Pass-through .meta.json (schema unchanged by imputation)
-        if meta:
-            meta_out = out_path.with_suffix(".meta.json")
-            meta_out.write_text(json.dumps(meta, indent=2))
         return str(out_path)
 
     # ── Transform all splits ─────────────────────────────────────
@@ -510,8 +361,12 @@ def missing_value_imputer(inputs: dict, params: dict) -> dict:
         ),
         "columns": Text(
             default="",
-            description="Comma-separated columns to encode (empty = all categorical columns from metadata)",
+            description="Comma-separated columns to encode (empty = auto-detect by dtype)",
             placeholder="color, size, brand",
+        ),
+        "target_column": Text(
+            default="",
+            description="Target column (auto-detected from schema)",
         ),
         "handle_unknown": Select(
             ["encode_as_unknown", "error"],
@@ -566,7 +421,7 @@ Encode categorical (string) columns into numeric values so ML models can use the
 | Parameter | Purpose |
 |-----------|---------|
 | `method` | Encoding strategy |
-| `columns` | Which columns to encode (empty = auto-detect from metadata) |
+| `columns` | Which columns to encode (empty = auto-detect by dtype) |
 | `handle_unknown` | What to do with unseen categories in val/test |
 """,
 )
@@ -577,17 +432,23 @@ def category_encoder(inputs: dict, params: dict) -> dict:
     method = params.get("method", "label")
     columns_param = params.get("columns", "")
     handle_unknown = params.get("handle_unknown", "encode_as_unknown")
+    target_col = params.get("target_column", "")
 
-    # Read train data and metadata
+    # Read train data
     train_df = pl.read_parquet(inputs["train"])
-    train_meta = _read_meta(inputs["train"])
-    target_col = _find_target_column(train_meta)
 
-    # Determine dtype mapping for column selection
-    df_dtypes = {col: str(dtype) for col, dtype in zip(train_df.columns, train_df.dtypes)}
-    cat_columns = _get_categorical_columns(
-        train_df.columns, df_dtypes, columns_param, train_meta, target_col,
-    )
+    # Determine categorical columns
+    if columns_param and columns_param.strip():
+        cat_columns = [c.strip() for c in columns_param.split(",") if c.strip()]
+        cat_columns = [c for c in cat_columns if c in train_df.columns and c != target_col]
+    else:
+        # Auto-detect by dtype heuristic: object/string/category dtypes
+        cat_dtypes = ("Object", "String", "Utf8", "Categorical", "Enum")
+        cat_columns = [
+            c for c in train_df.columns
+            if str(train_df[c].dtype) in cat_dtypes
+            and c != target_col
+        ]
 
     # Filter to columns that actually have categories (non-empty)
     cat_columns = [
@@ -599,48 +460,40 @@ def category_encoder(inputs: dict, params: dict) -> dict:
         # Nothing to encode — pass through
         train_path = _get_output_path("train")
         train_df.write_parquet(train_path)
-        _write_meta(str(train_path), train_meta)
         result: dict[str, str] = {"train": str(train_path)}
 
         if "val" in inputs:
             val_path = _get_output_path("val")
-            val_df = pl.read_parquet(inputs["val"])
-            val_df.write_parquet(val_path)
-            val_meta = _read_meta(inputs["val"])
-            _write_meta(str(val_path), val_meta if val_meta else train_meta)
+            pl.read_parquet(inputs["val"]).write_parquet(val_path)
             result["val"] = str(val_path)
 
         if "test" in inputs:
             test_path = _get_output_path("test")
-            test_df = pl.read_parquet(inputs["test"])
-            test_df.write_parquet(test_path)
-            test_meta = _read_meta(inputs["test"])
-            _write_meta(str(test_path), test_meta if test_meta else train_meta)
+            pl.read_parquet(inputs["test"]).write_parquet(test_path)
             result["test"] = str(test_path)
 
         return result
 
     if method in ("label", "ordinal"):
         return _encode_label_ordinal(
-            inputs, train_df, train_meta, cat_columns, handle_unknown,
+            inputs, train_df, cat_columns, handle_unknown,
         )
     else:
         return _encode_onehot(
-            inputs, train_df, train_meta, cat_columns, handle_unknown,
+            inputs, train_df, cat_columns, handle_unknown,
         )
 
 
 def _encode_label_ordinal(
     inputs: dict,
     train_df: Any,
-    train_meta: dict,
     cat_columns: list[str],
     handle_unknown: str,
 ) -> dict:
     """Label/ordinal encoding: map each unique value to an integer."""
     import polars as pl
 
-    # Step 1: Fit on train — build {value → int} mapping per column
+    # Step 1: Fit on train — build {value -> int} mapping per column
     mappings: dict[str, dict[str, int]] = {}
     for col in cat_columns:
         unique_vals = sorted(
@@ -674,9 +527,6 @@ def _encode_label_ordinal(
 
     train_path = _get_output_path("train")
     train_encoded.write_parquet(train_path)
-    updated_meta = _update_metadata_label_ordinal(train_meta, cat_columns, mappings)
-    _write_meta(str(train_path), updated_meta)
-
     result: dict[str, str] = {"train": str(train_path)}
 
     # Transform val (optional)
@@ -685,7 +535,6 @@ def _encode_label_ordinal(
         val_encoded = _apply_mapping(val_df, "val") if val_df.height > 0 else val_df
         val_path = _get_output_path("val")
         val_encoded.write_parquet(val_path)
-        _write_meta(str(val_path), updated_meta)
         result["val"] = str(val_path)
 
     # Transform test (optional)
@@ -694,7 +543,6 @@ def _encode_label_ordinal(
         test_encoded = _apply_mapping(test_df, "test") if test_df.height > 0 else test_df
         test_path = _get_output_path("test")
         test_encoded.write_parquet(test_path)
-        _write_meta(str(test_path), updated_meta)
         result["test"] = str(test_path)
 
     return result
@@ -703,7 +551,6 @@ def _encode_label_ordinal(
 def _encode_onehot(
     inputs: dict,
     train_df: Any,
-    train_meta: dict,
     cat_columns: list[str],
     handle_unknown: str,
 ) -> dict:
@@ -748,9 +595,6 @@ def _encode_onehot(
 
     train_path = _get_output_path("train")
     train_encoded.write_parquet(train_path)
-    updated_meta = _update_metadata_onehot(train_meta, cat_columns, category_sets)
-    _write_meta(str(train_path), updated_meta)
-
     result: dict[str, str] = {"train": str(train_path)}
 
     # Transform val (optional)
@@ -759,7 +603,6 @@ def _encode_onehot(
         val_encoded = _apply_onehot(val_df, "val") if val_df.height > 0 else val_df
         val_path = _get_output_path("val")
         val_encoded.write_parquet(val_path)
-        _write_meta(str(val_path), updated_meta)
         result["val"] = str(val_path)
 
     # Transform test (optional)
@@ -768,7 +611,6 @@ def _encode_onehot(
         test_encoded = _apply_onehot(test_df, "test") if test_df.height > 0 else test_df
         test_path = _get_output_path("test")
         test_encoded.write_parquet(test_path)
-        _write_meta(str(test_path), updated_meta)
         result["test"] = str(test_path)
 
     return result

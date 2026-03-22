@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ml_toolbox.protocol import PortType, node
+from ml_toolbox.protocol import PortType, Text, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
@@ -19,34 +19,6 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
 
-
-def _read_meta(parquet_path: str) -> dict:
-    """Read the .meta.json sidecar for a parquet file, if it exists."""
-    meta_path = Path(parquet_path).with_suffix(".meta.json")
-    if meta_path.exists():
-        try:
-            return json.loads(meta_path.read_text())
-        except Exception:
-            pass
-    return {}
-
-
-def _find_target_column(df: "pd.DataFrame", meta: dict) -> str:  # type: ignore[name-defined]  # noqa: F821
-    """Determine the target column from metadata or convention."""
-    # 1. From metadata — check columns dict for role=target first
-    for col_name, col_meta in meta.get("columns", {}).items():
-        if isinstance(col_meta, dict) and col_meta.get("role") == "target":
-            return col_name
-    if meta.get("target"):
-        return str(meta["target"])
-    # 2. Common convention names
-    for name in ("y_true", "target", "label"):
-        if name in df.columns:
-            return name
-    raise ValueError(
-        "Cannot determine target column. Provide a .meta.json sidecar "
-        "with a 'target' field, or include a column named 'y_true' or 'target'."
-    )
 
 
 def _find_prediction_column(df: "pd.DataFrame") -> str:  # type: ignore[name-defined]  # noqa: F821
@@ -147,7 +119,9 @@ def _compute_regression_metrics(
 @node(
     inputs={"predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
-    params={},
+    params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
+    },
     label="ROC & PR Curves",
     category="Evaluation",
     description="Compute ROC and Precision-Recall curves with AUC scores from predicted probabilities.",
@@ -197,15 +171,17 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
 
     df = pd.read_parquet(inputs["predictions"])
 
-    # Detect y_true column
-    y_true_col = None
-    for candidate in ("y_true", "y_test", "target"):
-        if candidate in df.columns:
-            y_true_col = candidate
-            break
-    if y_true_col is None:
+    # Detect y_true column — prefer param, then convention-based fallback
+    y_true_col = params.get("target_column", "")
+    if not y_true_col:
+        for candidate in ("y_true", "y_test", "target"):
+            if candidate in df.columns:
+                y_true_col = candidate
+                break
+    if not y_true_col:
         raise ValueError(
-            "Missing ground-truth column. Expected one of: y_true, y_test, target. "
+            "Missing ground-truth column. Set 'target_column' param or include "
+            "a column named y_true, y_test, or target. "
             f"Got columns: {list(df.columns)}"
         )
 
@@ -573,7 +549,9 @@ def feature_importance(inputs: dict, params: dict) -> dict:
 @node(
     inputs={"predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
-    params={},
+    params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
+    },
     allowed_upstream={
         "predictions": ["train_sklearn_model", "train_xgboost"],
     },
@@ -606,9 +584,21 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
     import pandas as pd
 
     df = pd.read_parquet(inputs["predictions"])
-    meta = _read_meta(inputs["predictions"])
 
-    target_col = _find_target_column(df, meta)
+    target_col = params.get("target_column", "")
+    if not target_col:
+        # Convention-based fallback
+        for name in ("y_true", "target", "label"):
+            if name in df.columns:
+                target_col = name
+                break
+    if not target_col:
+        raise ValueError(
+            "Cannot determine target column. Set 'target_column' param or include "
+            "a column named 'y_true', 'target', or 'label'. "
+            f"Got columns: {list(df.columns)}"
+        )
+
     pred_col = _find_prediction_column(df)
     split_col = _find_split_column(df)
 
@@ -681,7 +671,9 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
 @node(
     inputs={"predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
-    params={},
+    params={
+        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
+    },
     allowed_upstream={
         "predictions": ["train_sklearn_model", "train_xgboost"],
     },
@@ -711,9 +703,21 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
     import pandas as pd
 
     df = pd.read_parquet(inputs["predictions"])
-    meta = _read_meta(inputs["predictions"])
 
-    target_col = _find_target_column(df, meta)
+    target_col = params.get("target_column", "")
+    if not target_col:
+        # Convention-based fallback
+        for name in ("y_true", "target", "label"):
+            if name in df.columns:
+                target_col = name
+                break
+    if not target_col:
+        raise ValueError(
+            "Cannot determine target column. Set 'target_column' param or include "
+            "a column named 'y_true', 'target', or 'label'. "
+            f"Got columns: {list(df.columns)}"
+        )
+
     pred_col = _find_prediction_column(df)
     split_col = _find_split_column(df)
 
