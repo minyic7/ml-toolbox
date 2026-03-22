@@ -535,6 +535,89 @@ def test_row_counts_preserved(tmp_path: Path):
     assert pl.read_parquet(result["test"]).height == 3
 
 
+def test_train_only_no_val_test(tmp_path: Path):
+    """Works correctly when only train is provided (no val/test)."""
+    from ml_toolbox.nodes.transform import category_encoder
+
+    train_df = pl.DataFrame({
+        "color": ["red", "blue", "green", "red"],
+        "value": [1.0, 2.0, 3.0, 4.0],
+    })
+    train_path = tmp_path / "train.parquet"
+    train_df.write_parquet(train_path)
+
+    inputs = {"train": str(train_path)}
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    with patch("ml_toolbox.nodes.transform._get_output_path",
+               side_effect=_mock_output_factory(out_dir)):
+        result = category_encoder(
+            inputs=inputs,
+            params={"method": "label", "columns": "color", "handle_unknown": "encode_as_unknown"},
+        )
+
+    assert "train" in result
+    assert "val" not in result
+    assert "test" not in result
+    train_out = pl.read_parquet(result["train"])
+    assert train_out["color"].dtype == pl.Int64
+
+
+def test_train_only_onehot(tmp_path: Path):
+    """One-hot works correctly when only train is provided."""
+    from ml_toolbox.nodes.transform import category_encoder
+
+    train_df = pl.DataFrame({
+        "color": ["red", "blue", "green"],
+        "value": [1.0, 2.0, 3.0],
+    })
+    train_path = tmp_path / "train.parquet"
+    train_df.write_parquet(train_path)
+
+    inputs = {"train": str(train_path)}
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    with patch("ml_toolbox.nodes.transform._get_output_path",
+               side_effect=_mock_output_factory(out_dir)):
+        result = category_encoder(
+            inputs=inputs,
+            params={"method": "one_hot", "columns": "color", "handle_unknown": "encode_as_unknown"},
+        )
+
+    assert "train" in result
+    assert "val" not in result
+    assert "test" not in result
+    train_out = pl.read_parquet(result["train"])
+    assert "color" not in train_out.columns
+    assert "color_red" in train_out.columns
+
+
+def test_train_only_passthrough(tmp_path: Path):
+    """Passthrough works correctly when only train is provided."""
+    from ml_toolbox.nodes.transform import category_encoder
+
+    train_df = pl.DataFrame({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
+    train_path = tmp_path / "train.parquet"
+    train_df.write_parquet(train_path)
+
+    inputs = {"train": str(train_path)}
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    with patch("ml_toolbox.nodes.transform._get_output_path",
+               side_effect=_mock_output_factory(out_dir)):
+        result = category_encoder(
+            inputs=inputs,
+            params={"method": "label", "columns": "", "handle_unknown": "encode_as_unknown"},
+        )
+
+    assert "train" in result
+    assert "val" not in result
+    assert "test" not in result
+
+
 def test_without_metadata_falls_back_to_dtype(tmp_path: Path):
     """Without .meta.json, uses string dtype columns as categorical."""
     from ml_toolbox.nodes.transform import category_encoder

@@ -589,20 +589,27 @@ def category_encoder(inputs: dict, params: dict) -> dict:
     if not cat_columns:
         # Nothing to encode — pass through
         train_path = _get_output_path("train")
-        val_path = _get_output_path("val")
-        test_path = _get_output_path("test")
         train_df.write_parquet(train_path)
         _write_meta(str(train_path), train_meta)
+        result: dict[str, str] = {"train": str(train_path)}
 
-        val_df = pl.read_parquet(inputs["val"])
-        val_df.write_parquet(val_path)
-        _write_meta(str(val_path), _read_meta(inputs["val"]) or train_meta)
+        if "val" in inputs:
+            val_path = _get_output_path("val")
+            val_df = pl.read_parquet(inputs["val"])
+            val_df.write_parquet(val_path)
+            val_meta = _read_meta(inputs["val"])
+            _write_meta(str(val_path), val_meta if val_meta else train_meta)
+            result["val"] = str(val_path)
 
-        test_df = pl.read_parquet(inputs["test"])
-        test_df.write_parquet(test_path)
-        _write_meta(str(test_path), _read_meta(inputs["test"]) or train_meta)
+        if "test" in inputs:
+            test_path = _get_output_path("test")
+            test_df = pl.read_parquet(inputs["test"])
+            test_df.write_parquet(test_path)
+            test_meta = _read_meta(inputs["test"])
+            _write_meta(str(test_path), test_meta if test_meta else train_meta)
+            result["test"] = str(test_path)
 
-        return {"train": str(train_path), "val": str(val_path), "test": str(test_path)}
+        return result
 
     if method in ("label", "ordinal"):
         return _encode_label_ordinal(
@@ -632,13 +639,12 @@ def _encode_label_ordinal(
         )
         mappings[col] = {str(v): i for i, v in enumerate(unique_vals)}
 
-    def _apply_mapping(df, split_name):  # type: ignore[no-untyped-def]
+    def _apply_mapping(df: pl.DataFrame, split_name: str) -> pl.DataFrame:
         for col in cat_columns:
             mapping = mappings[col]
             col_values = df[col].cast(pl.Utf8)
 
             if handle_unknown == "error" and split_name != "train":
-                # Check for unseen values
                 unique_vals = col_values.drop_nulls().unique().to_list()
                 for v in unique_vals:
                     if v not in mapping:
@@ -648,10 +654,10 @@ def _encode_label_ordinal(
                         )
                         raise ValueError(msg)
 
-            encoded = col_values.map_elements(
-                lambda v, m=mapping: m.get(str(v), -1) if v is not None else -1,
-                return_dtype=pl.Int64,
-            )
+            # Use native Polars replace_strict instead of map_elements
+            old = pl.Series(list(mapping.keys()))
+            new = pl.Series(list(mapping.values()))
+            encoded = col_values.replace_strict(old, new, default=-1).cast(pl.Int64)
             df = df.with_columns(encoded.alias(col))
         return df
 
@@ -662,21 +668,27 @@ def _encode_label_ordinal(
     updated_meta = _update_metadata_label_ordinal(train_meta, cat_columns, mappings)
     _write_meta(str(train_path), updated_meta)
 
-    # Transform val
-    val_df = pl.read_parquet(inputs["val"])
-    val_encoded = _apply_mapping(val_df, "val") if val_df.height > 0 else val_df
-    val_path = _get_output_path("val")
-    val_encoded.write_parquet(val_path)
-    _write_meta(str(val_path), updated_meta)
+    result: dict[str, str] = {"train": str(train_path)}
 
-    # Transform test
-    test_df = pl.read_parquet(inputs["test"])
-    test_encoded = _apply_mapping(test_df, "test") if test_df.height > 0 else test_df
-    test_path = _get_output_path("test")
-    test_encoded.write_parquet(test_path)
-    _write_meta(str(test_path), updated_meta)
+    # Transform val (optional)
+    if "val" in inputs:
+        val_df = pl.read_parquet(inputs["val"])
+        val_encoded = _apply_mapping(val_df, "val") if val_df.height > 0 else val_df
+        val_path = _get_output_path("val")
+        val_encoded.write_parquet(val_path)
+        _write_meta(str(val_path), updated_meta)
+        result["val"] = str(val_path)
 
-    return {"train": str(train_path), "val": str(val_path), "test": str(test_path)}
+    # Transform test (optional)
+    if "test" in inputs:
+        test_df = pl.read_parquet(inputs["test"])
+        test_encoded = _apply_mapping(test_df, "test") if test_df.height > 0 else test_df
+        test_path = _get_output_path("test")
+        test_encoded.write_parquet(test_path)
+        _write_meta(str(test_path), updated_meta)
+        result["test"] = str(test_path)
+
+    return result
 
 
 def _encode_onehot(
@@ -697,7 +709,7 @@ def _encode_onehot(
         )
         category_sets[col] = unique_vals
 
-    def _apply_onehot(df, split_name):  # type: ignore[no-untyped-def]
+    def _apply_onehot(df: pl.DataFrame, split_name: str) -> pl.DataFrame:
         for col in cat_columns:
             categories = category_sets[col]
             col_values = df[col].cast(pl.Utf8)
@@ -712,17 +724,14 @@ def _encode_onehot(
                         )
                         raise ValueError(msg)
 
-            # Create binary columns
-            new_cols = []
-            for cat_value in categories:
-                new_col_name = f"{col}_{cat_value}"
-                binary_col = col_values.map_elements(
-                    lambda v, cv=cat_value: 1 if v == cv else 0,
-                    return_dtype=pl.Int64,
-                ).alias(new_col_name)
-                new_cols.append(binary_col)
+            # Create binary columns using native equality expressions
+            new_cols = [
+                (pl.col(col).cast(pl.Utf8) == cat_value)
+                .cast(pl.Int64)
+                .alias(f"{col}_{cat_value}")
+                for cat_value in categories
+            ]
 
-            # Add new columns and drop original
             df = df.with_columns(new_cols).drop(col)
         return df
 
@@ -733,18 +742,24 @@ def _encode_onehot(
     updated_meta = _update_metadata_onehot(train_meta, cat_columns, category_sets)
     _write_meta(str(train_path), updated_meta)
 
-    # Transform val
-    val_df = pl.read_parquet(inputs["val"])
-    val_encoded = _apply_onehot(val_df, "val") if val_df.height > 0 else val_df
-    val_path = _get_output_path("val")
-    val_encoded.write_parquet(val_path)
-    _write_meta(str(val_path), updated_meta)
+    result: dict[str, str] = {"train": str(train_path)}
 
-    # Transform test
-    test_df = pl.read_parquet(inputs["test"])
-    test_encoded = _apply_onehot(test_df, "test") if test_df.height > 0 else test_df
-    test_path = _get_output_path("test")
-    test_encoded.write_parquet(test_path)
-    _write_meta(str(test_path), updated_meta)
+    # Transform val (optional)
+    if "val" in inputs:
+        val_df = pl.read_parquet(inputs["val"])
+        val_encoded = _apply_onehot(val_df, "val") if val_df.height > 0 else val_df
+        val_path = _get_output_path("val")
+        val_encoded.write_parquet(val_path)
+        _write_meta(str(val_path), updated_meta)
+        result["val"] = str(val_path)
 
-    return {"train": str(train_path), "val": str(val_path), "test": str(test_path)}
+    # Transform test (optional)
+    if "test" in inputs:
+        test_df = pl.read_parquet(inputs["test"])
+        test_encoded = _apply_onehot(test_df, "test") if test_df.height > 0 else test_df
+        test_path = _get_output_path("test")
+        test_encoded.write_parquet(test_path)
+        _write_meta(str(test_path), updated_meta)
+        result["test"] = str(test_path)
+
+    return result
