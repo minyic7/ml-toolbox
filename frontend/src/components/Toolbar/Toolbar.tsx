@@ -18,6 +18,7 @@ import {
   ColumnDropperIcon,
   ScalerTransformIcon,
   FeatureCreatorIcon,
+  GradientBoostingIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -49,6 +50,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   column_dropper: ColumnDropperIcon,
   scaler_transform: ScalerTransformIcon,
   feature_creator: FeatureCreatorIcon,
+  gradient_boosting_train: GradientBoostingIcon,
 };
 
 /** Stable category ordering */
