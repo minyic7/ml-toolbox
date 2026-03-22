@@ -87,6 +87,9 @@
   --category-ingest: #1D9E75;
   --category-preprocessing: #F97316;
   --category-eda: #0EA5E9;
+  --category-transform: #7C3AED;
+  --category-training: #10B981;
+  --category-evaluation: #F59E0B;
 
   /* ── shadcn/ui CSS variable mapping ──────────────────── */
   --background: var(--node-bg);
