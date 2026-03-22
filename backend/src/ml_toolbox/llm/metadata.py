@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import pandas as pd
@@ -95,10 +96,19 @@ _ID_KEYWORDS = {"id", "index", "row_id", "row_number", "record_id"}
 
 
 def _matches_keywords(name_lower: str, keywords: set[str]) -> bool:
-    """Case-insensitive check: exact match OR any keyword appears as a substring."""
+    """Case-insensitive check using word-boundary matching.
+
+    Splits the column name on common delimiters (underscore, space, hyphen)
+    and checks token membership.  Falls back to regex word-boundary search
+    so that e.g. 'defaultPayment' still matches 'default' but 'humidity'
+    does NOT match 'id'.
+    """
     if name_lower in keywords:
         return True
-    return any(kw in name_lower for kw in keywords)
+    tokens = set(re.split(r"[_\s\-]+", name_lower))
+    if tokens & keywords:
+        return True
+    return any(re.search(r"\b" + re.escape(kw) + r"\b", name_lower) for kw in keywords)
 
 
 def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
