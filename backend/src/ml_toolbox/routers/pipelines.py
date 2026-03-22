@@ -436,26 +436,42 @@ async def add_edge(pipeline_id: str, body: AddEdgeRequest) -> dict:
             },
         )
 
-    # 5. Check allowed_upstream constraint
+    # 5. Check allowed_upstream constraint (per-port)
     source_type = source_node.get("type", "")
     target_type = target_node.get("type", "")
     source_template = NODE_REGISTRY.get(source_type, {})
     target_template = NODE_REGISTRY.get(target_type, {})
-    source_category = source_template.get("category", "")
-    allowed = target_template.get("allowed_upstream", [])
-    if allowed and source_category not in allowed:
-        source_fn = source_type.split(".")[-1] if "." in source_type else source_type
-        target_fn = target_type.split(".")[-1] if "." in target_type else target_type
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "invalid_upstream",
-                "message": f"{source_label} ({source_fn}) cannot connect to {target_label}. Allowed upstream categories: {', '.join(allowed)}",
-                "source_node": source_fn,
-                "target_node": target_fn,
-                "allowed_upstream": allowed,
-            },
-        )
+    source_fn = source_type.rsplit(".", 1)[-1] if "." in source_type else source_type
+    target_fn = target_type.rsplit(".", 1)[-1] if "." in target_type else target_type
+    allowed_map = target_template.get("allowed_upstream", {})
+
+    if isinstance(allowed_map, dict) and body.target_port in allowed_map:
+        allowed_for_port = allowed_map[body.target_port]
+        if allowed_for_port and source_fn not in allowed_for_port:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "invalid_upstream",
+                    "message": f'Port "{body.target_port}" on {target_label} cannot accept connections from {source_fn}. Allowed: {allowed_for_port}',
+                    "source_node": source_fn,
+                    "target_node": target_fn,
+                    "target_port": body.target_port,
+                    "allowed_upstream": allowed_for_port,
+                },
+            )
+    elif isinstance(allowed_map, list):
+        # Legacy list format (backward compat)
+        if allowed_map and source_fn not in allowed_map:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "invalid_upstream",
+                    "message": f"{source_label} ({source_fn}) cannot connect to {target_label}. Allowed: {allowed_map}",
+                    "source_node": source_fn,
+                    "target_node": target_fn,
+                    "allowed_upstream": allowed_map,
+                },
+            )
 
     # 6. Check for cycles
     if would_create_cycle(data, body.source, body.target):

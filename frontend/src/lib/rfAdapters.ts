@@ -20,6 +20,7 @@ export interface NodeCardData extends Record<string, unknown> {
   code: string;
   isKnownType: boolean;
   occupiedInputPorts: string[];
+  allowedUpstream: Record<string, string[]>;
   onTabClick?: (nodeId: string, tab: string) => void;
   onRunFrom?: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
@@ -61,6 +62,7 @@ export function toRFNode(
       code: node.code,
       isKnownType: !!def,
       occupiedInputPorts,
+      allowedUpstream: def?.allowed_upstream ?? {},
       onTabClick,
       onRunFrom,
       onDeleteNode,

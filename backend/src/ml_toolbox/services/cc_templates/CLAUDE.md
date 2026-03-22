@@ -68,20 +68,19 @@ A `.meta.json` file describes column-level metadata for a parquet output. It liv
 | Eda | `ml_toolbox.nodes.eda.outlier_detection` | Outlier Detection |
 
 ## DAG Connection Rules
-Each node type only accepts connections from specific upstream categories.
-The API enforces this — invalid connections return 400.
+Each input port independently declares which upstream node types (by function name) can connect to it.
+The API enforces this per-port — invalid connections return 400.
 
-| Node | Allowed Upstream |
-|------|------------------|
-| csv_reader, parquet_reader | (root nodes, no upstream) |
-| random_holdout | Ingest |
-| distribution_profile | Ingest, Preprocessing |
-| missing_analysis | Ingest, Preprocessing |
-| correlation_matrix | Ingest, Preprocessing |
-| outlier_detection | Ingest, Preprocessing |
-| EDA outputs (METRICS) | (terminal, no downstream) |
+| Node | Port | Allowed Upstream (node functions) |
+|------|------|----------------------------------|
+| csv_reader, parquet_reader | — | (root nodes, no inputs) |
+| random_holdout | df | csv_reader, parquet_reader |
+| correlation_matrix | df | csv_reader, parquet_reader, random_holdout |
+| distribution_profile | df | csv_reader, parquet_reader, random_holdout |
+| missing_analysis | df | csv_reader, parquet_reader, random_holdout |
+| outlier_detection | df | csv_reader, parquet_reader, random_holdout |
 
-When creating a DAG, always check allowed_upstream before adding edges.
+When creating a DAG, always check allowed_upstream per target port before adding edges.
 
 ## Creating a Pipeline DAG
 When the user asks you to build a pipeline:

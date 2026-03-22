@@ -26,6 +26,7 @@ interface ExecutionState {
   draggingPortType: PortType | null;
   draggingFromNodeId: string | null;
   draggingSourceOutputTypes: PortType[];
+  draggingSourceNodeFn: string | null;
   runResult: "success" | "error" | null;
   lastDoneNodeId: string | null;
 
@@ -38,7 +39,7 @@ interface ExecutionState {
   setRunId: (id: string | null) => void;
   setWsStatus: (status: WsStatus) => void;
   setDraggingPortType: (type: PortType | null) => void;
-  setDraggingFrom: (nodeId: string | null, outputTypes: PortType[]) => void;
+  setDraggingFrom: (nodeId: string | null, outputTypes: PortType[], nodeFn?: string | null) => void;
   setRunResult: (result: "success" | "error" | null) => void;
   setLastDoneNodeId: (nodeId: string | null) => void;
   markDirty: (nodeId: string) => void;
@@ -57,6 +58,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   draggingPortType: null,
   draggingFromNodeId: null,
   draggingSourceOutputTypes: [],
+  draggingSourceNodeFn: null,
   runResult: null,
   lastDoneNodeId: null,
 
@@ -102,8 +104,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
 
   setDraggingPortType: (type) => set({ draggingPortType: type }),
 
-  setDraggingFrom: (nodeId, outputTypes) =>
-    set({ draggingFromNodeId: nodeId, draggingSourceOutputTypes: outputTypes }),
+  setDraggingFrom: (nodeId, outputTypes, nodeFn) =>
+    set({ draggingFromNodeId: nodeId, draggingSourceOutputTypes: outputTypes, draggingSourceNodeFn: nodeFn ?? null }),
 
   setRunResult: (result) => set({ runResult: result }),
 
@@ -133,6 +135,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       draggingPortType: null,
       draggingFromNodeId: null,
       draggingSourceOutputTypes: [],
+      draggingSourceNodeFn: null,
       runResult: null,
       lastDoneNodeId: null,
     }),
