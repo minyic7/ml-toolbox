@@ -13,7 +13,7 @@ export const PORT_COLORS: Record<PortType, string> = {
 /** Toolbar / category badge colors */
 export const CATEGORY_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
-  preprocessing: "var(--category-preprocessing)",
+  split: "var(--category-split)",
   eda: "var(--category-eda)",
   transform: "var(--category-transform)",
   training: "var(--category-training)",
@@ -23,7 +23,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
 /** Accent border color for each node category (4px left border on NodeCard) */
 export const CATEGORY_ACCENT_COLORS: Record<string, string> = {
   ingest: "var(--category-ingest)",
-  preprocessing: "var(--category-preprocessing)",
+  split: "var(--category-split)",
   eda: "var(--category-eda)",
   transform: "var(--category-transform)",
   training: "var(--category-training)",

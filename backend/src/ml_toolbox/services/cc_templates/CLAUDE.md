@@ -61,7 +61,7 @@ A `.meta.json` file describes column-level metadata for a parquet output. It liv
 |----------|------|-------|
 | Ingest | `ml_toolbox.nodes.ingest.csv_reader` | CSV Reader |
 | Ingest | `ml_toolbox.nodes.ingest.parquet_reader` | Parquet Reader |
-| Preprocessing | `ml_toolbox.nodes.preprocessing.random_holdout` | Random Hold-out |
+| Split | `ml_toolbox.nodes.split.random_holdout` | Random Hold-out |
 | Eda | `ml_toolbox.nodes.eda.correlation_matrix` | Correlation Matrix |
 | Eda | `ml_toolbox.nodes.eda.distribution_profile` | Distribution Profile |
 | Eda | `ml_toolbox.nodes.eda.missing_analysis` | Missing Analysis |
@@ -92,7 +92,7 @@ When the user asks you to build a pipeline:
    - `PATCH {{api_base}}/api/pipelines/{{pipeline_id}}/nodes/{node_id}` — set params
 4. Available node types (GET /api/nodes for full list):
    - Ingest: csv_reader, parquet_reader
-   - Preprocessing: random_holdout
+   - Split: random_holdout
    - EDA: distribution_profile, missing_analysis, correlation_matrix, outlier_detection
 5. Set params based on .meta.json:
    - target_column → column with role=target

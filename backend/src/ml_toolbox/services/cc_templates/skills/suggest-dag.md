@@ -38,7 +38,7 @@ Analyze the ingested dataset and recommend a complete pipeline DAG — which nod
    - Ingest → Correlation Matrix
    - (EDA nodes typically all branch from ingest in parallel)
 
-   ### If preprocessing is needed:
+   ### If splitting is needed:
    - **Random Hold-out** — always before any model training; connect after ingest
    - The train split output feeds into EDA nodes (analyze train only)
 

@@ -33,7 +33,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
                          description="Shuffle data before splitting"),
     },
     label="Random Hold-out",
-    category="Preprocessing",
+    category="Split",
     description="Split a DataFrame into train, validation, and test sets using random hold-out.",
     allowed_upstream={
         "df": ["csv_reader", "parquet_reader"],
@@ -151,7 +151,7 @@ def random_holdout(inputs: dict, params: dict) -> dict:
         "target_column": Text(default="", description="Target column for stratification (auto-detected from schema)"),
     },
     label="Stratified Hold-out",
-    category="Preprocessing",
+    category="Split",
     description="Split a DataFrame into train/val/test sets preserving class distribution of the target column.",
     allowed_upstream={
         "df": ["csv_reader", "parquet_reader"],

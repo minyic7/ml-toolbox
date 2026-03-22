@@ -60,7 +60,7 @@ export function ExcelReaderIcon({ color = "currentColor", size = 16 }: IconProps
   );
 }
 
-// ── Preprocessing ───────────────────────────────────────────────
+// ── Split ───────────────────────────────────────────────────────
 
 /** Rectangle split into 3 unequal parts — train/val/test hold-out */
 export function RandomHoldoutIcon({ color = "currentColor", size = 16 }: IconProps) {
