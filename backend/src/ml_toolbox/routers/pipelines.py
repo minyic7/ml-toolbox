@@ -1405,8 +1405,9 @@ def _extract_eda_section_from_report(report: dict) -> dict:
 def _collect_eda_context_from_dag(
     pipeline_data: dict, target_node_id: str, run_dir: Path,
 ) -> dict | None:
-    """Traverse DAG upward from target_node_id, find EDA sibling nodes,
-    and extract context from their report outputs.
+    """Complete BFS from target_node_id through the DAG. EDA nodes are
+    terminal — collect their reports and stop expanding. Non-EDA nodes
+    are expanded to all neighbors (parents + children).
 
     Returns a combined dict like:
         {"distribution": {...}, "outliers": {...}, "correlation": {...}, "missing": {...}}
@@ -1415,57 +1416,43 @@ def _collect_eda_context_from_dag(
     edges = pipeline_data.get("edges", [])
     nodes = {n["id"]: n for n in pipeline_data.get("nodes", [])}
 
-    # If the target node is itself an EDA node, return only its own report
-    target_node = nodes.get(target_node_id)
-    if target_node and ".eda." in target_node.get("type", "").lower():
-        report_files = list(run_dir.glob(f"{target_node_id}_report.json"))
-        if not report_files:
-            return None
-        try:
-            report = json.loads(report_files[0].read_text())
-            return _extract_eda_section_from_report(report) or None
-        except Exception:
-            return None
+    # Build adjacency list (bidirectional)
+    neighbors: dict[str, set[str]] = {}
+    for e in edges:
+        neighbors.setdefault(e["source"], set()).add(e["target"])
+        neighbors.setdefault(e["target"], set()).add(e["source"])
 
-    # For non-EDA nodes: BFS upward through the DAG to find all EDA siblings
     combined: dict = {}
-    visited_ancestors: set[str] = set()
+    visited: set[str] = set()
     queue = [target_node_id]
 
     while queue:
         current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
 
-        # Find parents of current node
-        parent_ids = [e["source"] for e in edges if e["target"] == current]
+        node = nodes.get(current)
+        if not node:
+            continue
 
-        for parent_id in parent_ids:
-            if parent_id in visited_ancestors:
-                continue
-            visited_ancestors.add(parent_id)
+        is_eda = ".eda." in node.get("type", "").lower()
 
-            # Find all children of this parent that are EDA nodes
-            children = [e["target"] for e in edges if e["source"] == parent_id]
-            for child_id in children:
-                child_node = nodes.get(child_id)
-                if not child_node:
-                    continue
-                child_type = child_node.get("type", "")
-                if ".eda." not in child_type.lower():
-                    continue
-
-                # Read this EDA node's report output
-                report_files = list(run_dir.glob(f"{child_id}_report.json"))
-                if not report_files:
-                    continue
+        if is_eda:
+            # Collect report and stop — don't expand past EDA nodes
+            report_files = list(run_dir.glob(f"{current}_report.json"))
+            if report_files:
                 try:
                     report = json.loads(report_files[0].read_text())
                     section = _extract_eda_section_from_report(report)
                     combined.update(section)
                 except Exception:
-                    continue
-
-            # Continue traversing upward
-            queue.append(parent_id)
+                    pass
+        else:
+            # Non-EDA node — expand to all neighbors
+            for neighbor_id in neighbors.get(current, set()):
+                if neighbor_id not in visited:
+                    queue.append(neighbor_id)
 
     return combined or None
 
