@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 import logging
 import os
 import threading
 import uuid
-from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable
 
@@ -555,7 +556,13 @@ class PipelineExecutor:
                 })
 
                 try:
-                    node_result = self._execute_node(node_id, pipeline, run_dir)
+                    with _running_nodes_lock:
+                        _running_nodes.add(node_id)
+                    try:
+                        node_result = self._execute_node(node_id, pipeline, run_dir)
+                    finally:
+                        with _running_nodes_lock:
+                            _running_nodes.discard(node_id)
 
                     if node_result == "skipped":
                         # Sandbox evaluated conditions and decided to skip
@@ -625,6 +632,11 @@ class PipelineExecutor:
 _active_executors: dict[str, PipelineExecutor] = {}
 _executors_lock = threading.Lock()
 
+# Track which nodes are currently executing so background tasks (like EDA
+# context propagation) can skip auto-configure for nodes mid-execution.
+_running_nodes: set[str] = set()
+_running_nodes_lock = threading.Lock()
+
 
 def get_active_executor(pipeline_id: str) -> PipelineExecutor | None:
     with _executors_lock:
@@ -679,9 +691,12 @@ def _post_execution_hook(
     # EDA context propagation: after an EDA node runs, propagate .eda-context.json
     # to all sibling downstream nodes of the parent, then re-auto-configure them.
     if ".eda." in node_type.lower() and pipeline_data is not None:
+        # Deep-copy pipeline_data so the background thread sees a stable
+        # snapshot even if the main thread mutates the dict later.
+        pipeline_snapshot = copy.deepcopy(pipeline_data)
         threading.Thread(
             target=_propagate_eda_context,
-            args=(pipeline_id, node_id, run_dir, pipeline_data, broadcast),
+            args=(pipeline_id, node_id, run_dir, pipeline_snapshot, broadcast),
             daemon=True,
         ).start()
 
@@ -750,25 +765,31 @@ def _propagate_eda_context(
                 dest = dest_candidates[0].with_suffix(".eda-context.json")
                 shutil.copy2(str(eda_context_file), str(dest))
 
-        # 5. Walk deeper into the DAG — propagate to grandchildren and beyond
+        # 5. Walk deeper into the DAG — propagate to grandchildren and beyond.
+        #    For each edge, copy the context alongside the child's *input*
+        #    parquet (named after the feeding parent), not its output.
         visited: set[str] = set()
-        queue = [e["target"] for e in parent_downstream]
-        while queue:
-            current = queue.pop(0)
+        bfs: deque[str] = deque(e["target"] for e in parent_downstream)
+        while bfs:
+            current = bfs.popleft()
             if current in visited:
                 continue
             visited.add(current)
-            # Copy alongside this node's output parquets
-            for output_file in run_dir.glob(f"{current}*.parquet"):
-                if _is_sidecar_file(output_file):
+            # Find edges feeding into `current` and copy context alongside
+            # each input parquet.
+            for e in edges:
+                if e["target"] != current:
                     continue
-                dest = output_file.with_suffix(".eda-context.json")
-                if not dest.exists():
-                    shutil.copy2(str(eda_context_file), str(dest))
+                src = e["source"]
+                sport = e.get("source_port", "output")
+                for inp_file in run_dir.glob(f"{src}_{sport}*.parquet"):
+                    dest = inp_file.with_suffix(".eda-context.json")
+                    if not dest.exists():
+                        shutil.copy2(str(eda_context_file), str(dest))
             # Enqueue this node's children
             for e in edges:
                 if e["source"] == current:
-                    queue.append(e["target"])
+                    bfs.append(e["target"])
 
         # 6. Broadcast so the frontend knows context was updated
         broadcast(pipeline_id, {
@@ -776,12 +797,17 @@ def _propagate_eda_context(
             "source_node_id": eda_node_id,
         })
 
-        # 7. Re-trigger auto-configure on each affected downstream node
+        # 7. Re-trigger auto-configure on each affected downstream node.
+        #    Skip nodes that are currently executing in the sandbox — their
+        #    params will be picked up on next run instead.
         #    Import lazily to avoid circular dependency (pipelines → executor).
         from ml_toolbox.routers.pipelines import _auto_configure_node
 
         for target_id in visited:
-            _auto_configure_node(pipeline_id, target_id)
+            with _running_nodes_lock:
+                is_running = target_id in _running_nodes
+            if not is_running:
+                _auto_configure_node(pipeline_id, target_id)
 
     except Exception:
         logger.exception(
