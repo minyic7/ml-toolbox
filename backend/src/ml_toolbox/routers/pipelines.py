@@ -1043,7 +1043,10 @@ async def put_metadata(
     meta_path.write_text(json.dumps(body, indent=2))
     broadcast_sync(pipeline_id, {"type": "metadata_updated", "node_id": node_id})
 
-    # Re-cast parquet in background when output file exists
+    # Re-cast parquet in background when output file exists.
+    # Always re-read from the original source file (CSV/parquet uploaded by
+    # the user) so that columns previously dropped via role=ignore/identifier
+    # can be recovered when the user changes the role back to "feature".
     if output_file is not None:
         def _recast() -> None:
             try:
@@ -1051,7 +1054,23 @@ async def put_metadata(
 
                 from ml_toolbox.llm.metadata import cast_by_metadata
 
-                df = pd.read_parquet(output_file)
+                # Prefer reading from original source to recover dropped columns
+                source_path = body.get("source_path")
+                # Validate source_path is within the allowed data directory
+                # to prevent path-traversal via client-supplied metadata.
+                if source_path:
+                    resolved = Path(source_path).resolve()
+                    if not resolved.is_relative_to(DATA_DIR.resolve()):
+                        source_path = None
+                if source_path and Path(source_path).is_file():
+                    src = Path(source_path)
+                    if src.suffix.lower() == ".csv":
+                        df = pd.read_csv(src)
+                    else:
+                        df = pd.read_parquet(src)
+                else:
+                    df = pd.read_parquet(output_file)
+
                 df, cast_results = cast_by_metadata(df, body)
 
                 # Update cast_status in metadata
@@ -1080,6 +1099,7 @@ async def put_metadata(
                 return
 
             source_columns: dict = body.get("columns", {})
+            drop_roles = {"ignore", "identifier"}
 
             # Merge classification changes into downstream .meta.json files,
             # preserving downstream-specific column sets.
@@ -1091,8 +1111,12 @@ async def put_metadata(
                     except Exception:
                         ds_meta = {}
                     ds_columns = ds_meta.get("columns", {})
-                    # Only update columns that exist in both source and downstream
                     for col_name, src_col in source_columns.items():
+                        # Remove dropped columns from downstream metadata
+                        if src_col.get("role") in drop_roles:
+                            ds_columns.pop(col_name, None)
+                            continue
+                        # Only update columns that exist in both source and downstream
                         if col_name in ds_columns:
                             for key in ("role", "semantic_type"):
                                 if key in src_col:
