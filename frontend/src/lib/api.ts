@@ -316,6 +316,17 @@ export function getAnalysis(
   );
 }
 
+export function getEdaContext(
+  pipelineId: string,
+  nodeId: string,
+  runId?: string,
+) {
+  const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  return request<{ eda_context: Record<string, unknown> | null }>(
+    `/api/pipelines/${pipelineId}/outputs/${nodeId}/eda-context${params}`,
+  );
+}
+
 export function updateMetadata(
   pipelineId: string,
   nodeId: string,

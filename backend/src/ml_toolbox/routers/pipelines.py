@@ -1244,6 +1244,38 @@ async def get_analysis(
         return {"analysis": None}
 
 
+@router.get("/{pipeline_id}/outputs/{node_id}/eda-context")
+async def get_eda_context(
+    pipeline_id: str,
+    node_id: str,
+    run_id: str | None = Query(default=None),
+) -> dict:
+    """Read .eda-context.json sidecar for a node's output or its upstream inputs."""
+    pipeline = _load_pipeline(pipeline_id)
+    _, run_dir = _resolve_run_dir(pipeline_id, run_id)
+
+    # Check for EDA context files belonging to this node
+    eda_files = list(run_dir.glob(f"{node_id}*.eda-context.json"))
+    if eda_files:
+        try:
+            return {"eda_context": json.loads(eda_files[0].read_text())}
+        except Exception:
+            return {"eda_context": None}
+
+    # Fall back to upstream node outputs
+    for edge in pipeline.get("edges", []):
+        if edge["target"] == node_id:
+            src = edge["source"]
+            port = edge.get("source_port", "output")
+            candidates = list(run_dir.glob(f"{src}_{port}*.eda-context.json"))
+            if candidates:
+                try:
+                    return {"eda_context": json.loads(candidates[0].read_text())}
+                except Exception:
+                    pass
+    return {"eda_context": None}
+
+
 @router.put("/{pipeline_id}/selection")
 async def update_selection(pipeline_id: str, body: dict) -> dict:
     """Persist the set of node IDs the user currently has selected on the canvas."""
