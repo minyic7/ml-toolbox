@@ -14,7 +14,7 @@ import { Download, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import { TablePreview } from "./TablePreview";
 import { MetricsDisplay } from "./MetricsDisplay";
 import { ErrorTraceback } from "./ErrorTraceback";
-import { ProfileReport } from "../ProfileReport/ProfileReport";
+import { ProfileReport, ProfileReportBoundary } from "../ProfileReport/ProfileReport";
 import { AnalysisPanel } from "../ProfileReport/AnalysisPanel";
 
 interface OutputTabProps {
@@ -529,7 +529,12 @@ function renderPreview(output: OutputPreview, analysis?: import("../../lib/types
 
     case "METRICS":
       if (preview && typeof preview === "object" && "report_type" in preview) {
-        return <ProfileReport data={preview as unknown as Record<string, unknown>} analysis={analysis} />;
+        const reportData = preview as unknown as Record<string, unknown>;
+        return (
+          <ProfileReportBoundary data={reportData}>
+            <ProfileReport data={reportData} analysis={analysis} />
+          </ProfileReportBoundary>
+        );
       }
       return <MetricsDisplay data={preview as unknown as Record<string, unknown>} />;
 
