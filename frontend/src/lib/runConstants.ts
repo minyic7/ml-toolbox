@@ -99,7 +99,7 @@ export function relativeTime(iso: string): string {
 /* 8. Pipeline dot color helper */
 const PIPELINE_DOT_COLORS = [
   "var(--category-ingest)",
-  "var(--category-preprocessing)",
+  "var(--category-split)",
   "var(--category-eda)",
   "var(--category-transform)",
   "var(--category-training)",

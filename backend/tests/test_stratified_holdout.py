@@ -1,4 +1,4 @@
-"""Tests for the Stratified Hold-out preprocessing node."""
+"""Tests for the Stratified Hold-out split node."""
 
 import json
 from pathlib import Path
@@ -13,10 +13,10 @@ import ml_toolbox.nodes  # noqa: F401
 
 
 def test_stratified_holdout_metadata():
-    meta = NODE_REGISTRY["ml_toolbox.nodes.preprocessing.stratified_holdout"]
+    meta = NODE_REGISTRY["ml_toolbox.nodes.split.stratified_holdout"]
     assert meta["label"] == "Stratified Hold-out"
-    assert meta["category"] == "Preprocessing"
-    assert meta["type"] == "ml_toolbox.nodes.preprocessing.stratified_holdout"
+    assert meta["category"] == "Split"
+    assert meta["type"] == "ml_toolbox.nodes.split.stratified_holdout"
     assert meta["inputs"] == [{"name": "df", "type": "TABLE"}]
     assert meta["outputs"] == [
         {"name": "train", "type": "TABLE"},
@@ -79,7 +79,7 @@ def _mock_output_factory(tmp_path: Path):
 
 def _run_stratified(tmp_path: Path, input_path: Path, **param_overrides) -> dict:
     """Run stratified_holdout with default params, allowing overrides."""
-    from ml_toolbox.nodes.preprocessing import stratified_holdout
+    from ml_toolbox.nodes.split import stratified_holdout
 
     params = {
         "train_ratio": 0.7,
@@ -88,7 +88,7 @@ def _run_stratified(tmp_path: Path, input_path: Path, **param_overrides) -> dict
         "seed": "42",
         **param_overrides,
     }
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         return stratified_holdout(inputs={"df": str(input_path)}, params=params)
 
 

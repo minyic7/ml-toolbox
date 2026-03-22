@@ -1,4 +1,4 @@
-"""Tests for the Random Hold-out preprocessing node."""
+"""Tests for the Random Hold-out split node."""
 
 from pathlib import Path
 from unittest.mock import patch
@@ -11,10 +11,10 @@ import ml_toolbox.nodes  # noqa: F401
 
 
 def test_random_holdout_metadata():
-    meta = NODE_REGISTRY["ml_toolbox.nodes.preprocessing.random_holdout"]
+    meta = NODE_REGISTRY["ml_toolbox.nodes.split.random_holdout"]
     assert meta["label"] == "Random Hold-out"
-    assert meta["category"] == "Preprocessing"
-    assert meta["type"] == "ml_toolbox.nodes.preprocessing.random_holdout"
+    assert meta["category"] == "Split"
+    assert meta["type"] == "ml_toolbox.nodes.split.random_holdout"
     assert meta["inputs"] == [{"name": "df", "type": "TABLE"}]
     assert meta["outputs"] == [
         {"name": "train", "type": "TABLE"},
@@ -57,11 +57,11 @@ def _mock_output_factory(tmp_path: Path):
 
 def test_basic_split_default(tmp_path: Path):
     """Default 70/10/20 split."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     input_path = _make_input_parquet(tmp_path, n_rows=100)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": True},
@@ -78,11 +78,11 @@ def test_basic_split_default(tmp_path: Path):
 
 def test_custom_test_size(tmp_path: Path):
     """Custom test_size=0.3, val_size=0.1 → 60/10/30."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     input_path = _make_input_parquet(tmp_path, n_rows=100)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.3, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": True},
@@ -100,11 +100,11 @@ def test_custom_test_size(tmp_path: Path):
 
 def test_stratify_column(tmp_path: Path):
     """Stratified split preserves class ratios across all three sets."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     input_path = _make_input_parquet(tmp_path, n_rows=100)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "target", "shuffle": True},
@@ -125,11 +125,11 @@ def test_stratify_column(tmp_path: Path):
 
 def test_shuffle_false_preserves_order(tmp_path: Path):
     """With shuffle=False, data order is preserved."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     input_path = _make_input_parquet(tmp_path, n_rows=100)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": False},
@@ -150,12 +150,12 @@ def test_shuffle_false_preserves_order(tmp_path: Path):
 
 def test_train_val_test_counts_equal_original(tmp_path: Path):
     """Train + val + test row counts equal original dataset size."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     n_rows = 137  # odd number to test rounding
     input_path = _make_input_parquet(tmp_path, n_rows=n_rows)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.2, "val_size": 0.1, "random_seed": "42", "stratify_column": "", "shuffle": True},
@@ -169,11 +169,11 @@ def test_train_val_test_counts_equal_original(tmp_path: Path):
 
 def test_val_size_zero(tmp_path: Path):
     """val_size=0 produces empty val DataFrame, train=80, test=20."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     input_path = _make_input_parquet(tmp_path, n_rows=100)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.2, "val_size": 0.0, "random_seed": "42", "stratify_column": "", "shuffle": True},
@@ -191,11 +191,11 @@ def test_val_size_zero(tmp_path: Path):
 
 def test_custom_val_size(tmp_path: Path):
     """val_size=0.2, test_size=0.2 → train=60, val=20, test=20."""
-    from ml_toolbox.nodes.preprocessing import random_holdout
+    from ml_toolbox.nodes.split import random_holdout
 
     input_path = _make_input_parquet(tmp_path, n_rows=100)
 
-    with patch("ml_toolbox.nodes.preprocessing._get_output_path", side_effect=_mock_output_factory(tmp_path)):
+    with patch("ml_toolbox.nodes.split._get_output_path", side_effect=_mock_output_factory(tmp_path)):
         result = random_holdout(
             inputs={"df": str(input_path)},
             params={"test_size": 0.2, "val_size": 0.2, "random_seed": "42", "stratify_column": "", "shuffle": True},
