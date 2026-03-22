@@ -388,6 +388,48 @@ export function RegressionMetricsIcon({ color = "currentColor", size = 16 }: Ico
   );
 }
 
+/** Grid of cells — confusion matrix heatmap */
+export function ConfusionMatrixIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* 2x2 grid */}
+      <rect x="2" y="2" width="5" height="5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="9" y="2" width="5" height="5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="2" y="9" width="5" height="5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      <rect x="9" y="9" width="5" height="5" rx="0.5" stroke={color} strokeWidth="1.2" />
+      {/* Diagonal fills — correct predictions */}
+      <rect x="2.8" y="2.8" width="3.4" height="3.4" rx="0.3" fill={color} opacity="0.3" />
+      <rect x="9.8" y="9.8" width="3.4" height="3.4" rx="0.3" fill={color} opacity="0.3" />
+    </svg>
+  );
+}
+
+/** Two curves (ROC + PR) — classifier quality */
+export function RocPrCurvesIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Axes */}
+      <path d="M2 2V13H14" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* ROC curve */}
+      <path
+        d="M2 13C2 13 3 6 5 4.5C7 3 9 3 12 2.5"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      {/* Diagonal baseline */}
+      <path
+        d="M2 13L13.5 2"
+        stroke={color}
+        strokeWidth="0.8"
+        strokeLinecap="round"
+        strokeDasharray="2 2"
+        opacity="0.4"
+      />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
