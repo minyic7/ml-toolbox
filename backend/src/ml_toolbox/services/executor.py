@@ -56,8 +56,8 @@ def _translate_params_for_sandbox(
 
 
 _SIDECAR_SUFFIXES = (
-    ".meta.json", "_manifest_error.json", "_logs.txt", ".hash",
-    "_manifest.json", "_result.json", ".analysis.json",
+    ".meta.json", ".eda-context.json", "_manifest_error.json", "_logs.txt",
+    ".hash", "_manifest.json", "_result.json", ".analysis.json",
 )
 
 

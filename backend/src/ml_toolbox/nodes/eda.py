@@ -19,6 +19,25 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
     return p / f"{name}{ext}"
 
 
+def _update_eda_context(input_df_path: str, section_key: str, section_data: dict) -> None:
+    """Merge EDA results into the .eda-context.json sidecar alongside the input file.
+
+    Each EDA type writes its own key (e.g. 'distribution', 'outliers'),
+    preserving other sections written by other EDA nodes.
+    """
+    context_path = Path(input_df_path).with_suffix(".eda-context.json")
+    if context_path.exists():
+        try:
+            context = json.loads(context_path.read_text())
+        except Exception:
+            context = {}
+    else:
+        context = {}
+
+    context[section_key] = section_data
+    context_path.write_text(json.dumps(context, indent=2))
+
+
 @node(
     inputs={"df": PortType.TABLE},
     outputs={"report": PortType.METRICS},
@@ -109,6 +128,7 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
             report["target_correlations"] = []
         out = _get_output_path("report", ext=".json")
         out.write_text(json.dumps(report))
+        _update_eda_context(inputs["df"], "correlation", {"high_pairs": [], "target_correlations": []})
         return {"report": str(out)}
 
     def _compute(corr_df: pd.DataFrame, method_name: str) -> dict:
@@ -183,6 +203,21 @@ def correlation_matrix(inputs: dict, params: dict) -> dict:
 
     out = _get_output_path("report", ext=".json")
     out.write_text(json.dumps(report))
+
+    # Update .eda-context.json with correlation findings
+    high_pairs = [
+        [p["a"], p["b"], p["r"]]
+        for p in report.get("top_pairs", [])
+        if p["abs_r"] > 0.8
+    ]
+    context_data: dict = {"high_pairs": high_pairs}
+    if "target_correlations" in report:
+        context_data["target_correlations"] = [
+            {"feature": tc["feature"], "r": tc["r"]}
+            for tc in report["target_correlations"]
+        ]
+    _update_eda_context(inputs["df"], "correlation", context_data)
+
     return {"report": str(out)}
 
 
@@ -416,6 +451,20 @@ def distribution_profile(inputs: dict, params: dict) -> dict:
 
     out = _get_output_path("report", ext=".json")
     out.write_text(json.dumps(report, indent=2))
+
+    # Update .eda-context.json with distribution findings
+    dist_context: dict = {}
+    for col_info in columns_report:
+        if "stats" in col_info and "skewness" in col_info["stats"]:
+            s = col_info["stats"]
+            dist_context[col_info["name"]] = {
+                "skewness": s["skewness"],
+                "kurtosis": s["kurtosis"],
+                "mean": s["mean"],
+                "std": s["std"],
+            }
+    _update_eda_context(inputs["df"], "distribution", dist_context)
+
     return {"report": str(out)}
 
 
@@ -510,6 +559,16 @@ def missing_analysis(inputs: dict, params: dict) -> dict:
 
     out_path = _get_output_path("report", ext=".json")
     out_path.write_text(json.dumps(report, indent=2))
+
+    # Update .eda-context.json with missing value findings
+    missing_context: dict = {}
+    for col_info in columns:
+        missing_context[col_info["name"]] = {
+            "missing_pct": col_info["missing_pct"],
+            "severity": col_info["severity"],
+        }
+    _update_eda_context(inputs["df"], "missing", missing_context)
+
     return {"report": str(out_path)}
 
 
@@ -732,4 +791,20 @@ def outlier_detection(inputs: dict, params: dict) -> dict:
 
     out_path = _get_output_path("report", ext=".json")
     out_path.write_text(json.dumps(report, indent=2))
+
+    # Update .eda-context.json with outlier findings
+    outlier_context: dict = {}
+    for col_info in columns_results:
+        if col_info["outlier_count"] > 0:
+            entry: dict = {
+                "method": method,
+                "outlier_pct": col_info["outlier_pct"],
+            }
+            if "z_max" in col_info:
+                entry["z_max"] = round(col_info["z_max"], 4)
+            if "upper_fence" in col_info:
+                entry["upper_fence"] = col_info["upper_fence"]
+            outlier_context[col_info["name"]] = entry
+    _update_eda_context(inputs["df"], "outliers", outlier_context)
+
     return {"report": str(out_path)}
