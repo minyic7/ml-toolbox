@@ -861,7 +861,7 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
 def _is_internal_file(f: Path) -> bool:
     """Return True for internal metadata files that are not node outputs."""
     name = f.name
-    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json")):
+    if name.endswith((".hash", ".txt", ".meta.json", ".analysis.json", "_transform_summary.json")):
         return True
     # Exclude internal manifest/result/error JSON files but keep
     # legitimate node output JSON (e.g. metrics.json).
@@ -937,6 +937,14 @@ def _output_metadata(run_dir: Path, node_id: str) -> dict:
     if meta_json_path is not None:
         try:
             meta["column_metadata"] = json.loads(meta_json_path.read_text())
+        except Exception:
+            pass
+
+    # Include transform_summary.json sidecar if present
+    transform_summary_path = run_dir / f"{node_id}_transform_summary.json"
+    if transform_summary_path.exists():
+        try:
+            meta["transform_summary"] = json.loads(transform_summary_path.read_text())
         except Exception:
             pass
 

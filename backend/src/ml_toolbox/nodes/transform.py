@@ -218,7 +218,11 @@ def column_dropper(inputs: dict, params: dict) -> dict:
     meta = {}
     if meta_path.exists():
         meta = json.loads(meta_path.read_text())
-    target_col = meta.get("target", "")
+    target_col = ""
+    for _cn, _cm in meta.get("columns", {}).items():
+        if isinstance(_cm, dict) and _cm.get("role") == "target":
+            target_col = _cn
+            break
 
     # ── Validate columns exist in schema ─────────────────────────
     schema_cols = set(train_df.columns)
@@ -365,7 +369,11 @@ def missing_value_imputer(inputs: dict, params: dict) -> dict:
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
-            target_column = meta.get("target", "")
+            target_column = ""
+            for _cn, _cm in meta.get("columns", {}).items():
+                if isinstance(_cm, dict) and _cm.get("role") == "target":
+                    target_column = _cn
+                    break
         except Exception:
             pass
 
