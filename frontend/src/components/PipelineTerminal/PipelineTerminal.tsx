@@ -3,7 +3,8 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { TerminalSquare, X, Maximize2, Minimize2, ScrollText, RotateCw } from "lucide-react";
+import { TerminalSquare, X, Maximize2, Minimize2, ScrollText, RotateCw, Power } from "lucide-react";
+import { toast } from "sonner";
 
 interface PipelineTerminalProps {
   pipelineId: string;
@@ -198,6 +199,24 @@ export default function PipelineTerminal({
       setRestarting(false);
     }
   }, [pipelineId, connectWs]);
+
+  // ── Quit session (stop CC entirely) ─────────────────────────
+  const handleQuit = useCallback(() => {
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+    wsRef.current?.close();
+    wsRef.current = null;
+
+    fetch(`${basePath}/api/cc/pipelines/${pipelineId}`, {
+      method: "DELETE",
+    })
+      .then(() => {
+        toast.success("Pipeline CC session stopped");
+        onClose();
+      })
+      .catch(() => {
+        toast.error("Failed to stop CC session");
+      });
+  }, [pipelineId, onClose]);
 
   // ── Terminal initialization ──────────────────────────────────
   useEffect(() => {
@@ -439,6 +458,35 @@ export default function PipelineTerminal({
           {restarting ? "Restarting..." : "Restart"}
         </button>
 
+        {/* Quit CC session */}
+        <button
+          onClick={handleQuit}
+          title="Quit CC session"
+          style={{
+            width: 24,
+            height: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid #292e42",
+            borderRadius: 4,
+            background: "transparent",
+            cursor: "pointer",
+            color: "#565f89",
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#292e42";
+            e.currentTarget.style.color = "#f7768e";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#565f89";
+          }}
+        >
+          <Power size={13} />
+        </button>
+
         {/* Fullscreen toggle */}
         <button
           onClick={() => setIsFullscreen(!isFullscreen)}
@@ -470,7 +518,7 @@ export default function PipelineTerminal({
         {/* Close button */}
         <button
           onClick={onClose}
-          title="Close (Esc)"
+          title="Close panel (CC keeps running)"
           style={{
             width: 24,
             height: 24,
