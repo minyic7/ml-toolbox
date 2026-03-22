@@ -1414,14 +1414,19 @@ def _get_params_for_node(
         if eda_context:
             dist = eda_context.get("distribution", {})
             outliers = eda_context.get("outliers", {})
-            cols = [
-                col for col, stats in dist.items()
-                if abs(stats.get("skewness", 0)) > 1
-                or outliers.get(col, {}).get("outlier_pct", 0) > 0.05
-            ]
-            cols = [c for c in cols if c != target_col]
-            return {"columns": ", ".join(cols)} if cols else {}
-        return {}
+            cols: set[str] = set()
+            for col, stats in dist.items():
+                if col in continuous and abs(stats.get("skewness", 0)) > 1:
+                    cols.add(col)
+            for col, stats in outliers.items():
+                if col in continuous and stats.get("outlier_pct", 0) > 0.05:
+                    cols.add(col)
+            sorted_cols = sorted(c for c in cols if c != target_col)
+            if sorted_cols:
+                return {"columns": ", ".join(sorted_cols)}
+        # Fallback: all continuous non-target columns
+        fallback = [c for c in continuous if c != target_col]
+        return {"columns": ", ".join(fallback)} if fallback else {}
 
     if node_fn == "interaction_creator":
         if eda_context:
