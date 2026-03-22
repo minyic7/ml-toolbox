@@ -571,6 +571,9 @@ def feature_importance(inputs: dict, params: dict) -> dict:
     inputs={"predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
     params={},
+    allowed_upstream={
+        "predictions": ["train_sklearn_model", "train_xgboost"],
+    },
     label="Classification Metrics",
     category="Evaluation",
     description="Compute accuracy, F1, precision, recall, and AUC per split.",
@@ -676,6 +679,9 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
     inputs={"predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
     params={},
+    allowed_upstream={
+        "predictions": ["train_sklearn_model", "train_xgboost"],
+    },
     label="Regression Metrics",
     category="Evaluation",
     description="Compute MAE, RMSE, and R² per split.",
