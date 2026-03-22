@@ -5,6 +5,7 @@ import { DistributionReport } from "./DistributionReport";
 import { MissingReport } from "./MissingReport";
 import { CorrelationReport } from "./CorrelationReport";
 import { OutlierReport } from "./OutlierReport";
+import { RocPrReport } from "./RocPrReport";
 
 interface ProfileReportProps {
   data: Record<string, unknown>;
@@ -70,6 +71,8 @@ export function ProfileReport({ data, analysis }: ProfileReportProps) {
       return <CorrelationReport data={data} analysis={analysis} />;
     case "outlier_detection":
       return <OutlierReport data={data} analysis={analysis} />;
+    case "roc_pr_curves":
+      return <RocPrReport data={data} analysis={analysis} />;
     default:
       return <MetricsDisplay data={data} />;
   }
