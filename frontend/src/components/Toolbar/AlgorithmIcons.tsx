@@ -246,6 +246,32 @@ export function FeatureCreatorIcon({ color = "currentColor", size = 16 }: IconPr
 
 // ── Training ────────────────────────────────────────────────────
 
+/** Brain/neuron concept — logistic regression / training */
+export function LogisticRegressionIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Central node (neuron body) */}
+      <circle cx="8" cy="8" r="3" stroke={color} strokeWidth="1.2" />
+      {/* Sigmoid curve inside */}
+      <path
+        d="M6.2 9.5 C6.8 9.5, 7.2 6.5, 9.8 6.5"
+        stroke={color}
+        strokeWidth="1.1"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Input dendrites — left side */}
+      <line x1="1.5" y1="4.5" x2="5.5" y2="6.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="1.5" y1="8" x2="5" y2="8" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="1.5" y1="11.5" x2="5.5" y2="9.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      {/* Output axon — right side */}
+      <line x1="11" y1="8" x2="14.5" y2="8" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      {/* Arrow tip */}
+      <path d="M13 6.8L14.5 8L13 9.2" stroke={color} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** Stacked trees with upward arrow — gradient boosting ensemble */
 export function GradientBoostingIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
