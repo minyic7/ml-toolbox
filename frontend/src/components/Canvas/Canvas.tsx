@@ -68,6 +68,7 @@ interface CanvasProps {
   onDropNode: (type: string, position: { x: number; y: number }) => void;
   onRunFrom: (nodeId: string) => void;
   onNodeSelect?: (nodeId: string | null) => void;
+  onNodeDoubleClick?: (nodeId: string) => void;
   onTabClick?: (nodeId: string, tab: string) => void;
   onRenameNode?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
@@ -140,6 +141,7 @@ function CanvasInner({
   onDropNode,
   onRunFrom,
   onNodeSelect,
+  onNodeDoubleClick,
   onTabClick,
   onRenameNode,
   onDuplicateNode,
@@ -583,6 +585,7 @@ function CanvasInner({
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         onSelectionChange={handleSelectionChange}
+        onNodeDoubleClick={onNodeDoubleClick ? (_event, node) => onNodeDoubleClick(node.id) : undefined}
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={closeMenus}
