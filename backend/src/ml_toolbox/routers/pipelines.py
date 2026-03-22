@@ -1069,6 +1069,52 @@ async def put_metadata(
 
         threading.Thread(target=_recast, daemon=True).start()
 
+    # Propagate metadata to downstream nodes and re-configure their params
+    def _propagate() -> None:
+        try:
+            pipeline_data = store.load(pipeline_id)
+            downstream = _get_downstream_nodes(node_id, pipeline_data)
+            if not downstream:
+                return
+
+            source_columns: dict = body.get("columns", {})
+
+            # Merge classification changes into downstream .meta.json files,
+            # preserving downstream-specific column sets.
+            for ds_node_id in downstream:
+                ds_meta_files = list(run_dir.glob(f"{ds_node_id}*.meta.json"))
+                for mf in ds_meta_files:
+                    try:
+                        ds_meta = json.loads(mf.read_text())
+                    except Exception:
+                        ds_meta = {}
+                    ds_columns = ds_meta.get("columns", {})
+                    # Only update columns that exist in both source and downstream
+                    for col_name, src_col in source_columns.items():
+                        if col_name in ds_columns:
+                            for key in ("role", "semantic_type"):
+                                if key in src_col:
+                                    ds_columns[col_name][key] = src_col[key]
+                                elif key in ds_columns[col_name]:
+                                    # Source cleared the field — remove it downstream
+                                    del ds_columns[col_name][key]
+                    ds_meta["columns"] = ds_columns
+                    mf.write_text(json.dumps(ds_meta, indent=2, ensure_ascii=False))
+
+            # Re-run auto-configure on each downstream node
+            for ds_node_id in downstream:
+                _auto_configure_node(pipeline_id, ds_node_id)
+
+            broadcast_sync(pipeline_id, {
+                "type": "metadata_propagated",
+                "source_node_id": node_id,
+                "updated_nodes": downstream,
+            })
+        except Exception as e:
+            logger.warning("Metadata propagation failed for %s: %s", node_id, e)
+
+    threading.Thread(target=_propagate, daemon=True).start()
+
     return {"status": "saved"}
 
 
@@ -1123,6 +1169,24 @@ async def notify_metadata_updated(pipeline_id: str, node_id: str) -> dict:
 
 
 # ── Auto-configure node params via deterministic rule engine ─────
+
+
+def _get_downstream_nodes(node_id: str, pipeline_data: dict) -> list[str]:
+    """Return all transitive downstream node IDs from *node_id*."""
+    edges = pipeline_data.get("edges", [])
+    downstream: list[str] = []
+    queue = [node_id]
+    visited: set[str] = {node_id}
+    while queue:
+        current = queue.pop(0)
+        for edge in edges:
+            if edge["source"] == current:
+                target = edge["target"]
+                if target not in visited:
+                    visited.add(target)
+                    downstream.append(target)
+                    queue.append(target)
+    return downstream
 
 
 def _read_upstream_metadata(
