@@ -13,6 +13,7 @@ import {
   MissingAnalysisIcon,
   CorrelationMatrixIcon,
   OutlierDetectionIcon,
+  ColumnDropperIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -39,6 +40,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   missing_analysis: MissingAnalysisIcon,
   correlation_matrix: CorrelationMatrixIcon,
   outlier_detection: OutlierDetectionIcon,
+  column_dropper: ColumnDropperIcon,
 };
 
 /** Stable category ordering */
