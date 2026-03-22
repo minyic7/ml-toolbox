@@ -1,12 +1,63 @@
+import { useMemo } from "react";
+import { SummaryCards } from "../ProfileReport/SummaryCards";
+
+const NUMERIC_DTYPES = new Set([
+  "int8", "int16", "int32", "int64",
+  "uint8", "uint16", "uint32", "uint64",
+  "float16", "float32", "float64",
+  "Int8", "Int16", "Int32", "Int64",
+  "UInt8", "UInt16", "UInt32", "UInt64",
+  "Float32", "Float64",
+]);
+
+function isNumericDtype(dtype: string): boolean {
+  return NUMERIC_DTYPES.has(dtype) || /^(int|uint|float)\d*$/i.test(dtype);
+}
+
 interface TablePreviewProps {
   columns: string[];
   rows: unknown[][];
   totalRows: number;
+  dtypes?: Record<string, string>;
+  hasMetadata?: boolean;
 }
 
-export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
+export function TablePreview({ columns, rows, totalRows, dtypes, hasMetadata }: TablePreviewProps) {
+  const { numericCount, catCount } = useMemo(() => {
+    if (!dtypes) return { numericCount: 0, catCount: 0 };
+    let numeric = 0;
+    let cat = 0;
+    for (const col of columns) {
+      const dt = dtypes[col];
+      if (dt && isNumericDtype(dt)) numeric++;
+      else cat++;
+    }
+    return { numericCount: numeric, catCount: cat };
+  }, [columns, dtypes]);
+
+  const summaryItems = useMemo(() => {
+    const items: { label: string; value: string | number }[] = [
+      { label: "Rows", value: totalRows >= 0 ? totalRows.toLocaleString() : "—" },
+      { label: "Columns", value: columns.length },
+    ];
+    if (dtypes) {
+      items.push(
+        { label: "Numeric", value: numericCount },
+        { label: "Categorical", value: catCount },
+      );
+    }
+    items.push({ label: "Preview", value: `${rows.length} rows` });
+    return items;
+  }, [totalRows, columns.length, dtypes, numericCount, catCount, rows.length]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+      <SummaryCards items={summaryItems} />
+      {hasMetadata && (
+        <div style={{ fontSize: 9, color: "var(--accent-primary)", marginBottom: 4 }}>
+          ✓ Schema available
+        </div>
+      )}
       <div
         style={{
           overflow: "auto",
@@ -23,7 +74,12 @@ export function TablePreview({ columns, rows, totalRows }: TablePreviewProps) {
                   key={col}
                   className="output-thead-th"
                 >
-                  {col}
+                  <div>{col}</div>
+                  {dtypes?.[col] && (
+                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 400 }}>
+                      {dtypes[col]}
+                    </span>
+                  )}
                 </th>
               ))}
             </tr>
