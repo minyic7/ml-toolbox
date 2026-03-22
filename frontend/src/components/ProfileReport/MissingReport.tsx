@@ -1,9 +1,11 @@
+import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
 import { ColumnTable } from "./ColumnTable";
 import { WarningList } from "./WarningList";
 
 interface MissingReportProps {
   data: Record<string, unknown>;
+  analysis?: CcAnalysis | null;
 }
 
 const SEVERITY_BADGE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -13,7 +15,7 @@ const SEVERITY_BADGE_COLORS: Record<string, { bg: string; text: string }> = {
   high: { bg: "#fecaca", text: "#991b1b" },
 };
 
-export function MissingReport({ data }: MissingReportProps) {
+export function MissingReport({ data, analysis }: MissingReportProps) {
   const summary = data.summary as Record<string, unknown> | undefined;
   const columns = (data.columns ?? []) as Record<string, unknown>[];
   const warnings = (data.warnings ?? []) as {
@@ -21,6 +23,7 @@ export function MissingReport({ data }: MissingReportProps) {
     column?: string;
     message: string;
   }[];
+  const aiWarnings = analysis?.warnings ?? [];
 
   const totalRows = (summary?.total_rows as number) ?? 0;
   const totalMissing = (summary?.total_missing as number) ?? 0;
@@ -52,7 +55,19 @@ export function MissingReport({ data }: MissingReportProps) {
 
       <MissingBars columns={columns} totalRows={totalRows} />
 
-      <WarningList warnings={warnings} />
+      {/* Single warnings section: AI if available, else hardcoded */}
+      {aiWarnings.length > 0 ? (
+        <WarningList
+          warnings={aiWarnings.map((w) => ({
+            type: w.type,
+            column: w.column ?? undefined,
+            message: w.message,
+          }))}
+          source="ai"
+        />
+      ) : (
+        <WarningList warnings={warnings} />
+      )}
     </div>
   );
 }

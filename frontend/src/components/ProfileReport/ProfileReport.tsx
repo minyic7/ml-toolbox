@@ -13,11 +13,11 @@ interface ProfileReportProps {
 export function ProfileReport({ data, analysis }: ProfileReportProps) {
   switch (data.report_type) {
     case "distribution_profile":
-      return <DistributionReport data={data} />;
+      return <DistributionReport data={data} analysis={analysis} />;
     case "missing_analysis":
-      return <MissingReport data={data} />;
+      return <MissingReport data={data} analysis={analysis} />;
     case "correlation_matrix":
-      return <CorrelationReport data={data} />;
+      return <CorrelationReport data={data} analysis={analysis} />;
     case "outlier_detection":
       return <OutlierReport data={data} analysis={analysis} />;
     default:

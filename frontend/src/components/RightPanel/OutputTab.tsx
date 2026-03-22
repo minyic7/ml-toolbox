@@ -448,8 +448,17 @@ function OutputContent({
         </div>
       </div>
 
-      {/* AI Summary — shown at top when analysis is available */}
-      {analysis && <AnalysisPanel analysis={analysis} />}
+      {/* Preview content */}
+      <div style={{ padding: "0 12px 8px" }}>
+        {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize }, analysis)}
+      </div>
+
+      {/* AI Analysis — shown at the bottom, after report data */}
+      {analysis && (
+        <div style={{ padding: "0 12px 8px" }}>
+          <AnalysisPanel analysis={analysis} />
+        </div>
+      )}
 
       {/* Loading indicator while analysis is pending */}
       {!analysis && analysisLoading && (
@@ -459,7 +468,6 @@ function OutputContent({
             alignItems: "center",
             gap: 6,
             padding: "8px 12px",
-            borderBottom: "1px solid var(--border-default)",
             color: "var(--text-muted)",
           }}
         >
@@ -475,11 +483,6 @@ function OutputContent({
           </span>
         </div>
       )}
-
-      {/* Preview content */}
-      <div style={{ padding: "0 12px 8px" }}>
-        {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize }, analysis)}
-      </div>
     </>
   );
 }
