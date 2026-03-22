@@ -142,6 +142,13 @@ export interface OutputPreview {
   logs?: string | null;
   outputs?: OutputPortPreview[];
   column_metadata?: Record<string, Record<string, unknown>>;
+  transform_summary?: {
+    method: string;
+    transformed_columns: string[];
+    skipped_columns: string[];
+    target_column: string | null;
+    auto_selected: boolean;
+  };
 }
 
 export interface RunInfo {

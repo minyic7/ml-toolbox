@@ -33,7 +33,10 @@ def _read_meta(parquet_path: str) -> dict:
 
 def _find_target_column(df: "pd.DataFrame", meta: dict) -> str:  # type: ignore[name-defined]  # noqa: F821
     """Determine the target column from metadata or convention."""
-    # 1. From metadata
+    # 1. From metadata — check columns dict for role=target first
+    for col_name, col_meta in meta.get("columns", {}).items():
+        if isinstance(col_meta, dict) and col_meta.get("role") == "target":
+            return col_name
     if meta.get("target"):
         return str(meta["target"])
     # 2. Common convention names

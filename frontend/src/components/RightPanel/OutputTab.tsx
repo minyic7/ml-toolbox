@@ -448,6 +448,11 @@ function OutputContent({
         </div>
       </div>
 
+      {/* Transform summary card */}
+      {output.transform_summary && (
+        <TransformSummaryCard summary={output.transform_summary} />
+      )}
+
       {/* Preview content */}
       <div style={{ padding: "0 12px 8px" }}>
         {renderPreview({ ...output, type: displayType, preview: displayPreview, size: displaySize }, analysis)}
@@ -671,6 +676,103 @@ function ModelDisplay({ preview, size }: { preview: Record<string, unknown>; siz
           {formatSize(size)}
         </span>
       </div>
+    </div>
+  );
+}
+
+function TransformSummaryCard({ summary }: {
+  summary: NonNullable<OutputPreview["transform_summary"]>;
+}) {
+  const { method, transformed_columns, skipped_columns, target_column } = summary;
+
+  return (
+    <div
+      style={{
+        margin: "8px 12px 0",
+        padding: "8px 10px",
+        borderRadius: 6,
+        border: "1px solid var(--border-default)",
+        background: "var(--ghost-hover-bg)",
+      }}
+    >
+      <div style={{
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 9,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        color: "var(--text-muted)",
+        marginBottom: 6,
+      }}>
+        {method} Transform Applied
+      </div>
+
+      {transformed_columns.length > 0 && (
+        <div style={{ marginBottom: 4 }}>
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--output-healthy-text)",
+          }}>
+            {"+ "}
+          </span>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            color: "var(--text-primary)",
+          }}>
+            {transformed_columns.join(", ")}
+          </span>
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 10,
+            color: "var(--text-muted)",
+            marginLeft: 4,
+          }}>
+            ({transformed_columns.length} column{transformed_columns.length !== 1 ? "s" : ""})
+          </span>
+        </div>
+      )}
+
+      {skipped_columns.length > 0 && (
+        <div style={{ marginBottom: target_column ? 4 : 0 }}>
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 10,
+            color: "var(--text-muted)",
+          }}>
+            {"- Unchanged: "}
+          </span>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            color: "var(--text-muted)",
+          }}>
+            {skipped_columns.join(", ")}
+          </span>
+        </div>
+      )}
+
+      {target_column && (
+        <div>
+          <span style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 10,
+            color: "var(--text-muted)",
+          }}>
+            {"Target (protected): "}
+          </span>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--text-muted)",
+          }}>
+            {target_column}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

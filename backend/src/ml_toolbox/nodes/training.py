@@ -172,7 +172,11 @@ def decision_tree(inputs: dict, params: dict) -> dict:
     # ── Read training data ────────────────────────────────────────
     train_df = pl.read_parquet(inputs["train"])
     meta = _read_meta(inputs["train"])
-    target_col = meta.get("target", "")
+    target_col = ""
+    for _cn, _cm in meta.get("columns", {}).items():
+        if isinstance(_cm, dict) and _cm.get("role") == "target":
+            target_col = _cn
+            break
 
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
@@ -417,7 +421,10 @@ def random_forest(inputs: dict, params: dict) -> dict:
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
-            target_col = meta.get("target")
+            for _cn, _cm in meta.get("columns", {}).items():
+                if isinstance(_cm, dict) and _cm.get("role") == "target":
+                    target_col = _cn
+                    break
             if target_col:
                 col_meta = meta.get("columns", {}).get(target_col, {})
                 semantic_type = col_meta.get("semantic_type")
