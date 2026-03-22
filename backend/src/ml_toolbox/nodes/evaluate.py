@@ -38,10 +38,10 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
         ),
     },
     label="Confusion Matrix",
-    category="Evaluate",
+    category="Evaluation",
     description="Compute confusion matrix with per-class precision, recall, and F1 for classification tasks.",
     allowed_upstream={
-        "predictions": ["random_holdout"],
+        "predictions": ["train_sklearn_model", "train_xgboost"],
     },
     guide="""## Confusion Matrix
 

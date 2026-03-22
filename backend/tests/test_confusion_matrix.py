@@ -20,7 +20,7 @@ def _make_parquet(tmp_path: Path, df: pd.DataFrame) -> str:
 def test_confusion_matrix_metadata():
     meta = NODE_REGISTRY["ml_toolbox.nodes.evaluate.confusion_matrix"]
     assert meta["label"] == "Confusion Matrix"
-    assert meta["category"] == "Evaluate"
+    assert meta["category"] == "Evaluation"
     assert meta["inputs"] == [{"name": "predictions", "type": "TABLE"}]
     assert meta["outputs"] == [{"name": "report", "type": "METRICS"}]
     param_names = {p["name"] for p in meta["params"]}

@@ -23,6 +23,10 @@ import {
   FeatureSelectorIcon,
   FeatureImportanceIcon,
   ModelComparisonIcon,
+  ClassificationMetricsIcon,
+  RegressionMetricsIcon,
+  ConfusionMatrixIcon,
+  RocPrCurvesIcon,
 } from "./AlgorithmIcons";
 
 /** Category colors for icon chips (from VISION.md lines 465-474) */
@@ -59,6 +63,10 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   feature_selector: FeatureSelectorIcon,
   feature_importance: FeatureImportanceIcon,
   model_comparison: ModelComparisonIcon,
+  classification_metrics: ClassificationMetricsIcon,
+  regression_metrics: RegressionMetricsIcon,
+  confusion_matrix: ConfusionMatrixIcon,
+  roc_pr_curves: RocPrCurvesIcon,
 };
 
 /** Stable category ordering */
