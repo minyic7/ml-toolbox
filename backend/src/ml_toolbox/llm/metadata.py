@@ -87,7 +87,18 @@ def heuristic_profile(df: pd.DataFrame) -> list[dict[str, Any]]:
 # ── Classification heuristics ──────────────────────────────────────────
 
 
-_TARGET_NAMES = {"target", "label", "class", "y", "outcome"}
+_TARGET_KEYWORDS = {
+    "target", "label", "y", "default", "survived", "churn",
+    "class", "outcome", "response",
+}
+_ID_KEYWORDS = {"id", "index", "row_id", "row_number", "record_id"}
+
+
+def _matches_keywords(name_lower: str, keywords: set[str]) -> bool:
+    """Case-insensitive check: exact match OR any keyword appears as a substring."""
+    if name_lower in keywords:
+        return True
+    return any(kw in name_lower for kw in keywords)
 
 
 def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
@@ -97,12 +108,16 @@ def _classify(col_name: str, p: dict[str, Any]) -> dict[str, Any]:
     unique_ratio = p["unique_ratio"]
     name_lower = col_name.lower().strip()
 
+    # 0. Identifier detection by name + high uniqueness
+    if _matches_keywords(name_lower, _ID_KEYWORDS) and unique_ratio > 0.9:
+        return {"semantic_type": "identifier", "role": "identifier", "confidence": 0.85}
+
     # 1. Binary + target name → possible target (confidence 0.7 signals guess)
-    if name_lower in _TARGET_NAMES and (dtype == "bool" or unique_count == 2):
+    if _matches_keywords(name_lower, _TARGET_KEYWORDS) and (dtype == "bool" or unique_count == 2):
         return {"semantic_type": "binary", "role": "target", "confidence": 0.7}
 
     # 2. Target detection by name (non-binary)
-    if name_lower in _TARGET_NAMES:
+    if _matches_keywords(name_lower, _TARGET_KEYWORDS):
         return {"semantic_type": "target", "role": "target", "confidence": 0.85}
 
     # 3. Datetime

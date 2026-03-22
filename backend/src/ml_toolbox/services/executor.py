@@ -728,14 +728,135 @@ def _infer_schema_background(
         # Rewrite parquet with correct types
         df.to_parquet(output_file, index=False)
 
-        # Notify frontend via WebSocket
+        # Notify frontend via WebSocket (instant heuristic results)
         broadcast(pipeline_id, {
             "type": "metadata_updated",
             "node_id": node_id,
         })
         logger.info("Auto schema inference completed for node %s", node_id)
+
+        # Pass 2: LLM refinement (few seconds, non-blocking for initial display)
+        if _refine_metadata_with_llm(meta_path, pipeline_id):
+            # Re-cast if LLM changed semantic types
+            updated_metadata = json.loads(meta_path.read_text())
+            df_reread = pd.read_parquet(output_file)
+            df_reread, _ = cast_by_metadata(df_reread, updated_metadata)
+            df_reread.to_parquet(output_file, index=False)
+
+            broadcast(pipeline_id, {
+                "type": "metadata_updated",
+                "node_id": node_id,
+            })
+            logger.info("LLM-refined metadata for node %s", node_id)
     except Exception as e:
         logger.warning("Schema inference failed for %s: %s", node_id, e)
+
+
+def _refine_metadata_with_llm(meta_path: Path, pipeline_id: str) -> bool:
+    """Refine heuristic metadata using ``claude -p``.
+
+    Returns True if any column was updated, False otherwise.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("claude") is None:
+        return False
+
+    try:
+        metadata = json.loads(meta_path.read_text())
+    except Exception:
+        return False
+
+    columns_summary: list[str] = []
+    for name, meta in metadata.get("columns", {}).items():
+        stats_str = (
+            f"unique={meta.get('unique_count', '?')}, "
+            f"unique_ratio={meta.get('unique_ratio', '?')}, "
+            f"null_pct={meta.get('null_pct', '?')}"
+        )
+        sample = meta.get("sample_values", [])
+        columns_summary.append(
+            f"{name}: dtype={meta['dtype']}, semantic_type={meta.get('semantic_type', '?')}, "
+            f"role={meta.get('role', '?')}, {stats_str}, samples={sample}"
+        )
+
+    prompt = f"""Review these column classifications and fix any errors.
+
+Columns:
+{chr(10).join(columns_summary)}
+
+Rules:
+- Column named 'ID', 'id', 'index' with unique_ratio near 1.0 → role=identifier
+- Column with name containing 'target', 'label', 'default', 'churn', 'survived' and binary values → role=target
+- Integer columns with <=20 unique values → likely categorical or ordinal, not continuous
+- Columns with very low unique count relative to rows → not suitable for continuous analysis
+
+Return ONLY a JSON object with corrections. Only include columns that need changes:
+{{"column_name": {{"semantic_type": "...", "role": "..."}}, ...}}
+Return {{}} if all classifications are correct."""
+
+    try:
+        project_dir = DATA_DIR / "projects" / pipeline_id
+        result = subprocess.run(
+            ["claude", "-p", prompt, "--output-format", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(project_dir),
+        )
+        if result.returncode != 0:
+            logger.warning("LLM metadata refinement failed (rc=%s)", result.returncode)
+            return False
+
+        raw = result.stdout.strip()
+        if not raw:
+            return False
+
+        # Parse envelope from --output-format json
+        corrections: dict[str, Any] | None = None
+        try:
+            envelope = json.loads(raw)
+            if isinstance(envelope, dict) and "result" in envelope:
+                inner = envelope["result"]
+            else:
+                inner = raw
+        except (json.JSONDecodeError, TypeError):
+            inner = raw
+
+        # Strip markdown fences if present
+        if isinstance(inner, str):
+            stripped = inner.strip()
+            if stripped.startswith("```"):
+                lines = stripped.split("\n")
+                lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                stripped = "\n".join(lines)
+            corrections = json.loads(stripped)
+        else:
+            corrections = inner
+
+        if not corrections or not isinstance(corrections, dict):
+            return False
+
+        updated = False
+        for col_name, fixes in corrections.items():
+            if col_name in metadata["columns"] and isinstance(fixes, dict):
+                for key in ("semantic_type", "role"):
+                    if key in fixes:
+                        metadata["columns"][col_name][key] = fixes[key]
+                        updated = True
+                metadata["columns"][col_name]["refined_by"] = "llm"
+
+        if updated:
+            metadata["generated_by"] = "auto-heuristic+llm"
+            meta_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+
+        return updated
+    except Exception as e:
+        logger.warning("LLM metadata refinement failed: %s", e)
+        return False
 
 
 def _analyze_output_background(
