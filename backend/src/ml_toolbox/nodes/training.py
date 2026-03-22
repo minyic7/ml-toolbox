@@ -112,16 +112,19 @@ _REGRESSION_CRITERIA = ("squared_error", "absolute_error")
             "random_holdout", "stratified_holdout",
             "column_dropper", "missing_value_imputer", "scaler_transform",
             "category_encoder",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "val": [
             "random_holdout", "stratified_holdout",
             "column_dropper", "missing_value_imputer", "scaler_transform",
             "category_encoder",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "test": [
             "random_holdout", "stratified_holdout",
             "column_dropper", "missing_value_imputer", "scaler_transform",
             "category_encoder",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Decision Tree
@@ -334,14 +337,17 @@ def decision_tree(inputs: dict, params: dict) -> dict:
         "train": [
             "random_holdout", "stratified_holdout",
             "column_dropper", "missing_value_imputer", "scaler_transform",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "val": [
             "random_holdout", "stratified_holdout",
             "column_dropper", "missing_value_imputer", "scaler_transform",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
         "test": [
             "random_holdout", "stratified_holdout",
             "column_dropper", "missing_value_imputer", "scaler_transform",
+            "log_transform", "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Random Forest

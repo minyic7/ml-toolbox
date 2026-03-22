@@ -220,26 +220,57 @@ export function ScalerTransformIcon({ color = "currentColor", size = 16 }: IconP
   );
 }
 
-/** Function f(x) with plus sign — feature engineering / creation */
-export function FeatureCreatorIcon({ color = "currentColor", size = 16 }: IconProps) {
+/** Logarithmic curve — log1p transform */
+export function LogTransformIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* f(x) text — feature function */}
-      <text
-        x="8"
-        y="8.5"
-        textAnchor="middle"
-        fill={color}
-        fontSize="6.5"
-        fontFamily="serif"
-        fontStyle="italic"
-        fontWeight="bold"
-      >
-        f(x)
-      </text>
-      {/* Plus sign — creating new features */}
-      <line x1="12" y1="11" x2="12" y2="15" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
-      <line x1="10" y1="13" x2="14" y2="13" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      {/* Axes */}
+      <path d="M2 14V2" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M2 14H14" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+      {/* Logarithmic curve — steep rise then flattening */}
+      <path
+        d="M3 13C4 8 5.5 5.5 7.5 4C9.5 2.5 12 2 14 1.8"
+        stroke={color}
+        strokeWidth="1.3"
+        fill="none"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Two overlapping circles — interaction / Venn diagram */
+export function InteractionCreatorIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Left circle */}
+      <circle cx="6" cy="8" r="4.5" stroke={color} strokeWidth="1.2" />
+      {/* Right circle */}
+      <circle cx="10" cy="8" r="4.5" stroke={color} strokeWidth="1.2" />
+      {/* Multiply symbol in overlap */}
+      <line x1="7" y1="7" x2="9" y2="9" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="9" y1="7" x2="7" y2="9" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Clock face — datetime decomposition */
+export function DateTimeEncoderIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Clock circle */}
+      <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.2" />
+      {/* Hour hand */}
+      <line x1="8" y1="8" x2="8" y2="4.5" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      {/* Minute hand */}
+      <line x1="8" y1="8" x2="11" y2="6.5" stroke={color} strokeWidth="1.1" strokeLinecap="round" />
+      {/* Center dot */}
+      <circle cx="8" cy="8" r="0.7" fill={color} />
+      {/* Tick marks at 12, 3, 6, 9 */}
+      <line x1="8" y1="2" x2="8" y2="3" stroke={color} strokeWidth="0.9" strokeLinecap="round" />
+      <line x1="14" y1="8" x2="13" y2="8" stroke={color} strokeWidth="0.9" strokeLinecap="round" />
+      <line x1="8" y1="14" x2="8" y2="13" stroke={color} strokeWidth="0.9" strokeLinecap="round" />
+      <line x1="2" y1="8" x2="3" y2="8" stroke={color} strokeWidth="0.9" strokeLinecap="round" />
     </svg>
   );
 }
