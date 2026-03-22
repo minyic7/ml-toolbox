@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import polars as pl
 
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
-
-logger = logging.getLogger(__name__)
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -251,129 +248,3 @@ def feature_selector(inputs: dict, params: dict) -> dict:
         results[split_name] = str(out_path)
 
     return results
-
-
-def _fit_selector(
-    train_df: pl.DataFrame,
-    feature_cols: list[str],
-    target_col: str,
-    method: str,
-    threshold: float,
-) -> list[str]:
-    """Compute feature scores and return list of columns to drop."""
-    cols_to_drop: list[str] = []
-
-    if method == "variance_threshold":
-        for col in feature_cols:
-            series = train_df[col].drop_nulls().cast(pl.Float64)
-            if len(series) == 0:
-                cols_to_drop.append(col)
-                continue
-            variance = float(series.var())  # type: ignore[arg-type]
-            if variance <= threshold:
-                logger.info("Feature '%s' variance=%.6f <= threshold=%.4f — dropping", col, variance or 0, threshold)
-                cols_to_drop.append(col)
-
-    elif method == "correlation_with_target":
-        target_series = train_df[target_col].drop_nulls().cast(pl.Float64)
-        for col in feature_cols:
-            series = train_df[col].drop_nulls().cast(pl.Float64)
-            if len(series) == 0:
-                cols_to_drop.append(col)
-                continue
-            corr = abs(_pearson_corr(train_df, col, target_col))
-            if corr < threshold:
-                logger.info("Feature '%s' |corr|=%.6f < threshold=%.4f — dropping", col, corr, threshold)
-                cols_to_drop.append(col)
-
-    elif method == "mutual_information":
-        target_series = train_df[target_col].cast(pl.Float64).to_numpy()
-        for col in feature_cols:
-            series = train_df[col].cast(pl.Float64)
-            # Drop rows where either feature or target is null
-            mask = series.is_not_null() & train_df[target_col].is_not_null()
-            feat_clean = series.filter(mask).to_numpy()
-            targ_clean = train_df[target_col].cast(pl.Float64).filter(mask).to_numpy()
-            if len(feat_clean) == 0:
-                cols_to_drop.append(col)
-                continue
-            mi = _mutual_information(feat_clean, targ_clean)
-            if mi < threshold:
-                logger.info("Feature '%s' MI=%.6f < threshold=%.4f — dropping", col, mi, threshold)
-                cols_to_drop.append(col)
-
-    return cols_to_drop
-
-
-def _pearson_corr(df: pl.DataFrame, col_a: str, col_b: str) -> float:
-    """Compute Pearson correlation between two columns, handling nulls."""
-    clean = df.select([col_a, col_b]).drop_nulls()
-    if clean.height < 2:
-        return 0.0
-    corr = clean.select(pl.corr(col_a, col_b)).item()
-    if corr is None:
-        return 0.0
-    import math
-    if math.isnan(corr):
-        return 0.0
-    return float(corr)
-
-
-def _mutual_information(x: object, y: object) -> float:
-    """Estimate mutual information between continuous feature and target.
-
-    Uses a simple histogram-based approach (no sklearn dependency).
-    Bins the feature into quantile-based buckets and computes MI from
-    the joint and marginal probability distributions.
-    """
-    import numpy as np
-
-    x_arr = np.asarray(x, dtype=np.float64)
-    y_arr = np.asarray(y, dtype=np.float64)
-
-    # Remove any remaining NaN pairs
-    valid = np.isfinite(x_arr) & np.isfinite(y_arr)
-    x_arr = x_arr[valid]
-    y_arr = y_arr[valid]
-
-    if len(x_arr) < 2:
-        return 0.0
-
-    # Bin feature into ~20 quantile bins (adaptive to distribution)
-    n_bins = min(20, max(2, int(np.sqrt(len(x_arr)))))
-    try:
-        x_binned = np.digitize(x_arr, np.unique(np.quantile(x_arr, np.linspace(0, 1, n_bins + 1)[1:-1])))
-    except Exception:
-        return 0.0
-
-    # Bin target similarly
-    try:
-        y_binned = np.digitize(y_arr, np.unique(np.quantile(y_arr, np.linspace(0, 1, n_bins + 1)[1:-1])))
-    except Exception:
-        return 0.0
-
-    # Compute joint and marginal distributions
-    n = len(x_arr)
-    joint = {}
-    for xi, yi in zip(x_binned, y_binned):
-        key = (int(xi), int(yi))
-        joint[key] = joint.get(key, 0) + 1
-
-    x_marginal: dict[int, int] = {}
-    y_marginal: dict[int, int] = {}
-    for (xi, yi), count in joint.items():
-        x_marginal[xi] = x_marginal.get(xi, 0) + count
-        y_marginal[yi] = y_marginal.get(yi, 0) + count
-
-    # MI = sum p(x,y) * log(p(x,y) / (p(x)*p(y)))
-    mi = 0.0
-    for (xi, yi), count in joint.items():
-        p_xy = count / n
-        p_x = x_marginal[xi] / n
-        p_y = y_marginal[yi] / n
-        if p_xy > 0 and p_x > 0 and p_y > 0:
-            mi += p_xy * np.log(p_xy / (p_x * p_y))
-
-    return max(0.0, float(mi))
-
-

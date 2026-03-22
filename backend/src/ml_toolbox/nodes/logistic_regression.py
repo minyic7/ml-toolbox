@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import json
-import logging
 from pathlib import Path
 
-import pandas as pd
-
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
-
-logger = logging.getLogger(__name__)
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:

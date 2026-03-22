@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import logging
 from pathlib import Path
-from typing import Any
 
-import numpy as np
 import polars as pl
 
 from ml_toolbox.protocol import PortType, Slider, Text, node
-
-logger = logging.getLogger(__name__)
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -162,7 +156,8 @@ def gradient_boosting_train(inputs: dict, params: dict) -> dict:
     # ── Auto-detect task type ─────────────────────────────────────
     is_classification = _detect_task_type(y_train)
     task_type = "classification" if is_classification else "regression"
-    logger.info("Auto-detected task type: %s", task_type)
+    import warnings
+    warnings.warn(f"Auto-detected task type: {task_type}", stacklevel=1)
 
     # ── Read params ───────────────────────────────────────────────
     learning_rate = float(params.get("learning_rate", 0.1))
@@ -306,7 +301,7 @@ def _build_model(
         return xgb.XGBRegressor(**xgb_params)
 
     except ImportError:
-        logger.warning("XGBoost not available, falling back to sklearn GradientBoosting")
+        warnings.warn("XGBoost not available, falling back to sklearn GradientBoosting", stacklevel=1)
         from sklearn.ensemble import (
             GradientBoostingClassifier,
             GradientBoostingRegressor,

@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import logging
-import warnings
 from pathlib import Path
 
-import pandas as pd
 import polars as pl
 
 from ml_toolbox.protocol import PortType, Select, Slider, Text, node
-
-logger = logging.getLogger(__name__)
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -25,30 +19,6 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"
-
-
-def _detect_task_type(target_col: str, train_df: pl.DataFrame) -> str:
-    """Determine 'classification' or 'regression' from data heuristics.
-
-    Rules:
-    - integer dtype with few unique values (≤ 20) → classification
-    - float dtype → regression
-    - fallback: classification
-    """
-    if target_col in train_df.columns:
-        dtype = train_df[target_col].dtype
-        if dtype in (pl.Float32, pl.Float64):
-            return "regression"
-        n_unique = train_df[target_col].n_unique()
-        if n_unique <= 20:
-            return "classification"
-        return "regression"
-
-    return "classification"
-
-
-_CLASSIFICATION_CRITERIA = ("gini", "entropy")
-_REGRESSION_CRITERIA = ("squared_error", "absolute_error")
 
 
 # ── Decision Tree ────────────────────────────────────────────────────
@@ -157,19 +127,26 @@ def decision_tree(inputs: dict, params: dict) -> dict:
         )
 
     # ── Detect task type ──────────────────────────────────────────
-    task_type = _detect_task_type(target_col, train_df)
-    logger.info("Detected task type: %s", task_type)
+    import warnings
+
+    dtype = train_df[target_col].dtype
+    if dtype in (pl.Float32, pl.Float64):
+        task_type = "regression"
+    elif train_df[target_col].n_unique() <= 20:
+        task_type = "classification"
+    else:
+        task_type = "regression"
 
     # ── Resolve criterion ─────────────────────────────────────────
     criterion = params.get("criterion", "gini")
-    if task_type == "classification" and criterion not in _CLASSIFICATION_CRITERIA:
+    if task_type == "classification" and criterion not in ("gini", "entropy"):
         warnings.warn(
             f"Criterion '{criterion}' is not valid for classification — "
             f"falling back to 'gini'",
             stacklevel=1,
         )
         criterion = "gini"
-    elif task_type == "regression" and criterion not in _REGRESSION_CRITERIA:
+    elif task_type == "regression" and criterion not in ("squared_error", "absolute_error"):
         warnings.warn(
             f"Criterion '{criterion}' is not valid for regression — "
             f"falling back to 'squared_error'",

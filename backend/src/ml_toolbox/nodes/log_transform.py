@@ -2,31 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import logging
-import warnings
 from pathlib import Path
-
-import polars as pl
 
 from ml_toolbox.protocol import PortType, Text, node
 
-logger = logging.getLogger(__name__)
-
-_NUMERIC_DTYPES = (
-    pl.Int8, pl.Int16, pl.Int32, pl.Int64,
-    pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
-    pl.Float32, pl.Float64,
-)
-
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
-    """Return the output path for a node artifact.
-
-    At runtime this is overridden by the sandbox runner to point at the
-    container's scratch volume.  During development / tests it falls back
-    to a temp-style local path.
-    """
+    """Overridden by sandbox runner at runtime."""
     p = Path("/tmp/ml_toolbox_outputs")
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{name}{ext}"

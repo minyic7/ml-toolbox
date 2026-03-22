@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import polars as pl
 
 from ml_toolbox.protocol import PortType, Select, Text, node
-
-logger = logging.getLogger(__name__)
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -207,79 +204,3 @@ def scaler_transform(inputs: dict, params: dict) -> dict:
         results[split_name] = str(out_path)
 
     return results
-
-
-def _fit(
-    train_df: pl.DataFrame,
-    scale_cols: list[str],
-    method: str,
-) -> dict[str, dict]:
-    """Compute scaling parameters from the training set.
-
-    Returns a dict mapping column name → fit params.
-    Columns that would cause division by zero are excluded with a warning.
-    """
-    fit: dict[str, dict] = {}
-
-    for col in scale_cols:
-        series = train_df[col].drop_nulls().cast(float)
-
-        if method == "StandardScaler":
-            mean = series.mean()
-            std = series.std()
-            if std is None or std == 0:
-                logger.warning("Column '%s' has zero variance — skipping (StandardScaler)", col)
-                continue
-            fit[col] = {"mean": float(mean), "std": float(std)}  # type: ignore[arg-type]
-
-        elif method == "MinMaxScaler":
-            mn = series.min()
-            mx = series.max()
-            if mn == mx:
-                logger.warning("Column '%s' has min==max — skipping (MinMaxScaler)", col)
-                continue
-            fit[col] = {"min": float(mn), "max": float(mx)}  # type: ignore[arg-type]
-
-        elif method == "RobustScaler":
-            median = series.median()
-            q25 = series.quantile(0.25, interpolation="linear")
-            q75 = series.quantile(0.75, interpolation="linear")
-            iqr = float(q75) - float(q25)  # type: ignore[arg-type]
-            if iqr == 0:
-                logger.warning("Column '%s' has zero IQR — skipping (RobustScaler)", col)
-                continue
-            fit[col] = {"median": float(median), "iqr": iqr}  # type: ignore[arg-type]
-
-    return fit
-
-
-def _transform(
-    df: pl.DataFrame,
-    fit_params: dict[str, dict],
-    method: str,
-) -> pl.DataFrame:
-    """Apply scaling to a DataFrame using pre-computed fit parameters."""
-    exprs: list[pl.Expr] = []
-    for col, fp in fit_params.items():
-        if col not in df.columns:
-            continue
-
-        if method == "StandardScaler":
-            exprs.append(
-                ((pl.col(col).cast(pl.Float64) - fp["mean"]) / fp["std"]).alias(col)
-            )
-        elif method == "MinMaxScaler":
-            exprs.append(
-                ((pl.col(col).cast(pl.Float64) - fp["min"]) / (fp["max"] - fp["min"])).alias(col)
-            )
-        elif method == "RobustScaler":
-            exprs.append(
-                ((pl.col(col).cast(pl.Float64) - fp["median"]) / fp["iqr"]).alias(col)
-            )
-
-    if exprs:
-        df = df.with_columns(exprs)
-
-    return df
-
-
