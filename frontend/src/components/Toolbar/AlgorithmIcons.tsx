@@ -244,6 +244,23 @@ export function FeatureCreatorIcon({ color = "currentColor", size = 16 }: IconPr
   );
 }
 
+// ── Training ────────────────────────────────────────────────────
+
+/** Stacked trees with upward arrow — gradient boosting ensemble */
+export function GradientBoostingIcon({ color = "currentColor", size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Three stacked tree stumps — sequential ensemble */}
+      <path d="M2 14V11L4 9L6 11V14" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M5.5 14V10L7.5 8L9.5 10V14" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M9 14V9L11 7L13 9V14" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* Upward arrow — boosting / improvement */}
+      <path d="M12 5L12 1.5" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M10.5 3L12 1.5L13.5 3" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** Stacked columns with lightning bolt — Parquet columnar storage */
 export function ParquetReaderIcon({ color = "currentColor", size = 16 }: IconProps) {
   return (
