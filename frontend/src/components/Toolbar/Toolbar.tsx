@@ -18,6 +18,7 @@ import {
   ColumnDropperIcon,
   ScalerTransformIcon,
   FeatureCreatorIcon,
+  LogisticRegressionIcon,
   GradientBoostingIcon,
   FeatureSelectorIcon,
 } from "./AlgorithmIcons";
@@ -51,6 +52,7 @@ const NODE_TYPE_ICONS: Record<string, NodeIcon> = {
   column_dropper: ColumnDropperIcon,
   scaler_transform: ScalerTransformIcon,
   feature_creator: FeatureCreatorIcon,
+  logistic_regression: LogisticRegressionIcon,
   gradient_boosting_train: GradientBoostingIcon,
   feature_selector: FeatureSelectorIcon,
 };
