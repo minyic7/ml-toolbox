@@ -298,6 +298,9 @@ _ALLOWED_TEST_UPSTREAM = [
     "missing_value_imputer",
     "category_encoder",
     "scaler_transform",
+    "log_transform",
+    "interaction_creator",
+    "datetime_encoder",
 ]
 
 
