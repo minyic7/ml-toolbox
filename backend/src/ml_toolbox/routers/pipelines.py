@@ -1056,6 +1056,12 @@ async def put_metadata(
 
                 # Prefer reading from original source to recover dropped columns
                 source_path = body.get("source_path")
+                # Validate source_path is within the allowed data directory
+                # to prevent path-traversal via client-supplied metadata.
+                if source_path:
+                    resolved = Path(source_path).resolve()
+                    if not str(resolved).startswith(str(DATA_DIR.resolve())):
+                        source_path = None
                 if source_path and Path(source_path).is_file():
                     src = Path(source_path)
                     if src.suffix.lower() == ".csv":
