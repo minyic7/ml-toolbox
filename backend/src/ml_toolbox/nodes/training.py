@@ -57,21 +57,21 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     allowed_upstream={
         "train": [
             "random_holdout", "stratified_holdout",
-            "column_dropper", "missing_value_imputer", "scaler_transform",
-            "category_encoder",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
         "val": [
             "random_holdout", "stratified_holdout",
-            "column_dropper", "missing_value_imputer", "scaler_transform",
-            "category_encoder",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
         "test": [
             "random_holdout", "stratified_holdout",
-            "column_dropper", "missing_value_imputer", "scaler_transform",
-            "category_encoder",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Decision Tree
@@ -292,18 +292,21 @@ def decision_tree(inputs: dict, params: dict) -> dict:
     allowed_upstream={
         "train": [
             "random_holdout", "stratified_holdout",
-            "column_dropper", "missing_value_imputer", "scaler_transform",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
         "val": [
             "random_holdout", "stratified_holdout",
-            "column_dropper", "missing_value_imputer", "scaler_transform",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
         "test": [
             "random_holdout", "stratified_holdout",
-            "column_dropper", "missing_value_imputer", "scaler_transform",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Random Forest

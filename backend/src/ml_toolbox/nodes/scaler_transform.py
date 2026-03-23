@@ -43,16 +43,22 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     description="Scale numeric features using StandardScaler, MinMaxScaler, or RobustScaler. Fits on train only, transforms all splits.",
     allowed_upstream={
         "train": [
-            "random_holdout", "scaler_transform",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
         "val": [
-            "random_holdout", "scaler_transform",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
         "test": [
-            "random_holdout", "scaler_transform",
-            "log_transform", "interaction_creator", "datetime_encoder",
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
         ],
     },
     guide="""## Scaler Transform
