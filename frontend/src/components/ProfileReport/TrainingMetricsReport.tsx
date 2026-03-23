@@ -63,7 +63,6 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
-  const taskType = data.task_type as string;
   const splits = data.splits as Record<string, Record<string, unknown>> | undefined;
   const splitOrder = (data.split_order ?? []) as string[];
   const metricInfo = (data.metric_info ?? {}) as Record<string, string>;
