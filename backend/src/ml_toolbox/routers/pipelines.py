@@ -1239,6 +1239,19 @@ async def get_eda_context(
     return {"eda_context": result}
 
 
+@router.get("/{pipeline_id}/outputs/{node_id}/schema-context")
+async def get_schema_context(
+    pipeline_id: str,
+    node_id: str,
+    run_id: str | None = Query(default=None),
+) -> dict:
+    """Lazy-read schema context by BFS through the DAG from this node,
+    finding the nearest ingest node's .meta.json."""
+    pipeline = _load_pipeline(pipeline_id)
+    result = _read_upstream_metadata(pipeline_id, node_id, pipeline)
+    return {"schema_context": result}
+
+
 @router.put("/{pipeline_id}/selection")
 async def update_selection(pipeline_id: str, body: dict) -> dict:
     """Persist the set of node IDs the user currently has selected on the canvas."""

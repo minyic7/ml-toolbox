@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getMetadata } from "../../lib/api";
+import { getMetadata, getSchemaContext } from "../../lib/api";
 import SchemaEditor from "./SchemaEditor";
 
 interface SchemaModalProps {
@@ -77,6 +77,15 @@ function ReadOnlySchema({
         "columns" in res.metadata
       ) {
         return res.metadata as MetadataPayload;
+      }
+      // Fall back to BFS upstream schema context
+      const ctx = await getSchemaContext(pipelineId, nodeId);
+      if (
+        ctx.schema_context &&
+        typeof ctx.schema_context === "object" &&
+        "columns" in ctx.schema_context
+      ) {
+        return ctx.schema_context as MetadataPayload;
       }
       return null;
     },
