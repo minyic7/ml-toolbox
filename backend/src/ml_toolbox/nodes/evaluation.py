@@ -399,44 +399,6 @@ def feature_importance(inputs: dict, params: dict) -> dict:
             "raw_importance": round(float(importances[int(idx)]), 6),
         })
 
-    # ── Feature group detection ─────────────────────────────────
-    import re
-
-    def _detect_group(name: str) -> str:
-        """Assign a feature to a semantic group based on its prefix."""
-        lower = name.lower()
-        # Try common prefix patterns (longest first)
-        for prefix in sorted(
-            {re.match(r"^[a-zA-Z_]+?(?=[\d_])", n) for n in feature_names},
-            key=lambda m: -len(m.group()) if m else 0,
-        ):
-            if prefix and lower.startswith(prefix.group().lower()):
-                return prefix.group().upper().rstrip("_")
-        return name  # standalone feature
-
-    groups: dict[str, list[str]] = {}
-    feature_group_map: dict[str, str] = {}
-    for f in features:
-        g = _detect_group(f["name"])
-        feature_group_map[f["name"]] = g
-        groups.setdefault(g, []).append(f["name"])
-
-    # Compute group shares (sum of importances per group)
-    group_shares: dict[str, float] = {}
-    for g, members in groups.items():
-        share = sum(
-            f["importance"] for f in features if f["name"] in members
-        )
-        group_shares[g] = round(share, 6)
-
-    # Add group info to each feature
-    for f in features:
-        f["group"] = feature_group_map[f["name"]]
-
-    # Top group by total share
-    top_group = max(group_shares, key=lambda g: group_shares[g]) if group_shares else ""
-    top_group_share = group_shares.get(top_group, 0)
-
     # Warnings
     warnings: list[dict] = []
 
@@ -453,34 +415,17 @@ def feature_importance(inputs: dict, params: dict) -> dict:
             ),
         })
 
-    # Warn about near-zero importance features
-    for f in features:
-        if 0 < f["importance"] < 0.01:
-            group_members = groups.get(f["group"], [])
-            weak_in_group = [
-                m for m in group_members
-                if any(ff["name"] == m and ff["importance"] < 0.01 for ff in features)
-            ]
-            if len(weak_in_group) > 1:
-                warnings.append({
-                    "type": "near_zero",
-                    "severity": "medium",
-                    "column": f["name"],
-                    "message": (
-                        f"Near-zero importance ({f['importance'] * 100:.2f}%); "
-                        f"consider dropping alongside other weak {f['group']}* features."
-                    ),
-                })
-            else:
-                warnings.append({
-                    "type": "near_zero",
-                    "severity": "medium",
-                    "column": f["name"],
-                    "message": (
-                        f"Only {f['importance'] * 100:.2f}% importance — "
-                        f"verify this aligns with domain expectations before removing."
-                    ),
-                })
+    # Warn about negligible features
+    negligible = [f for f in features if f["importance"] < 0.01]
+    if negligible and len(negligible) < len(features):
+        warnings.append({
+            "type": "negligible_features",
+            "severity": "low",
+            "message": (
+                f"{len(negligible)} feature(s) contribute < 1% each "
+                f"— candidates for removal"
+            ),
+        })
 
     # Scaling warning for coefficient-based methods
     if method == "coefficient_magnitude":
@@ -501,12 +446,8 @@ def feature_importance(inputs: dict, params: dict) -> dict:
             "model_type": type(model).__name__,
             "top_feature": features[0]["name"] if features else "",
             "top_importance": features[0]["importance"] if features else 0,
-            "top_group": top_group,
-            "top_group_share": top_group_share,
         },
         "features": features,
-        "groups": groups,
-        "group_shares": group_shares,
         "warnings": warnings,
     }
 

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
 
@@ -24,25 +23,13 @@ const METHOD_LABELS: Record<string, string> = {
   coefficient_magnitude: "coeff magnitude",
 };
 
-/** Stable color palette for feature groups. */
-const GROUP_COLORS = [
-  "#3b82f6", // blue
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#8b5cf6", // purple
-  "#6b7280", // gray
-  "#ef4444", // red
-  "#06b6d4", // cyan
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#f97316", // orange
-];
+const MAX_VISIBLE = 25;
+const BAR_COLOR = "rgba(180, 160, 130, 0.7)";
 
 interface Feature {
   name: string;
   importance: number;
   raw_importance: number;
-  group?: string;
 }
 
 interface Warning {
@@ -56,30 +43,14 @@ export function FeatureImportanceReport({ data, analysis }: FeatureImportanceRep
   const summary = data.summary as Record<string, unknown> | undefined;
   const features = (data.features ?? []) as Feature[];
   const method = (data.method ?? "") as string;
-  const groupShares = data.group_shares as Record<string, number> | undefined;
   const warnings = (data.warnings ?? []) as Warning[];
   const aiWarnings = analysis?.warnings ?? [];
 
-  // Assign colors to groups
-  const groupColorMap = useMemo(() => {
-    const groups = new Set(features.map((f) => f.group ?? f.name));
-    const map: Record<string, string> = {};
-    let i = 0;
-    for (const g of groups) {
-      map[g] = GROUP_COLORS[i % GROUP_COLORS.length];
-      i++;
-    }
-    return map;
-  }, [features]);
-
-  // Summary cards
   const featureCount = (summary?.feature_count as number) ?? features.length;
   const modelType = (summary?.model_type as string) ?? "—";
   const methodLabel = METHOD_LABELS[method] ?? method;
   const topFeature = (summary?.top_feature as string) ?? "—";
   const topImportance = (summary?.top_importance as number) ?? 0;
-  const topGroup = (summary?.top_group as string) ?? "";
-  const topGroupShare = (summary?.top_group_share as number) ?? 0;
 
   const summaryItems: { label: string; value: string }[] = [
     {
@@ -91,17 +62,15 @@ export function FeatureImportanceReport({ data, analysis }: FeatureImportanceRep
       value: topFeature,
     },
   ];
-  if (topGroup && topGroupShare > 0.1) {
-    summaryItems.push({
-      label: `${topGroup}* group share`,
-      value: `~${Math.round(topGroupShare * 100)}%`,
-    });
-  }
 
-  // Merge warnings
   const allWarnings = aiWarnings.length > 0
     ? aiWarnings.map((w) => ({ type: w.type, severity: "medium", column: w.column ?? undefined, message: w.message }))
     : warnings;
+
+  // Truncate features
+  const visible = features.slice(0, MAX_VISIBLE);
+  const hidden = features.slice(MAX_VISIBLE);
+  const hiddenShare = hidden.reduce((sum, f) => sum + f.importance, 0);
 
   return (
     <div style={{ padding: 12 }}>
@@ -109,11 +78,21 @@ export function FeatureImportanceReport({ data, analysis }: FeatureImportanceRep
 
       {features.length > 0 && (
         <>
-          <div style={{ ...SECTION_HEADER, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Feature Importances · {METHOD_LABELS[method] ?? method}</span>
+          <div style={SECTION_HEADER}>
+            Feature Importances · {METHOD_LABELS[method] ?? method}
           </div>
-          <GroupLegend groupColorMap={groupColorMap} groupShares={groupShares} />
-          <FeatureBarChart features={features} groupColorMap={groupColorMap} />
+          <FeatureBarChart features={visible} />
+          {hidden.length > 0 && (
+            <div style={{
+              fontSize: 10,
+              fontFamily: "'Inter', sans-serif",
+              color: "var(--text-muted)",
+              textAlign: "center",
+              padding: "6px 0 12px",
+            }}>
+              … and {hidden.length} more feature{hidden.length > 1 ? "s" : ""} (total {(hiddenShare * 100).toFixed(1)}%)
+            </div>
+          )}
         </>
       )}
 
@@ -124,67 +103,15 @@ export function FeatureImportanceReport({ data, analysis }: FeatureImportanceRep
   );
 }
 
-// ── Group Legend ──────────────────────────────────────────────────
-
-function GroupLegend({
-  groupColorMap,
-  groupShares,
-}: {
-  groupColorMap: Record<string, string>;
-  groupShares?: Record<string, number>;
-}) {
-  const groups = Object.entries(groupColorMap);
-  if (groups.length <= 1) return null;
-
-  return (
-    <div style={{
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "6px 14px",
-      marginBottom: 10,
-      fontSize: 10,
-      fontFamily: "'Inter', sans-serif",
-      color: "var(--text-secondary)",
-    }}>
-      {groups.map(([group, color]) => (
-        <span key={group} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{
-            width: 10,
-            height: 10,
-            borderRadius: 2,
-            backgroundColor: color,
-            display: "inline-block",
-            flexShrink: 0,
-          }} />
-          {group.toLowerCase()}
-          {groupShares?.[group] != null && (
-            <span style={{ color: "var(--text-muted)" }}>
-              {(groupShares[group] * 100).toFixed(0)}%
-            </span>
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // ── Bar Chart ────────────────────────────────────────────────────
 
-function FeatureBarChart({
-  features,
-  groupColorMap,
-}: {
-  features: Feature[];
-  groupColorMap: Record<string, string>;
-}) {
+function FeatureBarChart({ features }: { features: Feature[] }) {
   const maxImportance = features.length > 0 ? features[0].importance : 1;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 4 }}>
       {features.map((f) => {
         const barWidth = maxImportance > 0 ? (f.importance / maxImportance) * 100 : 0;
-        const isLow = f.importance < 0.01;
-        const color = groupColorMap[f.group ?? f.name] ?? "#6b7280";
         const pct = (f.importance * 100).toFixed(1);
 
         return (
@@ -194,7 +121,6 @@ function FeatureBarChart({
               display: "flex",
               alignItems: "center",
               gap: 6,
-              opacity: isLow ? 0.45 : 1,
               height: 20,
             }}
             title={`${f.name}: ${pct}% (raw: ${f.raw_importance})`}
@@ -212,11 +138,11 @@ function FeatureBarChart({
             }}>
               {f.name}
             </span>
-            <div style={{ flex: 1, height: 14, position: "relative" }}>
+            <div style={{ flex: 1, height: 14 }}>
               <div style={{
                 width: `${barWidth}%`,
                 height: "100%",
-                backgroundColor: color,
+                backgroundColor: BAR_COLOR,
                 borderRadius: 2,
                 minWidth: barWidth > 0 ? 2 : 0,
               }} />
@@ -241,7 +167,6 @@ function FeatureBarChart({
 // ── Severity-based Warnings ──────────────────────────────────────
 
 function SeverityWarnings({ warnings }: { warnings: Warning[] }) {
-  // Sort: high > medium > low
   const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sorted = [...warnings].sort(
     (a, b) => (order[a.severity ?? "medium"] ?? 1) - (order[b.severity ?? "medium"] ?? 1),
