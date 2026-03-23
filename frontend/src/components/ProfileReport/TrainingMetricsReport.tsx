@@ -19,14 +19,14 @@ const SECTION_HEADER: React.CSSProperties = {
   marginTop: 16,
 };
 
-/** Format a metric value for display. */
+/** Format a metric value for display (3 decimal places). */
 function fmtMetric(v: unknown): string {
   if (typeof v !== "number") return String(v ?? "—");
   if (Number.isInteger(v)) return v.toLocaleString();
-  return v.toFixed(4);
+  return v.toFixed(3);
 }
 
-/** Color-code a metric comparison — green if better, red if worse. */
+/** Color-code a metric comparison — green if better, orange-brown if worse. */
 function diffColor(
   trainVal: number | undefined,
   splitVal: number | undefined,
@@ -34,9 +34,9 @@ function diffColor(
 ): string | undefined {
   if (trainVal === undefined || splitVal === undefined) return undefined;
   const diff = splitVal - trainVal;
-  if (Math.abs(diff) < 0.005) return undefined; // within noise
+  if (Math.abs(diff) < 0.005) return undefined;
   const isBetter = higherIsBetter ? diff > 0 : diff < 0;
-  return isBetter ? "#16a34a" : "#dc2626";
+  return isBetter ? "#16a34a" : "#92400e";
 }
 
 const HIGHER_IS_BETTER: Record<string, boolean> = {
@@ -50,9 +50,21 @@ const HIGHER_IS_BETTER: Record<string, boolean> = {
   rmse: false,
 };
 
+/** Human-readable metric names */
+const METRIC_LABELS: Record<string, string> = {
+  accuracy: "accuracy",
+  auc: "auc",
+  f1_macro: "f1 macro",
+  precision_macro: "precision macro",
+  recall_macro: "recall macro",
+  mae: "mae",
+  rmse: "rmse",
+  r2: "r²",
+};
+
 export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
   const taskType = data.task_type as string;
-  const splits = data.splits as Record<string, Record<string, number>> | undefined;
+  const splits = data.splits as Record<string, Record<string, unknown>> | undefined;
   const splitOrder = (data.split_order ?? []) as string[];
   const metricInfo = (data.metric_info ?? {}) as Record<string, string>;
   const warnings = (data.warnings ?? []) as {
@@ -60,78 +72,86 @@ export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
     column?: string;
     message: string;
   }[];
+  const classInfo = data.class_info as {
+    n_classes?: number;
+    majority_label?: string;
+    majority_pct?: number;
+    is_binary?: boolean;
+    is_imbalanced?: boolean;
+  } | undefined;
+  const totalSamples = (data.total_samples as number) ?? splitOrder.reduce(
+    (sum, s) => sum + ((splits?.[s]?.support as number) ?? 0), 0,
+  );
+  const splitPcts = data.split_pcts as Record<string, number> | undefined;
 
   if (!splits || splitOrder.length === 0) {
     return <div className="output-empty">No metrics computed</div>;
   }
 
-  // Collect all metric keys (excluding "support" and nested objects like "per_label")
+  // Metric keys: exclude support and nested objects
   const firstSplit = splits[splitOrder[0]];
   const metricKeys = Object.keys(firstSplit).filter(
     (k) => k !== "support" && typeof firstSplit[k] !== "object",
   );
 
-  // Summary cards: total samples, task type, split count
-  const totalSamples = splitOrder.reduce(
-    (sum, s) => sum + (splits[s]?.support ?? 0),
-    0,
-  );
-  const summaryItems = [
-    {
-      label: "Task Type",
-      value: taskType === "classification" ? "Classification" : "Regression",
-    },
-    { label: "Splits", value: splitOrder.length },
-    { label: "Total Samples", value: totalSamples },
+  // Summary card 1: total samples + split ratio
+  const splitRatioStr = splitPcts
+    ? splitOrder.map((s) => splitPcts[s]).join("/")
+    : undefined;
+  const samplesValue = splitRatioStr
+    ? `${totalSamples.toLocaleString()} · ${splitRatioStr} split`
+    : totalSamples.toLocaleString();
+
+  const summaryItems: { label: string; value: string | number }[] = [
+    { label: "total samples", value: samplesValue },
   ];
 
+  // Summary card 2: class distribution (classification only)
+  if (classInfo?.majority_pct != null && classInfo.majority_label != null) {
+    const pctStr = `${Math.round(classInfo.majority_pct * 100)}%`;
+    const parts = [`${pctStr} label ${classInfo.majority_label}`];
+    if (classInfo.is_imbalanced) parts.push("class imbalance");
+    if (classInfo.is_binary) parts.push("binary");
+    else if (classInfo.n_classes) parts.push(`${classInfo.n_classes}-class`);
+    summaryItems.push({ label: parts.slice(1).join(" · "), value: parts[0] });
+  }
+
   const trainMetrics = splits["train"];
+
+  // Determine which split to show per-label for (prefer test > val > train)
+  const perLabelSplit = (["test", "val", "train"] as const).find(
+    (s) => splits[s]?.per_label && Object.keys(splits[s].per_label as object).length > 0,
+  );
+  const perLabelData = perLabelSplit
+    ? (splits[perLabelSplit].per_label as Record<string, Record<string, number>>)
+    : undefined;
+
+  // Find majority/minority labels for tagging
+  const labelTags: Record<string, string> = {};
+  if (perLabelData) {
+    const labels = Object.keys(perLabelData);
+    if (labels.length === 2) {
+      const sorted = [...labels].sort(
+        (a, b) => (perLabelData[b]?.support ?? 0) - (perLabelData[a]?.support ?? 0),
+      );
+      labelTags[sorted[0]] = "majority";
+      labelTags[sorted[1]] = "minority";
+    }
+  }
 
   return (
     <div style={{ padding: 12 }}>
       <SummaryCards items={summaryItems} />
 
-      {/* Metrics comparison table */}
-      <div style={SECTION_HEADER}>Metrics by Split</div>
+      {/* Overall metrics by split */}
+      <div style={SECTION_HEADER}>Overall Metrics by Split</div>
       <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 12,
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
+        <table style={tableStyle}>
           <thead>
             <tr>
-              <th
-                style={{
-                  textAlign: "left",
-                  padding: "6px 10px",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                  fontFamily: "'Inter', sans-serif",
-                  borderBottom: "1px solid var(--border-default)",
-                }}
-              >
-                Metric
-              </th>
+              <th style={thStyle} />
               {splitOrder.map((split) => (
-                <th
-                  key={split}
-                  style={{
-                    textAlign: "right",
-                    padding: "6px 10px",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    fontFamily: "'Inter', sans-serif",
-                    borderBottom: "1px solid var(--border-default)",
-                  }}
-                >
+                <th key={split} style={{ ...thStyle, textAlign: "right" }}>
                   {split}
                 </th>
               ))}
@@ -139,261 +159,130 @@ export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
           </thead>
           <tbody>
             {metricKeys.map((metric) => (
-              <tr
-                key={metric}
-                style={{
-                  borderBottom: "1px solid var(--border-default)",
-                }}
-              >
-                <td
-                  style={{
-                    padding: "8px 10px",
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: 11,
-                  }}
-                  title={metricInfo[metric] ?? ""}
-                >
-                  {metric}
+              <tr key={metric} style={{ borderBottom: "1px solid var(--border-default)" }}>
+                <td style={metricLabelStyle} title={metricInfo[metric] ?? ""}>
+                  {METRIC_LABELS[metric] ?? metric}
                 </td>
                 {splitOrder.map((split) => {
-                  const val = splits[split]?.[metric];
+                  const val = splits[split]?.[metric] as number | undefined;
                   const hib = HIGHER_IS_BETTER[metric] ?? true;
-                  const color =
-                    split !== "train" && trainMetrics
-                      ? diffColor(trainMetrics[metric], val, hib)
-                      : undefined;
+                  const color = split !== "train" && trainMetrics
+                    ? diffColor(trainMetrics[metric] as number, val, hib)
+                    : undefined;
                   return (
-                    <td
-                      key={split}
-                      style={{
-                        textAlign: "right",
-                        padding: "8px 10px",
-                        color: color ?? "var(--text-primary)",
-                        fontWeight: color ? 600 : 400,
-                      }}
-                    >
+                    <td key={split} style={{
+                      textAlign: "right",
+                      padding: "8px 10px",
+                      color: color ?? "var(--text-primary)",
+                      fontWeight: color ? 600 : 400,
+                    }}>
                       {fmtMetric(val)}
                     </td>
                   );
                 })}
               </tr>
             ))}
-            {/* Support row */}
-            <tr>
-              <td
-                style={{
-                  padding: "8px 10px",
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                }}
-              >
-                support
-              </td>
-              {splitOrder.map((split) => (
-                <td
-                  key={split}
-                  style={{
-                    textAlign: "right",
-                    padding: "8px 10px",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  {(splits[split]?.support ?? 0).toLocaleString()}
-                </td>
-              ))}
-            </tr>
           </tbody>
         </table>
       </div>
 
-      {/* Per-split metric cards for quick visual comparison */}
-      {splitOrder.length > 1 && (
-        <>
-          <div style={{ ...SECTION_HEADER, marginTop: 20 }}>
-            Split Comparison
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${Math.min(splitOrder.length, 3)}, 1fr)`,
-              gap: 10,
-            }}
-          >
-            {splitOrder.map((split) => {
-              const m = splits[split];
-              if (!m) return null;
-              return (
-                <div
-                  key={split}
-                  style={{
-                    border: "1px solid var(--border-default)",
-                    borderRadius: 8,
-                    padding: "10px 12px",
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      color: "var(--text-muted)",
-                      letterSpacing: "0.05em",
-                      marginBottom: 8,
-                      fontFamily: "'Inter', sans-serif",
-                    }}
-                  >
-                    {split}
-                  </div>
-                  {metricKeys.map((metric) => (
-                    <div
-                      key={metric}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "3px 0",
-                        fontSize: 11,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: "var(--text-secondary)",
-                          fontFamily: "'Inter', sans-serif",
-                        }}
-                      >
-                        {metric}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {fmtMetric(m[metric])}
-                      </span>
-                    </div>
-                  ))}
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--text-muted)",
-                      marginTop: 6,
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}
-                  >
-                    n={m.support?.toLocaleString()}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+      {/* Per-label breakdown — test split only */}
+      {perLabelData && perLabelSplit && (
+        <PerLabelTable
+          perLabel={perLabelData}
+          splitName={perLabelSplit}
+          labelTags={labelTags}
+        />
       )}
-
-      {/* Per-label breakdown (classification only) */}
-      {taskType === "classification" && <PerLabelBreakdown splits={splits} splitOrder={splitOrder} />}
 
       <WarningList warnings={warnings} />
     </div>
   );
 }
 
-// ── Per-Label Breakdown ──────────────────────────────────────────
+// ── Per-Label Table ──────────────────────────────────────────────
 
-function PerLabelBreakdown({
-  splits,
-  splitOrder,
+function PerLabelTable({
+  perLabel,
+  splitName,
+  labelTags,
 }: {
-  splits: Record<string, Record<string, unknown>>;
-  splitOrder: string[];
+  perLabel: Record<string, Record<string, number>>;
+  splitName: string;
+  labelTags: Record<string, string>;
 }) {
-  // Use the first split that has per_label data
-  const perLabelBySplit = splitOrder
-    .map((s) => ({
-      split: s,
-      perLabel: splits[s]?.per_label as Record<string, Record<string, number>> | undefined,
-    }))
-    .filter((x) => x.perLabel && Object.keys(x.perLabel).length > 0);
-
-  if (perLabelBySplit.length === 0) return null;
+  const labels = Object.keys(perLabel);
+  const cols = ["precision", "recall", "f1", "n"] as const;
 
   return (
     <>
-      {perLabelBySplit.map(({ split, perLabel }) => {
-        if (!perLabel) return null;
-        const labels = Object.keys(perLabel);
-        const metrics = ["precision", "recall", "f1", "support"] as const;
-
-        return (
-          <div key={split}>
-            <div style={{ ...SECTION_HEADER, marginTop: 20 }}>
-              Per-Label Metrics ({split})
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: 12,
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                <thead>
-                  <tr>
-                    <th style={perLabelThStyle}>Label</th>
-                    {metrics.map((m) => (
-                      <th key={m} style={{ ...perLabelThStyle, textAlign: "right" }}>
-                        {m}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {labels.map((label) => {
-                    const lm = perLabel[label];
+      <div style={{ ...SECTION_HEADER, marginTop: 20 }}>
+        Per-Label Breakdown · {splitName} split
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>label</th>
+              {cols.map((c) => (
+                <th key={c} style={{ ...thStyle, textAlign: "right" }}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {labels.map((label) => {
+              const lm = perLabel[label];
+              const tag = labelTags[label];
+              return (
+                <tr key={label} style={{ borderBottom: "1px solid var(--border-default)" }}>
+                  <td style={{ padding: "6px 10px", fontWeight: 500, fontFamily: "'Inter', sans-serif", fontSize: 11 }}>
+                    {label}
+                    {tag && (
+                      <span style={{
+                        marginLeft: 6,
+                        fontSize: 9,
+                        color: tag === "minority" ? "#92400e" : "#065f46",
+                        fontWeight: 400,
+                      }}>
+                        {tag}
+                      </span>
+                    )}
+                  </td>
+                  {cols.map((c) => {
+                    const key = c === "n" ? "support" : c;
+                    const val = lm[key];
+                    const isLow = c !== "n" && typeof val === "number" && val < 0.5;
                     return (
-                      <tr key={label} style={{ borderBottom: "1px solid var(--border-default)" }}>
-                        <td style={{ padding: "6px 10px", fontWeight: 500, fontFamily: "'Inter', sans-serif", fontSize: 11 }}>
-                          {label}
-                        </td>
-                        {metrics.map((m) => (
-                          <td key={m} style={{ textAlign: "right", padding: "6px 10px" }}>
-                            {m === "support" ? (lm[m] ?? 0).toLocaleString() : fmtMetric(lm[m])}
-                          </td>
-                        ))}
-                      </tr>
+                      <td key={c} style={{
+                        textAlign: "right",
+                        padding: "6px 10px",
+                        color: isLow ? "#92400e" : undefined,
+                        fontWeight: isLow ? 600 : 400,
+                      }}>
+                        {c === "n" ? (val ?? 0).toLocaleString() : fmtMetric(val)}
+                      </td>
                     );
                   })}
-                  {/* Macro avg row */}
-                  <tr style={{ borderTop: "2px solid var(--border-default)" }}>
-                    <td style={{ padding: "6px 10px", fontWeight: 700, fontFamily: "'Inter', sans-serif", fontSize: 11, color: "var(--text-secondary)" }}>
-                      macro avg
-                    </td>
-                    {metrics.map((m) => {
-                      if (m === "support") {
-                        const total = labels.reduce((s, l) => s + (perLabel[l]?.support ?? 0), 0);
-                        return <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 600 }}>{total.toLocaleString()}</td>;
-                      }
-                      const avg = labels.reduce((s, l) => s + (perLabel[l]?.[m] ?? 0), 0) / labels.length;
-                      return <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 600 }}>{fmtMetric(avg)}</td>;
-                    })}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
 
-const perLabelThStyle: React.CSSProperties = {
+// ── Shared styles ────────────────────────────────────────────────
+
+const tableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 12,
+  fontFamily: "'JetBrains Mono', monospace",
+};
+
+const thStyle: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 10px",
   fontSize: 10,
@@ -402,4 +291,12 @@ const perLabelThStyle: React.CSSProperties = {
   textTransform: "uppercase",
   fontFamily: "'Inter', sans-serif",
   borderBottom: "1px solid var(--border-default)",
+};
+
+const metricLabelStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  fontWeight: 500,
+  color: "var(--text-primary)",
+  fontFamily: "'Inter', sans-serif",
+  fontSize: 11,
 };

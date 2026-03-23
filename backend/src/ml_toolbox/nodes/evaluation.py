@@ -582,6 +582,28 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
         "support": "Number of samples in this split",
     }
 
+    # ── Class distribution (from largest available split) ────────
+    class_info: dict = {}
+    # Pick the split with most samples for distribution stats
+    largest_split = max(split_order, key=lambda s: splits[s]["support"])
+    per_label_data = splits[largest_split].get("per_label", {})
+    if per_label_data:
+        total = sum(v["support"] for v in per_label_data.values())
+        n_classes = len(per_label_data)
+        majority_label = max(per_label_data, key=lambda l: per_label_data[l]["support"])
+        majority_pct = round(per_label_data[majority_label]["support"] / total, 4) if total else 0
+        class_info = {
+            "n_classes": n_classes,
+            "majority_label": majority_label,
+            "majority_pct": majority_pct,
+            "is_binary": n_classes == 2,
+            "is_imbalanced": majority_pct > 0.65,
+        }
+
+    # ── Split ratios ──────────────────────────────────────────────
+    total_samples = sum(splits[s]["support"] for s in split_order)
+    split_pcts = {s: round(splits[s]["support"] / total_samples * 100) for s in split_order} if total_samples else {}
+
     report = {
         "report_type": "classification_metrics",
         "task_type": "classification",
@@ -589,6 +611,9 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
         "split_order": split_order,
         "metric_info": metric_info,
         "warnings": warnings,
+        "class_info": class_info,
+        "total_samples": total_samples,
+        "split_pcts": split_pcts,
     }
 
     out = _get_output_path("report", ext=".json")
