@@ -26,9 +26,11 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "test": PortType.TABLE,
     },
     outputs={
-        "predictions": PortType.TABLE,
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
         "model": PortType.MODEL,
-        "metrics": PortType.METRICS,
+        "report": PortType.METRICS,
     },
     params={
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
@@ -64,7 +66,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     },
     label="Logistic Regression",
     category="Training",
-    description="Train a scikit-learn LogisticRegression classifier. Outputs predictions, model (.joblib), and metrics (.json).",
+    description="Train a scikit-learn LogisticRegression classifier. Outputs per-split predictions, model (.joblib), and training report (.json).",
     allowed_upstream={
         "train": [
             "random_holdout", "stratified_holdout",
@@ -121,41 +123,34 @@ The model outputs calibrated probabilities, making it ideal when you need confid
 | liblinear | yes | yes | — |
 
 ### Outputs
-- **predictions** — DataFrame with `y_pred`, `y_prob_<class>` columns, and a `split` column (train/val/test)
-- **model** — Trained sklearn model saved as `.joblib`
-- **metrics** — JSON with accuracy, F1, precision, recall, and AUC per split
+| Port | Type | Description |
+|------|------|-------------|
+| train_predictions | TABLE | y_true, y_pred, y_prob per class on train split |
+| val_predictions | TABLE | Same format on validation split (if connected) |
+| test_predictions | TABLE | Same format on test split (if connected) |
+| model | MODEL | Trained sklearn model (joblib-serialized) |
+| report | METRICS | Training metadata: classes, coefficients, target distribution, sample counts |
 """,
 )
 def logistic_regression(inputs: dict, params: dict) -> dict:
-    """Train a LogisticRegression classifier and produce predictions + metrics."""
+    """Train a LogisticRegression classifier and produce per-split predictions + report."""
     import json
     from pathlib import Path
 
     import pandas as pd
     from sklearn.linear_model import LogisticRegression
-    from sklearn.metrics import (
-        accuracy_score,
-        f1_score,
-        precision_score,
-        recall_score,
-        roc_auc_score,
-    )
 
     # ── Parse params ──────────────────────────────────────────────
     C = float(params.get("C", 1.0))
     max_iter = int(params.get("max_iter", 1000))
     solver = params.get("solver", "lbfgs")
     penalty_raw = params.get("penalty", "l2")
-
-    # sklearn uses None instead of "none" string
     penalty_val: str | None = None if penalty_raw == "none" else penalty_raw
 
     # ── Read train data ────────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
-    # ── Read target column from params ───────────────────────────
     target_col = params.get("target_column", "")
-
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
             f"Target column '{target_col}' not found. "
@@ -163,12 +158,11 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
         )
 
     # ── X/y split ─────────────────────────────────────────────────
-    X_train = train_df.drop(columns=[target_col])
+    feature_cols = [c for c in train_df.columns if c != target_col]
+    X_train = train_df[feature_cols]
     y_train = train_df[target_col]
 
     # ── Train model ───────────────────────────────────────────────
-    # multi_class param is exposed in the UI for documentation purposes but
-    # sklearn >=1.7 removed it (the solver picks the optimal strategy automatically).
     model = LogisticRegression(
         C=C,
         max_iter=max_iter,
@@ -178,85 +172,83 @@ def logistic_regression(inputs: dict, params: dict) -> dict:
     )
     model.fit(X_train, y_train)
 
-    # ── Helper: compute metrics for a split ───────────────────────
     classes = model.classes_
 
-    def _compute_metrics(y_true: pd.Series, y_pred, y_prob) -> dict:  # type: ignore[type-arg]
-        is_binary = len(classes) == 2
-        average = "binary" if is_binary else "weighted"
+    # ── Helper: build prediction DataFrame ─────────────────────────
+    def _build_predictions(df: pd.DataFrame) -> pd.DataFrame:
+        X = df[feature_cols]
+        y_true = df[target_col].values
+        y_pred = model.predict(X)
+        y_prob = model.predict_proba(X)
+        pred_data: dict = {"y_true": y_true, "y_pred": y_pred}
+        for i, cls in enumerate(classes):
+            pred_data[f"y_prob_{cls}"] = y_prob[:, i]
+        return pd.DataFrame(pred_data)
 
-        metrics: dict = {
-            "accuracy": float(accuracy_score(y_true, y_pred)),
-            "f1": float(f1_score(y_true, y_pred, average=average, zero_division=0.0)),  # type: ignore[arg-type]
-            "precision": float(
-                precision_score(y_true, y_pred, average=average, zero_division=0.0)  # type: ignore[arg-type]
-            ),
-            "recall": float(
-                recall_score(y_true, y_pred, average=average, zero_division=0.0)  # type: ignore[arg-type]
-            ),
-        }
+    # ── Write predictions per split ────────────────────────────────
+    result: dict = {}
+    sample_counts: dict = {"train": len(train_df)}
 
-        # AUC — needs probability columns
-        try:
-            if is_binary:
-                metrics["auc"] = float(roc_auc_score(y_true, y_prob[:, 1]))
-            else:
-                metrics["auc"] = float(
-                    roc_auc_score(y_true, y_prob, multi_class="ovr", average="weighted")
-                )
-        except (ValueError, IndexError):
-            # AUC can fail if only one class is present in the split
-            pass
+    train_preds = _build_predictions(train_df)
+    p = _get_output_path("train_predictions", ".parquet")
+    train_preds.to_parquet(p, index=False)
+    result["train_predictions"] = str(p)
 
-        return metrics
-
-    # ── Generate predictions + metrics per split ──────────────────
-    all_predictions: list[pd.DataFrame] = []
-    metrics_report: dict = {"report_type": "training_metrics"}
-
-    for split_name in ("train", "val", "test"):
+    for split_name in ("val", "test"):
         input_path = inputs.get(split_name)
         if not input_path:
             continue
-
         split_path = Path(input_path)
         if not split_path.exists():
             continue
-
-        split_df = train_df if split_name == "train" else pd.read_parquet(split_path)
+        split_df = pd.read_parquet(split_path)
         if split_df.empty:
             continue
+        preds = _build_predictions(split_df)
+        p = _get_output_path(f"{split_name}_predictions", ".parquet")
+        preds.to_parquet(p, index=False)
+        result[f"{split_name}_predictions"] = str(p)
+        sample_counts[split_name] = len(split_df)
 
-        X_split = split_df.drop(columns=[target_col])
-        y_split: pd.Series = split_df[target_col]  # type: ignore[assignment]
+    # ── Coefficients ─────────────────────────────────────────────
+    import numpy as np
+    coef = np.asarray(model.coef_, dtype=float)
+    if coef.ndim > 1:
+        avg_coef = np.mean(np.abs(coef), axis=0)
+    else:
+        avg_coef = np.abs(coef)
+    coefficients = sorted(
+        [{"feature": f, "coefficient": round(float(c), 6)}
+         for f, c in zip(feature_cols, avg_coef)],
+        key=lambda x: abs(x["coefficient"]),
+        reverse=True,
+    )
 
-        y_pred = model.predict(X_split)
-        y_prob = model.predict_proba(X_split)
-
-        # Build predictions DataFrame
-        pred_df = pd.DataFrame({"y_pred": y_pred})
-        for i, cls in enumerate(classes):
-            pred_df[f"y_prob_{cls}"] = y_prob[:, i]
-        pred_df["split"] = split_name
-        all_predictions.append(pred_df)
-
-        # Compute metrics
-        metrics_report[split_name] = _compute_metrics(y_split, y_pred, y_prob)
-
-    # ── Save predictions ──────────────────────────────────────────
-    predictions_df = pd.concat(all_predictions, ignore_index=True)
-    predictions_path = _get_output_path("predictions", ".parquet")
-    predictions_df.to_parquet(predictions_path, index=False)
-
-    # ── Save metrics ──────────────────────────────────────────────
-    metrics_path = _get_output_path("metrics", ".json")
-    metrics_path.write_text(json.dumps(metrics_report, indent=2))
-
-    # ── Return results ────────────────────────────────────────────
-    # MODEL output: return the raw model object — the sandbox runner
-    # auto-serializes it to .joblib based on the output port type.
-    return {
-        "predictions": str(predictions_path),
-        "model": model,
-        "metrics": str(metrics_path),
+    # ── Training report ──────────────────────────────────────────
+    report = {
+        "report_type": "training_report",
+        "model_type": "logistic_regression",
+        "task_type": "classification",
+        "target_column": target_col,
+        "feature_columns": feature_cols,
+        "sample_counts": sample_counts,
+        "classes": classes.tolist(),
+        "target_distribution": {
+            str(cls): int((train_df[target_col] == cls).sum())
+            for cls in classes
+        },
+        "params": {
+            "C": C,
+            "max_iter": max_iter,
+            "solver": solver,
+            "penalty": penalty_raw,
+        },
+        "coefficients": coefficients,
     }
+
+    report_path = _get_output_path("report", ".json")
+    report_path.write_text(json.dumps(report, indent=2))
+    result["report"] = str(report_path)
+
+    result["model"] = model
+    return result

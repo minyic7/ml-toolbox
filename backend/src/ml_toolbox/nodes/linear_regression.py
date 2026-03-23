@@ -26,9 +26,11 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "test": PortType.TABLE,
     },
     outputs={
-        "predictions": PortType.TABLE,
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
         "model": PortType.MODEL,
-        "metrics": PortType.METRICS,
+        "report": PortType.METRICS,
     },
     params={
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
@@ -93,22 +95,14 @@ Violations don't make the model useless — predictions may still be useful — 
 ### Normalize vs External Scaling
 The `normalize` toggle applies **StandardScaler** inside this node before fitting. If you already have a **Scaler Transform** node upstream, leave normalize off to avoid double-scaling.
 
-### Metrics
-| Metric | Meaning |
-|--------|---------|
-| **MAE** | Mean Absolute Error — average magnitude of errors, in target units |
-| **RMSE** | Root Mean Squared Error — like MAE but penalises large errors more |
-| **R\u00b2** | Coefficient of determination — 1.0 = perfect, 0.0 = predicts the mean, negative = worse than mean |
-
-### Inputs / Outputs
-| Port | Type | Required | Description |
-|------|------|----------|-------------|
-| train | TABLE | Yes | Training data with features + target |
-| val | TABLE | No | Validation split — predictions + metrics computed if connected |
-| test | TABLE | No | Test split — predictions + metrics computed if connected |
-| predictions | TABLE | Out | Predictions for all connected splits (stacked) |
-| model | MODEL | Out | Trained sklearn model (joblib-serialized) |
-| metrics | METRICS | Out | MAE, RMSE, R\u00b2 per split + model coefficients |
+### Outputs
+| Port | Type | Description |
+|------|------|-------------|
+| train_predictions | TABLE | y_true, y_pred on train split |
+| val_predictions | TABLE | y_true, y_pred on validation split (if connected) |
+| test_predictions | TABLE | y_true, y_pred on test split (if connected) |
+| model | MODEL | Trained sklearn model (joblib-serialized) |
+| report | METRICS | Training metadata: coefficients, intercept, feature list, sample counts |
 """,
 )
 def linear_regression(inputs: dict, params: dict) -> dict:
@@ -116,10 +110,8 @@ def linear_regression(inputs: dict, params: dict) -> dict:
     import json
     from pathlib import Path
 
-    import numpy as np
     import pandas as pd
     from sklearn.linear_model import LinearRegression
-    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
     from sklearn.preprocessing import StandardScaler
 
     fit_intercept = bool(params.get("fit_intercept", True))
@@ -128,9 +120,7 @@ def linear_regression(inputs: dict, params: dict) -> dict:
     # ── Read train data ──────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
-    # ── Read target column from params ───────────────────────────
     target_col = params.get("target_column", "")
-
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
             f"Target column '{target_col}' not found. "
@@ -152,83 +142,63 @@ def linear_regression(inputs: dict, params: dict) -> dict:
     model = LinearRegression(fit_intercept=fit_intercept)
     model.fit(X_train, y_train)
 
-    # ── Helper: evaluate a split ─────────────────────────────────
-    def _evaluate(df: pd.DataFrame, split_name: str) -> tuple[dict, pd.DataFrame]:
+    # ── Helper: build prediction DataFrame ─────────────────────────
+    def _build_predictions(df: pd.DataFrame) -> pd.DataFrame:
         X = df[feature_cols].values
         if scaler is not None:
             X = scaler.transform(X)
         y_true = df[target_col].values
         y_pred = model.predict(X)
+        return pd.DataFrame({"y_true": y_true, "y_pred": y_pred})
 
-        pred_df = df.copy()
-        pred_df["prediction"] = y_pred
-        pred_df["split"] = split_name
+    # ── Write predictions per split ────────────────────────────────
+    result: dict = {}
+    sample_counts: dict = {"train": len(train_df)}
 
-        mae = float(mean_absolute_error(y_true, y_pred))
-        rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
-        r2 = float(r2_score(y_true, y_pred))
-        return {"mae": mae, "rmse": rmse, "r2": r2}, pred_df
+    train_preds = _build_predictions(train_df)
+    p = _get_output_path("train_predictions", ".parquet")
+    train_preds.to_parquet(p, index=False)
+    result["train_predictions"] = str(p)
 
-    # ── Compute metrics per split ────────────────────────────────
-    all_predictions: list[pd.DataFrame] = []
-    split_metrics: dict[str, dict] = {}
+    for split_name in ("val", "test"):
+        if inputs.get(split_name):
+            split_path = Path(inputs[split_name])
+            if split_path.exists():
+                split_df = pd.read_parquet(split_path)
+                if len(split_df) > 0:
+                    preds = _build_predictions(split_df)
+                    p = _get_output_path(f"{split_name}_predictions", ".parquet")
+                    preds.to_parquet(p, index=False)
+                    result[f"{split_name}_predictions"] = str(p)
+                    sample_counts[split_name] = len(split_df)
 
-    train_metrics, train_preds = _evaluate(train_df, "train")
-    split_metrics["train_metrics"] = train_metrics
-    all_predictions.append(train_preds)
-
-    if inputs.get("val"):
-        val_path = Path(inputs["val"])
-        if val_path.exists():
-            val_df = pd.read_parquet(val_path)
-            val_m, val_preds = _evaluate(val_df, "val")
-            split_metrics["val_metrics"] = val_m
-            all_predictions.append(val_preds)
-
-    if inputs.get("test"):
-        test_path = Path(inputs["test"])
-        if test_path.exists():
-            test_df = pd.read_parquet(test_path)
-            test_m, test_preds = _evaluate(test_df, "test")
-            split_metrics["test_metrics"] = test_m
-            all_predictions.append(test_preds)
-
-    # ── Coefficients (analogous to feature importances) ──────────
+    # ── Coefficients ─────────────────────────────────────────────
     coefficients = sorted(
-        [
-            {"feature": f, "coefficient": float(c)}
-            for f, c in zip(feature_cols, model.coef_)
-        ],
+        [{"feature": f, "coefficient": round(float(c), 6)}
+         for f, c in zip(feature_cols, model.coef_)],
         key=lambda x: abs(x["coefficient"]),
         reverse=True,
     )
 
-    # ── Build summary ────────────────────────────────────────────
-    summary_source = split_metrics.get("val_metrics", split_metrics["train_metrics"])
-
-    metrics_output = {
-        "report_type": "linear_regression",
-        "task": "regression",
-        "summary": summary_source,
-        **split_metrics,
-        "coefficients": coefficients,
-        "intercept": float(model.intercept_) if fit_intercept else None,
+    # ── Training report ──────────────────────────────────────────
+    report = {
+        "report_type": "training_report",
+        "model_type": "linear_regression",
+        "task_type": "regression",
+        "target_column": target_col,
+        "feature_columns": feature_cols,
+        "sample_counts": sample_counts,
         "params": {
             "fit_intercept": fit_intercept,
             "normalize": normalize,
         },
+        "coefficients": coefficients,
+        "intercept": round(float(model.intercept_), 6) if fit_intercept else None,
     }
 
-    # ── Write outputs ────────────────────────────────────────────
-    predictions_df = pd.concat(all_predictions, ignore_index=True)
-    pred_path = _get_output_path("predictions", ".parquet")
-    predictions_df.to_parquet(pred_path, index=False)
+    report_path = _get_output_path("report", ".json")
+    report_path.write_text(json.dumps(report, indent=2))
+    result["report"] = str(report_path)
 
-    metrics_path = _get_output_path("metrics", ".json")
-    metrics_path.write_text(json.dumps(metrics_output, indent=2))
-
-    return {
-        "predictions": str(pred_path),
-        "model": model,
-        "metrics": str(metrics_path),
-    }
+    result["model"] = model
+    return result

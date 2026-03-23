@@ -19,23 +19,31 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
     return p / f"{name}{ext}"
 
 
+_TRAINING_NODES = [
+    "decision_tree", "random_forest",
+    "linear_regression", "logistic_regression", "gradient_boosting_train",
+]
+
+_ALLOWED_TEST_UPSTREAM = [
+    "random_holdout", "stratified_holdout",
+    "column_dropper", "missing_value_imputer", "category_encoder",
+    "scaler_transform", "log_transform", "feature_selector",
+    "interaction_creator", "datetime_encoder",
+]
+
+
 # ── ROC & PR Curves ────────────────────────────────────────────
 
 
 @node(
-    inputs={"predictions": PortType.TABLE},
+    inputs={"test_predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
-    params={
-        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
-    },
+    params={},
     label="ROC & PR Curves",
     category="Evaluation",
     description="Compute ROC and Precision-Recall curves with AUC scores from predicted probabilities.",
     allowed_upstream={
-        "predictions": [
-            "decision_tree", "random_forest",
-            "linear_regression", "logistic_regression", "gradient_boosting_train",
-        ],
+        "test_predictions": _TRAINING_NODES,
     },
     guide=(
         "## ROC & PR Curves\n\n"
@@ -56,11 +64,13 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
         "- **AUC-ROC 0.5–0.7**: weak — model barely beats random\n"
         "- **AP (Average Precision)**: context-dependent — compare against the positive class "
         "prevalence (a random classifier achieves AP ≈ prevalence).\n\n"
-        "### Why probabilities, not hard predictions?\n"
+        "### Input format\n"
+        "Receives `test_predictions` TABLE from a Training node with columns:\n"
+        "- **y_true**: actual class labels\n"
+        "- **y_prob_{class}**: predicted probabilities per class\n\n"
         "ROC and PR curves sweep across all thresholds — they need the continuous probability "
         "output (`y_prob`), not a binary `y_pred`. If your upstream node only outputs hard "
-        "predictions, this node will fail with a clear error. Make sure your training node "
-        "is configured to output probabilities."
+        "predictions, this node will fail with a clear error."
     ),
 )
 def roc_pr_curves(inputs: dict, params: dict) -> dict:
@@ -124,23 +134,16 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
             })
         return warns
 
-    df = pd.read_parquet(inputs["predictions"])
+    df = pd.read_parquet(inputs["test_predictions"])
 
-    # Detect y_true column — prefer param, then convention-based fallback
-    y_true_col = params.get("target_column", "")
-    if not y_true_col:
-        for candidate in ("y_true", "y_test", "target"):
-            if candidate in df.columns:
-                y_true_col = candidate
-                break
-    if not y_true_col:
+    # y_true column
+    if "y_true" not in df.columns:
         raise ValueError(
-            "Missing ground-truth column. Set 'target_column' param or include "
-            "a column named y_true, y_test, or target. "
+            "Missing 'y_true' column in test_predictions. "
             f"Got columns: {list(df.columns)}"
         )
 
-    y_true = df[y_true_col].values
+    y_true = df["y_true"].values
 
     # Detect probability columns (y_prob_{class})
     prob_cols = sorted([c for c in df.columns if c.startswith("y_prob_")])
@@ -158,7 +161,7 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
     if n_classes < 2:
         raise ValueError(
             f"Need at least 2 classes for ROC/PR curves, got {n_classes} "
-            f"(unique values in {y_true_col}: {classes})"
+            f"(unique values in y_true: {classes})"
         )
 
     # Binary classification
@@ -166,7 +169,6 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
         positive_class = classes[1]
         prob_col = f"y_prob_{positive_class}"
         if prob_col not in df.columns:
-            # Try the first prob column as fallback
             prob_col = prob_cols[-1]
         y_score = df[prob_col].values
 
@@ -180,7 +182,6 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
         )
         ap_score = float(average_precision_score(y_true, y_score))
 
-        # Downsample curve points if too many (keep first, last, and evenly spaced)
         max_points = 200
 
         def _downsample(x: np.ndarray, y: np.ndarray) -> tuple[list[float], list[float]]:
@@ -196,7 +197,6 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
         roc_fpr, roc_tpr = _downsample(fpr, tpr)
         pr_recall, pr_precision = _downsample(recall, precision)
 
-        # Prevalence of positive class
         prevalence = float(np.mean(y_true == positive_class))
 
         report = {
@@ -237,7 +237,6 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
             y_binary = (y_true == cls).astype(int)
             y_score = df[prob_col].values
 
-            # Skip if only one class present in binary view
             if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
                 continue
 
@@ -303,10 +302,7 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
     category="Evaluation",
     description="Extract and rank feature importances from a trained model.",
     allowed_upstream={
-        "model": [
-            "decision_tree", "random_forest",
-            "linear_regression", "logistic_regression", "gradient_boosting_train",
-        ],
+        "model": _TRAINING_NODES,
     },
     guide=(
         "## Feature Importance\n\n"
@@ -451,16 +447,17 @@ def feature_importance(inputs: dict, params: dict) -> dict:
 
 
 @node(
-    inputs={"predictions": PortType.TABLE},
-    outputs={"report": PortType.METRICS},
-    params={
-        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
+    inputs={
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
     },
+    outputs={"report": PortType.METRICS},
+    params={},
     allowed_upstream={
-        "predictions": [
-            "decision_tree", "random_forest",
-            "linear_regression", "logistic_regression", "gradient_boosting_train",
-        ],
+        "train_predictions": _TRAINING_NODES,
+        "val_predictions": _TRAINING_NODES,
+        "test_predictions": _TRAINING_NODES,
     },
     label="Classification Metrics",
     category="Evaluation",
@@ -469,11 +466,10 @@ def feature_importance(inputs: dict, params: dict) -> dict:
         "## Classification Metrics\n\n"
         "Evaluate a classifier's predictions against ground truth, per data split.\n\n"
         "### Input format\n"
-        "A single TABLE with columns:\n"
-        "- **y_true** (or **target**): actual class labels\n"
-        "- **y_pred** (or **prediction**): predicted class labels\n"
-        "- **y_prob_{class}** (optional): predicted probabilities per class (needed for AUC)\n"
-        "- **__split__** (optional): split indicator (train/val/test)\n\n"
+        "Receives separate prediction TABLEs per split from a Training node, each with:\n"
+        "- **y_true**: actual class labels\n"
+        "- **y_pred**: predicted class labels\n"
+        "- **y_prob_{class}** (optional): predicted probabilities per class (needed for AUC)\n\n"
         "### Metrics computed\n"
         "- **Accuracy**: fraction of correct predictions\n"
         "- **F1 (macro)**: harmonic mean of precision and recall, averaged across classes\n"
@@ -489,6 +485,7 @@ def feature_importance(inputs: dict, params: dict) -> dict:
 def classification_metrics(inputs: dict, params: dict) -> dict:
     """Compute classification metrics per split."""
     import json
+    from pathlib import Path
 
     import pandas as pd
     from sklearn.metrics import (
@@ -499,30 +496,21 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
         roc_auc_score,
     )
 
-    def find_prediction_column(df: pd.DataFrame) -> str:
-        for name in ("y_pred", "prediction", "predicted"):
-            if name in df.columns:
-                return name
-        raise ValueError(
-            "Cannot find prediction column. Include a column named 'y_pred' or 'prediction'."
-        )
+    def compute_cls_metrics(df: pd.DataFrame) -> dict:
+        y_true = df["y_true"]
+        y_pred = df["y_pred"]
+        prob_cols = [c for c in df.columns if c.startswith("y_prob_")]
 
-    def find_split_column(df: pd.DataFrame) -> str | None:
-        for name in ("__split__", "split"):
-            if name in df.columns:
-                return name
-        return None
-
-    def compute_cls_metrics(y_true, y_pred, y_prob) -> dict:
         m: dict = {
             "accuracy": round(float(accuracy_score(y_true, y_pred)), 6),
             "f1_macro": round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 6),
             "precision_macro": round(float(precision_score(y_true, y_pred, average="macro", zero_division=0)), 6),
             "recall_macro": round(float(recall_score(y_true, y_pred, average="macro", zero_division=0)), 6),
         }
-        if y_prob is not None and len(y_prob.columns) > 0:
+        if prob_cols:
             try:
                 classes = sorted(y_true.unique())
+                y_prob = df[prob_cols]
                 if len(classes) == 2:
                     prob_col = y_prob.columns[-1]
                     m["auc"] = round(float(roc_auc_score(y_true, y_prob[prob_col])), 6)
@@ -533,43 +521,28 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
         m["support"] = int(len(y_true))
         return m
 
-    df = pd.read_parquet(inputs["predictions"])
-
-    target_col = params.get("target_column", "")
-    if not target_col:
-        for name in ("y_true", "target", "label"):
-            if name in df.columns:
-                target_col = name
-                break
-    if not target_col:
-        raise ValueError(
-            "Cannot determine target column. Set 'target_column' param or include "
-            "a column named 'y_true', 'target', or 'label'. "
-            f"Got columns: {list(df.columns)}"
-        )
-
-    pred_col = find_prediction_column(df)
-    split_col = find_split_column(df)
-
-    prob_cols = [c for c in df.columns if c.startswith("y_prob_")]
-
+    # ── Read each split ──────────────────────────────────────────
     splits: dict[str, dict] = {}
-    if split_col:
-        for split_name in df[split_col].unique():
-            mask = df[split_col] == split_name
-            split_df = df[mask]
-            y_prob = split_df[prob_cols] if prob_cols else None
-            splits[str(split_name)] = compute_cls_metrics(
-                split_df[target_col], split_df[pred_col], y_prob
-            )
-    else:
-        y_prob = df[prob_cols] if prob_cols else None
-        splits["all"] = compute_cls_metrics(df[target_col], df[pred_col], y_prob)
+    for split_name in ("train", "val", "test"):
+        port = f"{split_name}_predictions"
+        input_path = inputs.get(port)
+        if not input_path:
+            continue
+        p = Path(input_path)
+        if not p.exists():
+            continue
+        df = pd.read_parquet(p)
+        if df.empty:
+            continue
+        if "y_true" not in df.columns or "y_pred" not in df.columns:
+            continue
+        splits[split_name] = compute_cls_metrics(df)
 
-    split_order = ["train", "val", "test"]
-    ordered_splits = [s for s in split_order if s in splits]
-    ordered_splits += [s for s in splits if s not in ordered_splits]
+    if not splits:
+        raise ValueError("No valid prediction data found in any connected split.")
 
+    # ── Warnings ─────────────────────────────────────────────────
+    split_order = [s for s in ("train", "val", "test") if s in splits]
     warnings: list[dict] = []
     if "train" in splits and "val" in splits:
         train_acc = splits["train"]["accuracy"]
@@ -594,10 +567,10 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
     }
 
     report = {
-        "report_type": "training_metrics",
+        "report_type": "classification_metrics",
         "task_type": "classification",
         "splits": splits,
-        "split_order": ordered_splits,
+        "split_order": split_order,
         "metric_info": metric_info,
         "warnings": warnings,
     }
@@ -611,16 +584,17 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
 
 
 @node(
-    inputs={"predictions": PortType.TABLE},
-    outputs={"report": PortType.METRICS},
-    params={
-        "target_column": Text(default="", description="Target column (auto-detected from schema)"),
+    inputs={
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
     },
+    outputs={"report": PortType.METRICS},
+    params={},
     allowed_upstream={
-        "predictions": [
-            "decision_tree", "random_forest",
-            "linear_regression", "logistic_regression", "gradient_boosting_train",
-        ],
+        "train_predictions": _TRAINING_NODES,
+        "val_predictions": _TRAINING_NODES,
+        "test_predictions": _TRAINING_NODES,
     },
     label="Regression Metrics",
     category="Evaluation",
@@ -629,10 +603,9 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
         "## Regression Metrics\n\n"
         "Evaluate a regressor's predictions against ground truth, per data split.\n\n"
         "### Input format\n"
-        "A single TABLE with columns:\n"
-        "- **y_true** (or **target**): actual numeric values\n"
-        "- **y_pred** (or **prediction**): predicted numeric values\n"
-        "- **__split__** (optional): split indicator (train/val/test)\n\n"
+        "Receives separate prediction TABLEs per split from a Training node, each with:\n"
+        "- **y_true**: actual numeric values\n"
+        "- **y_pred**: predicted numeric values\n\n"
         "### Metrics computed\n"
         "- **MAE**: mean absolute error — average magnitude of errors\n"
         "- **RMSE**: root mean squared error — penalizes large errors more\n"
@@ -646,26 +619,15 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
 def regression_metrics(inputs: dict, params: dict) -> dict:
     """Compute regression metrics per split."""
     import json
+    from pathlib import Path
 
     import numpy as np
     import pandas as pd
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-    def find_prediction_column(df: pd.DataFrame) -> str:
-        for name in ("y_pred", "prediction", "predicted"):
-            if name in df.columns:
-                return name
-        raise ValueError(
-            "Cannot find prediction column. Include a column named 'y_pred' or 'prediction'."
-        )
-
-    def find_split_column(df: pd.DataFrame) -> str | None:
-        for name in ("__split__", "split"):
-            if name in df.columns:
-                return name
-        return None
-
-    def compute_reg_metrics(y_true, y_pred) -> dict:
+    def compute_reg_metrics(df: pd.DataFrame) -> dict:
+        y_true = df["y_true"]
+        y_pred = df["y_pred"]
         mse = float(mean_squared_error(y_true, y_pred))
         return {
             "mae": round(float(mean_absolute_error(y_true, y_pred)), 6),
@@ -674,41 +636,28 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
             "support": int(len(y_true)),
         }
 
-    df = pd.read_parquet(inputs["predictions"])
-
-    target_col = params.get("target_column", "")
-    if not target_col:
-        for name in ("y_true", "target", "label"):
-            if name in df.columns:
-                target_col = name
-                break
-    if not target_col:
-        raise ValueError(
-            "Cannot determine target column. Set 'target_column' param or include "
-            "a column named 'y_true', 'target', or 'label'. "
-            f"Got columns: {list(df.columns)}"
-        )
-
-    pred_col = find_prediction_column(df)
-    split_col = find_split_column(df)
-
+    # ── Read each split ──────────────────────────────────────────
     splits: dict[str, dict] = {}
-    if split_col:
-        for split_name in df[split_col].unique():
-            mask = df[split_col] == split_name
-            split_df = df[mask]
-            splits[str(split_name)] = compute_reg_metrics(
-                split_df[target_col], split_df[pred_col]
-            )
-    else:
-        splits["all"] = compute_reg_metrics(df[target_col], df[pred_col])
+    for split_name in ("train", "val", "test"):
+        port = f"{split_name}_predictions"
+        input_path = inputs.get(port)
+        if not input_path:
+            continue
+        p = Path(input_path)
+        if not p.exists():
+            continue
+        df = pd.read_parquet(p)
+        if df.empty:
+            continue
+        if "y_true" not in df.columns or "y_pred" not in df.columns:
+            continue
+        splits[split_name] = compute_reg_metrics(df)
 
-    # Determine split ordering
-    split_order = ["train", "val", "test"]
-    ordered_splits = [s for s in split_order if s in splits]
-    ordered_splits += [s for s in splits if s not in ordered_splits]
+    if not splits:
+        raise ValueError("No valid prediction data found in any connected split.")
 
-    # Detect overfitting warnings
+    # ── Warnings ─────────────────────────────────────────────────
+    split_order = [s for s in ("train", "val", "test") if s in splits]
     warnings: list[dict] = []
     if "train" in splits and "val" in splits:
         train_rmse = splits["train"]["rmse"]
@@ -724,7 +673,6 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
                     ),
                 })
         elif val_rmse > 0:
-            # Perfect train but imperfect val — clear overfitting
             warnings.append({
                 "type": "overfitting",
                 "message": (
@@ -741,10 +689,10 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
     }
 
     report = {
-        "report_type": "training_metrics",
+        "report_type": "regression_metrics",
         "task_type": "regression",
         "splits": splits,
-        "split_order": ordered_splits,
+        "split_order": split_order,
         "metric_info": metric_info,
         "warnings": warnings,
     }
@@ -758,7 +706,7 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
 
 
 @node(
-    inputs={"predictions": PortType.TABLE},
+    inputs={"test_predictions": PortType.TABLE},
     outputs={"report": PortType.METRICS},
     params={
         "normalize": Toggle(
@@ -770,10 +718,7 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
     category="Evaluation",
     description="Compute confusion matrix with per-class precision, recall, and F1 for classification tasks.",
     allowed_upstream={
-        "predictions": [
-            "decision_tree", "random_forest",
-            "linear_regression", "logistic_regression", "gradient_boosting_train",
-        ],
+        "test_predictions": _TRAINING_NODES,
     },
     guide="""## Confusion Matrix
 
@@ -783,6 +728,11 @@ Visualise how a classifier's predictions compare against ground truth, broken do
 - **Rows** = true (actual) classes, **Columns** = predicted classes
 - **Diagonal** cells are correct predictions (True Positives for each class)
 - **Off-diagonal** cells are mistakes — the row tells you what the sample *was*, the column tells you what the model *guessed*
+
+### Input format
+Receives `test_predictions` TABLE from a Training node with columns:
+- **y_true**: actual class labels
+- **y_pred**: predicted class labels
 
 ### Key metrics shown alongside the matrix
 | Metric | Meaning |
@@ -802,7 +752,7 @@ def confusion_matrix(inputs: dict, params: dict) -> dict:
     import numpy as np
     import pandas as pd
 
-    df = pd.read_parquet(inputs["predictions"])
+    df = pd.read_parquet(inputs["test_predictions"])
 
     if "y_true" not in df.columns or "y_pred" not in df.columns:
         missing = [c for c in ("y_true", "y_pred") if c not in df.columns]
@@ -876,17 +826,6 @@ def confusion_matrix(inputs: dict, params: dict) -> dict:
 
 # ── Model Comparison ──────────────────────────────────────────
 
-_ALLOWED_MODEL_UPSTREAM = [
-    "decision_tree", "random_forest",
-    "linear_regression", "logistic_regression", "gradient_boosting_train",
-]
-_ALLOWED_TEST_UPSTREAM = [
-    "random_holdout", "stratified_holdout",
-    "column_dropper", "missing_value_imputer", "category_encoder",
-    "scaler_transform", "log_transform", "feature_selector",
-    "interaction_creator", "datetime_encoder",
-]
-
 
 @node(
     inputs={
@@ -922,8 +861,8 @@ Task type (classification vs regression) is auto-detected from the target column
 When two models score within ~1-2% of each other, prefer the simpler model
 (fewer features, faster training) — the difference likely won't survive new data.""",
     allowed_upstream={
-        "model_a": _ALLOWED_MODEL_UPSTREAM, "model_b": _ALLOWED_MODEL_UPSTREAM,
-        "model_c": _ALLOWED_MODEL_UPSTREAM, "model_d": _ALLOWED_MODEL_UPSTREAM,
+        "model_a": _TRAINING_NODES, "model_b": _TRAINING_NODES,
+        "model_c": _TRAINING_NODES, "model_d": _TRAINING_NODES,
         "test": _ALLOWED_TEST_UPSTREAM,
     },
 )
