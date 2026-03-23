@@ -529,6 +529,7 @@ function renderPreview(output: OutputPreview, analysis?: import("../../lib/types
             totalRows={preview.total_rows ?? preview.rows.length}
             dtypes={preview.dtypes}
             hasMetadata={!!output.column_metadata}
+            predictionSummary={preview.prediction_summary}
           />
         );
       }

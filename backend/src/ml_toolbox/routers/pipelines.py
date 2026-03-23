@@ -784,6 +784,68 @@ def _find_output_file(run_dir: Path, node_id: str) -> Path | None:
     return candidates[0] if candidates else None
 
 
+def _build_prediction_summary(df: Any) -> dict[str, Any]:
+    """Build a prediction summary for tables with y_true + y_pred columns."""
+    import numpy as np
+
+    y_true = df["y_true"].values
+    y_pred = df["y_pred"].values
+    n = len(y_true)
+
+    # Detect classification vs regression
+    unique_true = np.unique(y_true[~np.isnan(y_true)] if np.issubdtype(y_true.dtype, np.floating) else y_true)
+    is_classification = len(unique_true) <= 20
+
+    if is_classification:
+        # Round y_pred to nearest class if float (e.g. linear regression on class target)
+        if np.issubdtype(y_pred.dtype, np.floating):
+            y_pred_cls = np.round(y_pred).astype(y_true.dtype)
+        else:
+            y_pred_cls = y_pred
+
+        classes = sorted(set(unique_true.tolist()) | set(np.unique(y_pred_cls).tolist()), key=str)
+        class_labels = [str(c) for c in classes]
+        n_classes = len(classes)
+        label_to_idx = {c: i for i, c in enumerate(classes)}
+
+        cm = np.zeros((n_classes, n_classes), dtype=int)
+        for t, p in zip(y_true, y_pred_cls):
+            ti = label_to_idx.get(t)
+            pi = label_to_idx.get(p)
+            if ti is not None and pi is not None:
+                cm[ti, pi] += 1
+
+        correct = int(np.trace(cm))
+        accuracy = round(correct / n, 4) if n > 0 else 0.0
+
+        return {
+            "task": "classification",
+            "n_samples": n,
+            "n_classes": n_classes,
+            "class_labels": class_labels,
+            "confusion_matrix": cm.tolist(),
+            "accuracy": accuracy,
+            "correct": correct,
+        }
+    else:
+        # Regression summary
+        residuals = y_true - y_pred
+        mae = float(np.mean(np.abs(residuals)))
+        mse = float(np.mean(residuals ** 2))
+        rmse = float(np.sqrt(mse))
+        ss_res = float(np.sum(residuals ** 2))
+        ss_tot = float(np.sum((y_true - np.mean(y_true)) ** 2))
+        r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+
+        return {
+            "task": "regression",
+            "n_samples": n,
+            "mae": round(mae, 4),
+            "rmse": round(rmse, 4),
+            "r2": round(r2, 4),
+        }
+
+
 def _file_metadata(output_file: Path) -> dict[str, Any]:
     """Build metadata dict for a single output file."""
     ext = output_file.suffix.lower()
@@ -806,6 +868,10 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
                 "total_rows": len(df),
                 "dtypes": {col: str(df[col].dtype) for col in df.columns},
             }
+
+            # Prediction table summary (y_true + y_pred columns)
+            if "y_true" in df.columns and "y_pred" in df.columns:
+                meta["preview"]["prediction_summary"] = _build_prediction_summary(df)
         except Exception:
             pass
     elif ext == ".csv":
