@@ -83,25 +83,6 @@ export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
     { label: "Total Samples", value: totalSamples },
   ];
 
-  // Best split for the primary metric (first metric key)
-  const primaryMetric = metricKeys[0];
-  if (primaryMetric && splitOrder.length > 1) {
-    const hib = HIGHER_IS_BETTER[primaryMetric] ?? true;
-    let bestSplit = splitOrder[0];
-    let bestVal = splits[bestSplit]?.[primaryMetric] ?? 0;
-    for (const s of splitOrder.slice(1)) {
-      const val = splits[s]?.[primaryMetric] ?? 0;
-      if (hib ? val > bestVal : val < bestVal) {
-        bestSplit = s;
-        bestVal = val;
-      }
-    }
-    summaryItems.push({
-      label: `Best ${primaryMetric}`,
-      value: `${fmtMetric(bestVal)} (${bestSplit})`,
-    });
-  }
-
   const trainMetrics = splits["train"];
 
   return (
@@ -312,7 +293,111 @@ export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
         </>
       )}
 
+      {/* Per-label breakdown (classification only) */}
+      {taskType === "classification" && <PerLabelBreakdown splits={splits} splitOrder={splitOrder} />}
+
       <WarningList warnings={warnings} />
     </div>
   );
 }
+
+// ── Per-Label Breakdown ──────────────────────────────────────────
+
+function PerLabelBreakdown({
+  splits,
+  splitOrder,
+}: {
+  splits: Record<string, Record<string, unknown>>;
+  splitOrder: string[];
+}) {
+  // Use the first split that has per_label data
+  const perLabelBySplit = splitOrder
+    .map((s) => ({
+      split: s,
+      perLabel: splits[s]?.per_label as Record<string, Record<string, number>> | undefined,
+    }))
+    .filter((x) => x.perLabel && Object.keys(x.perLabel).length > 0);
+
+  if (perLabelBySplit.length === 0) return null;
+
+  return (
+    <>
+      {perLabelBySplit.map(({ split, perLabel }) => {
+        if (!perLabel) return null;
+        const labels = Object.keys(perLabel);
+        const metrics = ["precision", "recall", "f1", "support"] as const;
+
+        return (
+          <div key={split}>
+            <div style={{ ...SECTION_HEADER, marginTop: 20 }}>
+              Per-Label Metrics ({split})
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: 12,
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th style={perLabelThStyle}>Label</th>
+                    {metrics.map((m) => (
+                      <th key={m} style={{ ...perLabelThStyle, textAlign: "right" }}>
+                        {m}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {labels.map((label) => {
+                    const lm = perLabel[label];
+                    return (
+                      <tr key={label} style={{ borderBottom: "1px solid var(--border-default)" }}>
+                        <td style={{ padding: "6px 10px", fontWeight: 500, fontFamily: "'Inter', sans-serif", fontSize: 11 }}>
+                          {label}
+                        </td>
+                        {metrics.map((m) => (
+                          <td key={m} style={{ textAlign: "right", padding: "6px 10px" }}>
+                            {m === "support" ? (lm[m] ?? 0).toLocaleString() : fmtMetric(lm[m])}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                  {/* Macro avg row */}
+                  <tr style={{ borderTop: "2px solid var(--border-default)" }}>
+                    <td style={{ padding: "6px 10px", fontWeight: 700, fontFamily: "'Inter', sans-serif", fontSize: 11, color: "var(--text-secondary)" }}>
+                      macro avg
+                    </td>
+                    {metrics.map((m) => {
+                      if (m === "support") {
+                        const total = labels.reduce((s, l) => s + (perLabel[l]?.support ?? 0), 0);
+                        return <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 600 }}>{total.toLocaleString()}</td>;
+                      }
+                      const avg = labels.reduce((s, l) => s + (perLabel[l]?.[m] ?? 0), 0) / labels.length;
+                      return <td key={m} style={{ textAlign: "right", padding: "6px 10px", fontWeight: 600 }}>{fmtMetric(avg)}</td>;
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+const perLabelThStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: "6px 10px",
+  fontSize: 10,
+  fontWeight: 600,
+  color: "var(--text-muted)",
+  textTransform: "uppercase",
+  fontFamily: "'Inter', sans-serif",
+  borderBottom: "1px solid var(--border-default)",
+};
