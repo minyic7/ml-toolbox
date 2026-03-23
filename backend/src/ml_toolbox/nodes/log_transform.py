@@ -1,10 +1,10 @@
-"""Log Transform node — apply log1p to reduce right skew in numeric columns."""
+"""Log Transform node — apply log1p / signed-log / Yeo-Johnson to numeric columns."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from ml_toolbox.protocol import PortType, Text, node
+from ml_toolbox.protocol import PortType, Select, Text, node
 
 
 def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
@@ -26,9 +26,14 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "test": PortType.TABLE,
     },
     params={
+        "method": Select(
+            options=["log1p", "signed_log", "yeo_johnson"],
+            default="log1p",
+            description="log1p: log(1+x), safe for x>=0. signed_log: sign(x)*log1p(|x|), handles negatives. yeo_johnson: auto power transform for near-normal output.",
+        ),
         "columns": Text(
             default="",
-            description="Columns to log1p transform (comma-separated, empty = auto from EDA context)",
+            description="Columns to transform (comma-separated, empty = auto from EDA context)",
             placeholder="col1, col2, col3",
         ),
         "target_column": Text(
@@ -38,7 +43,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     },
     label="Log Transform",
     category="Transform",
-    description="Apply log1p(x) = log(1+x) to reduce right skew in numeric columns.",
+    description="Apply log1p, signed-log, or Yeo-Johnson transform to numeric columns.",
     allowed_upstream={
         "train": [
             "random_holdout", "stratified_holdout",
@@ -61,28 +66,33 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     },
     guide="""## Log Transform
 
-Apply **log1p(x) = log(1+x)** to reduce right skew in numeric columns.
-The transformation is applied **in-place** — original column values are replaced.
+Apply a log-family transform to reduce skew in numeric columns. Three methods available:
+
+### Methods
+| Method | Formula | Handles negatives? | Use case |
+|--------|---------|-------------------|----------|
+| `log1p` | log(1+x) | No (NaN for x<0) | Positive-only data (counts, amounts) |
+| `signed_log` | sign(x) * log1p(|x|) | Yes | Data with negatives that carry meaning (e.g. credit card overpayments) |
+| `yeo_johnson` | sklearn PowerTransformer | Yes | Auto-tune for near-normal output |
 
 ### When to use
-- **Skewness > 1** (right-skewed distributions like income, transaction amounts, page views)
-- **Outlier-heavy columns** — compresses extreme values into a tighter range
-- **Before linear models** — they assume normality; log transform helps satisfy that
+- **Skewness > 1** (right-skewed distributions like income, transaction amounts)
+- **Outlier-heavy columns** — compresses extreme values
+- **Before linear models** — they assume normality
 
-### Auto-select (empty columns param)
-When the `columns` parameter is empty, the node reads `.eda-context.json` and
-automatically selects columns where:
-- Skewness > 1 (from distribution profile)
-- Outlier percentage > 5% (from outlier detection)
+### Choosing a method
+- **Only positive values** → `log1p` (simplest, most interpretable)
+- **Has negative values with business meaning** → `signed_log` (preserves sign direction)
+- **Pure modeling optimization** → `yeo_johnson` (auto-selects best power transform)
 
 ### Edge cases
-- **Negative values** → log1p produces NaN for values where 1+x ≤ 0 (warning emitted)
-- **Zero values** → log1p(0) = 0 (safe)
-- **Non-numeric columns** listed explicitly are skipped with a warning
+- **log1p + negative values** → NaN (use signed_log or yeo_johnson instead)
+- **Zero values** → log1p(0) = 0, signed_log(0) = 0 (both safe)
+- **yeo_johnson** fits on train, applies same transform to val/test (no leakage)
 """,
 )
 def log_transform(inputs: dict, params: dict) -> dict:
-    """Apply log1p to selected columns in all splits."""
+    """Apply log1p, signed-log, or Yeo-Johnson to selected columns in all splits."""
     import json
     import warnings
     from pathlib import Path
@@ -94,6 +104,8 @@ def log_transform(inputs: dict, params: dict) -> dict:
         pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
         pl.Float32, pl.Float64,
     )
+
+    method = params.get("method", "log1p")
 
     # ── Read train data ──────────────────────────────────────────
     train_path = inputs["train"]
@@ -127,29 +139,55 @@ def log_transform(inputs: dict, params: dict) -> dict:
                 continue
             columns.append(col)
     else:
-        # No columns specified — auto-configure should have set this param
-        # based on EDA context. Fall back to all numeric columns.
         columns = available_numeric
 
     if not columns:
         raise ValueError("No columns to transform — provide columns or ensure numeric columns exist.")
 
-    # ── Apply log1p to a DataFrame ───────────────────────────────
-    def _apply(df: pl.DataFrame) -> pl.DataFrame:
-        for col in columns:
-            if col not in df.columns:
-                continue
-            series = df[col].cast(pl.Float64)
-            neg_count = (series < 0).sum()
-            if neg_count > 0:
-                warnings.warn(
-                    f"log1p: column '{col}' has {neg_count} negative value(s) — "
-                    f"these will become NaN",
-                    stacklevel=4,
+    # ── Yeo-Johnson: fit on train, apply to all splits ───────────
+    if method == "yeo_johnson":
+        from sklearn.preprocessing import PowerTransformer
+
+        pt = PowerTransformer(method="yeo-johnson", standardize=False)
+
+        train_vals = train_df.select(columns).to_pandas()
+        pt.fit(train_vals)
+
+        def _apply_yj(df: pl.DataFrame) -> pl.DataFrame:
+            vals = df.select(columns).to_pandas()
+            transformed = pt.transform(vals)
+            for i, col in enumerate(columns):
+                df = df.with_columns(
+                    pl.Series(name=col, values=transformed[:, i])
                 )
-            transformed = (series + 1.0).log()
-            df = df.with_columns(transformed.alias(col))
-        return df
+            return df
+
+        apply_fn = _apply_yj
+    else:
+        # ── log1p / signed_log ───────────────────────────────────
+        def _apply_log(df: pl.DataFrame) -> pl.DataFrame:
+            for col in columns:
+                if col not in df.columns:
+                    continue
+                series = df[col].cast(pl.Float64)
+                if method == "signed_log":
+                    # sign(x) * log1p(|x|)
+                    sign = series.sign()
+                    transformed = sign * (series.abs() + 1.0).log()
+                else:
+                    # log1p
+                    neg_count = (series < 0).sum()
+                    if neg_count > 0:
+                        warnings.warn(
+                            f"log1p: column '{col}' has {neg_count} negative value(s) — "
+                            f"these will become NaN. Consider using signed_log or yeo_johnson method.",
+                            stacklevel=4,
+                        )
+                    transformed = (series + 1.0).log()
+                df = df.with_columns(transformed.alias(col))
+            return df
+
+        apply_fn = _apply_log
 
     # ── Write split helper ───────────────────────────────────────
     def _write_split(df: pl.DataFrame, split_name: str) -> str:
@@ -159,18 +197,18 @@ def log_transform(inputs: dict, params: dict) -> dict:
 
     # ── Process all splits ───────────────────────────────────────
     result: dict[str, str] = {}
-    result["train"] = _write_split(_apply(train_df), "train")
+    result["train"] = _write_split(apply_fn(train_df), "train")
 
     if inputs.get("val"):
-        result["val"] = _write_split(_apply(pl.read_parquet(inputs["val"])), "val")
+        result["val"] = _write_split(apply_fn(pl.read_parquet(inputs["val"])), "val")
 
     if inputs.get("test"):
-        result["test"] = _write_split(_apply(pl.read_parquet(inputs["test"])), "test")
+        result["test"] = _write_split(apply_fn(pl.read_parquet(inputs["test"])), "test")
 
     # ── Write transform summary sidecar ──────────────────────────
     auto_selected = not columns_param
     summary = {
-        "method": "log1p",
+        "method": method,
         "transformed_columns": columns,
         "skipped_columns": [c for c in available_numeric if c not in columns],
         "target_column": target_col,
