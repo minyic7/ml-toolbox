@@ -27,9 +27,9 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     },
     params={
         "method": Select(
-            options=["log1p", "signed_log", "yeo_johnson"],
-            default="log1p",
-            description="log1p: log(1+x), safe for x>=0. signed_log: sign(x)*log1p(|x|), handles negatives. yeo_johnson: auto power transform for near-normal output.",
+            options=["signed_log", "log1p", "yeo_johnson"],
+            default="signed_log",
+            description="signed_log (default): sign(x)*log1p(|x|), safe for all values. log1p: log(1+x), positive-only. yeo_johnson: auto power transform for near-normal output.",
         ),
         "columns": Text(
             default="",
@@ -66,28 +66,35 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     },
     guide="""## Log Transform
 
-Apply a log-family transform to reduce skew in numeric columns. Three methods available:
+Apply a log-family transform to reduce skew in numeric columns.
+
+### Why signed_log is the default
+
+`signed_log` is a strict superset of `log1p`:
+- For x > 0: `signed_log(x) = sign(x) * log1p(|x|) = log1p(x)` — identical result
+- For x = 0: both return 0
+- For x < 0: `signed_log` returns `-log1p(|x|)`, while `log1p` produces NaN
+
+Since signed_log gives the same output as log1p on non-negative data but never fails on negatives, it is the safe default. You never need to check your data for negative values first.
 
 ### Methods
 | Method | Formula | Handles negatives? | Use case |
 |--------|---------|-------------------|----------|
-| `log1p` | log(1+x) | No (NaN for x<0) | Positive-only data (counts, amounts) |
-| `signed_log` | sign(x) * log1p(|x|) | Yes | Data with negatives that carry meaning (e.g. credit card overpayments) |
-| `yeo_johnson` | sklearn PowerTransformer | Yes | Auto-tune for near-normal output |
+| `signed_log` (default) | sign(x) * log1p(|x|) | Yes | Safe for all data, preserves sign direction |
+| `log1p` | log(1+x) | No (NaN for x<0) | When you explicitly want positive-only semantics |
+| `yeo_johnson` | sklearn PowerTransformer | Yes | Auto-tune for near-normal output (less interpretable) |
 
 ### When to use
 - **Skewness > 1** (right-skewed distributions like income, transaction amounts)
 - **Outlier-heavy columns** — compresses extreme values
 - **Before linear models** — they assume normality
 
-### Choosing a method
-- **Only positive values** → `log1p` (simplest, most interpretable)
-- **Has negative values with business meaning** → `signed_log` (preserves sign direction)
-- **Pure modeling optimization** → `yeo_johnson` (auto-selects best power transform)
+### When to switch methods
+- **`log1p`** — only if you want NaN to surface as a data quality signal (negative values shouldn't exist)
+- **`yeo_johnson`** — pure modeling optimization; auto-selects best power transform but changes scale, less interpretable
 
 ### Edge cases
-- **log1p + negative values** → NaN (use signed_log or yeo_johnson instead)
-- **Zero values** → log1p(0) = 0, signed_log(0) = 0 (both safe)
+- **Zero values** → signed_log(0) = 0, log1p(0) = 0 (both safe)
 - **yeo_johnson** fits on train, applies same transform to val/test (no leakage)
 """,
 )
