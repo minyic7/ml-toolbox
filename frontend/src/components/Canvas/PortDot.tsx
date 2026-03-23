@@ -24,11 +24,12 @@ export default function PortDot({ port, side }: PortDotProps) {
 
   const className = isMismatch ? "port-dot-mismatch" : "";
 
-  // Enlarge on hover without position shift:
-  // increase width/height and use negative margin to compensate
+  // Enlarge on hover: grow outward from node edge
   const enlarged = hovered || isMatch;
   const size = enlarged ? DOT_HOVER_SIZE : DOT_SIZE;
-  const offset = enlarged ? -(DOT_HOVER_SIZE - DOT_SIZE) / 2 : 0;
+  const grow = (DOT_HOVER_SIZE - DOT_SIZE) / 2;
+  // Shift outward: left port → shift left, right port → shift right
+  const translateX = enlarged ? (isInput ? -grow : grow) : 0;
 
   return (
     <Handle
@@ -42,18 +43,17 @@ export default function PortDot({ port, side }: PortDotProps) {
       style={{
         width: size,
         height: size,
-        marginTop: offset,
-        marginBottom: offset,
         borderRadius: "50%",
         backgroundColor: color,
         border: "2px solid var(--node-bg)",
+        transform: `translate(${translateX}px, 0)`,
         boxShadow: isMatch
           ? `0 0 0 2px ${color}, 0 0 8px 3px ${color}`
           : hovered
             ? `0 0 0 2px ${color}`
             : `0 0 0 1px ${color}`,
         opacity: isMismatch ? 0.4 : 1,
-        transition: "width 0.12s ease, height 0.12s ease, margin 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease",
+        transition: "width 0.12s ease, height 0.12s ease, transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease",
       }}
     />
   );
