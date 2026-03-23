@@ -490,6 +490,7 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
     import pandas as pd
     from sklearn.metrics import (
         accuracy_score,
+        classification_report,
         f1_score,
         precision_score,
         recall_score,
@@ -519,6 +520,21 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
             except (ValueError, TypeError):
                 pass
         m["support"] = int(len(y_true))
+
+        # Per-label breakdown (precision, recall, f1, support per class)
+        cr = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+        per_label: dict[str, dict] = {}
+        for label, metrics in cr.items():
+            if label in ("accuracy", "macro avg", "weighted avg"):
+                continue
+            per_label[str(label)] = {
+                "precision": round(float(metrics["precision"]), 6),
+                "recall": round(float(metrics["recall"]), 6),
+                "f1": round(float(metrics["f1-score"]), 6),
+                "support": int(metrics["support"]),
+            }
+        m["per_label"] = per_label
+
         return m
 
     # ── Read each split ──────────────────────────────────────────
