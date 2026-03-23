@@ -318,21 +318,24 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
-                padding: "6px 8px 6px 14px",
+                padding: "6px 6px 6px 2px",
               }}
             >
               {inputs.map((inp) => (
                 <div
                   key={inp.name}
                   style={{
-                    display: "flex",
+                    display: "grid",
+                    gridTemplateColumns: "20px 1fr auto",
                     alignItems: "center",
-                    gap: 4,
-                    minHeight: 20,
+                    gap: 2,
+                    minHeight: 22,
                     position: "relative",
                   }}
                 >
-                  <PortDot port={inp} side="input" />
+                  <div style={{ position: "relative", width: 20, height: 20 }}>
+                    <PortDot port={inp} side="input" />
+                  </div>
                   <span
                     title={inp.name}
                     style={{
@@ -370,18 +373,18 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
-                padding: "6px 14px 6px 8px",
+                padding: "6px 2px 6px 6px",
               }}
             >
               {outputs.map((out) => (
                 <div
                   key={out.name}
                   style={{
-                    display: "flex",
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr 20px",
                     alignItems: "center",
-                    justifyContent: "flex-end",
-                    gap: 4,
-                    minHeight: 20,
+                    gap: 2,
+                    minHeight: 22,
                     position: "relative",
                   }}
                 >
@@ -395,12 +398,15 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      textAlign: "right",
                       minWidth: 0,
                     }}
                   >
                     {out.name}
                   </span>
-                  <PortDot port={out} side="output" />
+                  <div style={{ position: "relative", width: 20, height: 20 }}>
+                    <PortDot port={out} side="output" />
+                  </div>
                 </div>
               ))}
             </div>
