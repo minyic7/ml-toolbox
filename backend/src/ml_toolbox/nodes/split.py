@@ -36,7 +36,7 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     category="Split",
     description="Split a DataFrame into train, validation, and test sets using random hold-out.",
     allowed_upstream={
-        "df": ["csv_reader", "parquet_reader"],
+        "df": ["csv_reader", "parquet_reader", "excel_reader"],
     },
     guide="""## Random Hold-out Split
 
@@ -154,7 +154,7 @@ def random_holdout(inputs: dict, params: dict) -> dict:
     category="Split",
     description="Split a DataFrame into train/val/test sets preserving class distribution of the target column.",
     allowed_upstream={
-        "df": ["csv_reader", "parquet_reader"],
+        "df": ["csv_reader", "parquet_reader", "excel_reader"],
     },
     guide="""## Stratified Hold-out Split
 

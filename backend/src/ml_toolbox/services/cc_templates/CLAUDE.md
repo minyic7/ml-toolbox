@@ -71,14 +71,17 @@ A `.meta.json` file describes column-level metadata for a parquet output. It liv
 Each input port independently declares which upstream node types (by function name) can connect to it.
 The API enforces this per-port — invalid connections return 400.
 
-| Node | Port | Allowed Upstream (node functions) |
-|------|------|----------------------------------|
-| csv_reader, parquet_reader | — | (root nodes, no inputs) |
-| random_holdout | df | csv_reader, parquet_reader |
-| correlation_matrix | df | csv_reader, parquet_reader, random_holdout |
-| distribution_profile | df | csv_reader, parquet_reader, random_holdout |
-| missing_analysis | df | csv_reader, parquet_reader, random_holdout |
-| outlier_detection | df | csv_reader, parquet_reader, random_holdout |
+| Category | Port | Allowed Upstream |
+|----------|------|-----------------|
+| Ingest (csv_reader, parquet_reader, excel_reader) | — | (root nodes, no inputs) |
+| Split (random_holdout, stratified_holdout) | df | All Ingest nodes |
+| EDA (correlation_matrix, distribution_profile, missing_analysis, outlier_detection) | df | All Ingest + Split nodes |
+| Transform (column_dropper, missing_value_imputer, category_encoder, scaler_transform, log_transform, feature_selector, interaction_creator, datetime_encoder) | train/val/test | All Split + Transform nodes |
+| Training (decision_tree, random_forest, linear_regression, logistic_regression, gradient_boosting_train) | train/val/test | All Split + Transform nodes |
+| Evaluation (classification_metrics, regression_metrics, confusion_matrix, roc_pr_curves) | predictions | All Training nodes |
+| Evaluation (feature_importance) | model | All Training nodes |
+| Evaluation (model_comparison) | model_a/b/c/d | All Training nodes |
+| Evaluation (model_comparison) | test | All Split + Transform nodes |
 
 When creating a DAG, always check allowed_upstream per target port before adding edges.
 

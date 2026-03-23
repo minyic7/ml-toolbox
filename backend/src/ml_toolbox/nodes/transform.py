@@ -46,9 +46,24 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
     label="Column Dropper",
     description="Drop selected columns from train/val/test splits. Target column is protected.",
     allowed_upstream={
-        "train": ["random_holdout", "stratified_holdout"],
-        "val": ["random_holdout", "stratified_holdout"],
-        "test": ["random_holdout", "stratified_holdout"],
+        "train": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
+        "val": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
+        "test": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
     },
     guide="""## Column Dropper
 
@@ -189,9 +204,24 @@ def column_dropper(inputs: dict, params: dict) -> dict:
     category="Transform",
     description="Fill missing values using statistics fitted on the train split only.",
     allowed_upstream={
-        "train": ["random_holdout", "stratified_holdout", "column_dropper", "missing_value_imputer"],
-        "val": ["random_holdout", "stratified_holdout", "column_dropper", "missing_value_imputer"],
-        "test": ["random_holdout", "stratified_holdout", "column_dropper", "missing_value_imputer"],
+        "train": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
+        "val": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
+        "test": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
     },
     guide="""## Missing Value Imputer
 
@@ -377,15 +407,24 @@ def missing_value_imputer(inputs: dict, params: dict) -> dict:
     category="Transform",
     description="Encode categorical columns using label, ordinal, or one-hot encoding.",
     allowed_upstream={
-        "train": ["random_holdout", "stratified_holdout", "clean_data", "feature_engineering",
-                  "category_encoder", "column_dropper", "compute_stats",
-                  "missing_value_imputer", "scaler"],
-        "val": ["random_holdout", "stratified_holdout", "clean_data", "feature_engineering",
-                "category_encoder", "column_dropper", "compute_stats",
-                "missing_value_imputer", "scaler"],
-        "test": ["random_holdout", "stratified_holdout", "clean_data", "feature_engineering",
-                 "category_encoder", "column_dropper", "compute_stats",
-                 "missing_value_imputer", "scaler"],
+        "train": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
+        "val": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
+        "test": [
+            "random_holdout", "stratified_holdout",
+            "column_dropper", "missing_value_imputer", "category_encoder",
+            "scaler_transform", "log_transform", "feature_selector",
+            "interaction_creator", "datetime_encoder",
+        ],
     },
     guide="""## Category Encoder
 

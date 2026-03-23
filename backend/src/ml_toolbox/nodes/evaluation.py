@@ -33,8 +33,8 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
     description="Compute ROC and Precision-Recall curves with AUC scores from predicted probabilities.",
     allowed_upstream={
         "predictions": [
-            "train_sklearn_model",
-            "train_xgboost",
+            "decision_tree", "random_forest",
+            "linear_regression", "logistic_regression", "gradient_boosting_train",
         ],
     },
     guide=(
@@ -303,7 +303,10 @@ def roc_pr_curves(inputs: dict, params: dict) -> dict:
     category="Evaluation",
     description="Extract and rank feature importances from a trained model.",
     allowed_upstream={
-        "model": ["train_sklearn_model", "train_xgboost"],
+        "model": [
+            "decision_tree", "random_forest",
+            "linear_regression", "logistic_regression", "gradient_boosting_train",
+        ],
     },
     guide=(
         "## Feature Importance\n\n"
@@ -454,7 +457,10 @@ def feature_importance(inputs: dict, params: dict) -> dict:
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
     },
     allowed_upstream={
-        "predictions": ["train_sklearn_model", "train_xgboost"],
+        "predictions": [
+            "decision_tree", "random_forest",
+            "linear_regression", "logistic_regression", "gradient_boosting_train",
+        ],
     },
     label="Classification Metrics",
     category="Evaluation",
@@ -611,7 +617,10 @@ def classification_metrics(inputs: dict, params: dict) -> dict:
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
     },
     allowed_upstream={
-        "predictions": ["train_sklearn_model", "train_xgboost"],
+        "predictions": [
+            "decision_tree", "random_forest",
+            "linear_regression", "logistic_regression", "gradient_boosting_train",
+        ],
     },
     label="Regression Metrics",
     category="Evaluation",
@@ -760,7 +769,12 @@ def regression_metrics(inputs: dict, params: dict) -> dict:
     label="Confusion Matrix",
     category="Evaluation",
     description="Compute confusion matrix with per-class precision, recall, and F1 for classification tasks.",
-    allowed_upstream={"predictions": ["train_sklearn_model", "train_xgboost"]},
+    allowed_upstream={
+        "predictions": [
+            "decision_tree", "random_forest",
+            "linear_regression", "logistic_regression", "gradient_boosting_train",
+        ],
+    },
     guide="""## Confusion Matrix
 
 Visualise how a classifier's predictions compare against ground truth, broken down by class.
@@ -862,10 +876,14 @@ def confusion_matrix(inputs: dict, params: dict) -> dict:
 
 # ── Model Comparison ──────────────────────────────────────────
 
-_ALLOWED_MODEL_UPSTREAM = ["train_sklearn_model", "train_xgboost"]
+_ALLOWED_MODEL_UPSTREAM = [
+    "decision_tree", "random_forest",
+    "linear_regression", "logistic_regression", "gradient_boosting_train",
+]
 _ALLOWED_TEST_UPSTREAM = [
-    "random_holdout", "column_dropper", "missing_value_imputer",
-    "category_encoder", "scaler_transform", "log_transform",
+    "random_holdout", "stratified_holdout",
+    "column_dropper", "missing_value_imputer", "category_encoder",
+    "scaler_transform", "log_transform", "feature_selector",
     "interaction_creator", "datetime_encoder",
 ]
 
