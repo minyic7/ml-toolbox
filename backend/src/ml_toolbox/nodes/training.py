@@ -25,9 +25,11 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
 @node(
     inputs={"train": PortType.TABLE, "val": PortType.TABLE, "test": PortType.TABLE},
     outputs={
-        "predictions": PortType.TABLE,
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
         "model": PortType.MODEL,
-        "metrics": PortType.METRICS,
+        "report": PortType.METRICS,
     },
     params={
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
@@ -99,23 +101,24 @@ auto-detected from the target column data.
 The node detects the task type from the target column data:
 - **integer with ≤ 20 unique values** → classification
 - **float** → regression
+
+### Outputs
+| Port | Type | Description |
+|------|------|-------------|
+| train_predictions | TABLE | y_true, y_pred (+ y_prob per class for classification) on train split |
+| val_predictions | TABLE | Same format on validation split (if connected) |
+| test_predictions | TABLE | Same format on test split (if connected) |
+| model | MODEL | Trained sklearn model (joblib-serialized) |
+| report | METRICS | Training metadata: task type, features, sample counts, feature importances |
 """,
 )
 def decision_tree(inputs: dict, params: dict) -> dict:
     """Train a Decision Tree — auto-detect classification vs regression."""
     import json
+    import warnings
     from pathlib import Path
 
     import polars as pl
-    from sklearn.metrics import (
-        accuracy_score,
-        f1_score,
-        mean_absolute_error,
-        mean_squared_error,
-        precision_score,
-        r2_score,
-        recall_score,
-    )
     from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
     # ── Read training data ────────────────────────────────────────
@@ -129,8 +132,6 @@ def decision_tree(inputs: dict, params: dict) -> dict:
         )
 
     # ── Detect task type ──────────────────────────────────────────
-    import warnings
-
     dtype = train_df[target_col].dtype
     if dtype in (pl.Float32, pl.Float64):
         task_type = "regression"
@@ -139,16 +140,18 @@ def decision_tree(inputs: dict, params: dict) -> dict:
     else:
         task_type = "regression"
 
+    is_classification = task_type == "classification"
+
     # ── Resolve criterion ─────────────────────────────────────────
     criterion = params.get("criterion", "gini")
-    if task_type == "classification" and criterion not in ("gini", "entropy"):
+    if is_classification and criterion not in ("gini", "entropy"):
         warnings.warn(
             f"Criterion '{criterion}' is not valid for classification — "
             f"falling back to 'gini'",
             stacklevel=1,
         )
         criterion = "gini"
-    elif task_type == "regression" and criterion not in ("squared_error", "absolute_error"):
+    elif not is_classification and criterion not in ("squared_error", "absolute_error"):
         warnings.warn(
             f"Criterion '{criterion}' is not valid for regression — "
             f"falling back to 'squared_error'",
@@ -165,7 +168,7 @@ def decision_tree(inputs: dict, params: dict) -> dict:
     y_train = train_df[target_col].to_pandas()
 
     # ── Build and fit model ───────────────────────────────────────
-    if task_type == "classification":
+    if is_classification:
         model = DecisionTreeClassifier(
             max_depth=max_depth,
             min_samples_split=min_samples_split,
@@ -182,65 +185,75 @@ def decision_tree(inputs: dict, params: dict) -> dict:
 
     model.fit(X_train, y_train)
 
-    # ── Generate predictions and metrics for each split ───────────
-    all_predictions: list[pl.DataFrame] = []
-    metrics: dict = {"task_type": task_type}
-
-    for split_name in ("train", "val", "test"):
-        input_path = inputs.get(split_name)
-        if not input_path:
-            continue
-
-        split_path = Path(input_path)
-        if not split_path.exists():
-            continue
-
-        df = train_df if split_name == "train" else pl.read_parquet(split_path)
-        if df.height == 0:
-            continue
-
+    # ── Helper: build prediction DataFrame ─────────────────────────
+    def _build_predictions(df: pl.DataFrame) -> pl.DataFrame:
         X = df.select(feature_cols).to_pandas()
-        y_true = df[target_col].to_pandas()
+        y_true = df[target_col]
         y_pred = model.predict(X)
+        cols: dict = {"y_true": y_true, "y_pred": y_pred}
+        if is_classification and hasattr(model, "predict_proba"):
+            y_prob = model.predict_proba(X)
+            for i, cls in enumerate(model.classes_):
+                cols[f"y_prob_{cls}"] = y_prob[:, i]
+        return pl.DataFrame(cols)
 
-        # Build predictions frame
-        pred_df = df.with_columns(
-            pl.Series("prediction", y_pred),
-            pl.Series("split", [split_name] * df.height),
-        )
-        all_predictions.append(pred_df)
+    # ── Write predictions per split ────────────────────────────────
+    result: dict = {}
+    sample_counts: dict = {"train": train_df.height}
 
-        # Compute metrics
-        if task_type == "classification":
-            avg = "weighted" if y_true.nunique() > 2 else "binary"
-            metrics[split_name] = {
-                "accuracy": round(float(accuracy_score(y_true, y_pred)), 4),
-                "precision": round(float(precision_score(y_true, y_pred, average=avg, zero_division=0.0)), 4),  # type: ignore[arg-type]
-                "recall": round(float(recall_score(y_true, y_pred, average=avg, zero_division=0.0)), 4),  # type: ignore[arg-type]
-                "f1": round(float(f1_score(y_true, y_pred, average=avg, zero_division=0.0)), 4),  # type: ignore[arg-type]
-            }
-        else:
-            metrics[split_name] = {
-                "mse": round(float(mean_squared_error(y_true, y_pred)), 4),
-                "mae": round(float(mean_absolute_error(y_true, y_pred)), 4),
-                "r2": round(float(r2_score(y_true, y_pred)), 4),
-            }
+    train_preds = _build_predictions(train_df)
+    p = _get_output_path("train_predictions", ".parquet")
+    train_preds.write_parquet(p)
+    result["train_predictions"] = str(p)
 
-    # ── Write predictions ─────────────────────────────────────────
-    predictions_df = pl.concat(all_predictions) if all_predictions else pl.DataFrame()
-    predictions_path = _get_output_path("predictions", ".parquet")
-    predictions_df.write_parquet(predictions_path)
+    for split_name in ("val", "test"):
+        if inputs.get(split_name) and Path(inputs[split_name]).exists():
+            split_df = pl.read_parquet(inputs[split_name])
+            if split_df.height > 0:
+                preds = _build_predictions(split_df)
+                p = _get_output_path(f"{split_name}_predictions", ".parquet")
+                preds.write_parquet(p)
+                result[f"{split_name}_predictions"] = str(p)
+                sample_counts[split_name] = split_df.height
 
-    # ── Write metrics ─────────────────────────────────────────────
-    metrics_path = _get_output_path("metrics", ".json")
-    metrics_path.write_text(json.dumps(metrics, indent=2))
-
-    # ── Return model as raw object (auto-serialized by runner) ────
-    return {
-        "predictions": str(predictions_path),
-        "model": model,
-        "metrics": str(metrics_path),
+    # ── Training report ───────────────────────────────────────────
+    report: dict = {
+        "report_type": "training_report",
+        "model_type": "decision_tree",
+        "task_type": task_type,
+        "target_column": target_col,
+        "feature_columns": feature_cols,
+        "sample_counts": sample_counts,
+        "params": {
+            "max_depth": max_depth,
+            "min_samples_split": min_samples_split,
+            "criterion": criterion,
+        },
     }
+
+    if is_classification:
+        classes = model.classes_.tolist()
+        report["classes"] = classes
+        target_series = train_df[target_col]
+        report["target_distribution"] = {
+            str(cls): int((target_series == cls).sum())
+            for cls in classes
+        }
+
+    importances = model.feature_importances_
+    report["feature_importances"] = sorted(
+        [{"feature": f, "importance": round(float(imp), 6)}
+         for f, imp in zip(feature_cols, importances)],
+        key=lambda x: x["importance"],
+        reverse=True,
+    )
+
+    report_path = _get_output_path("report", ".json")
+    report_path.write_text(json.dumps(report, indent=2))
+    result["report"] = str(report_path)
+
+    result["model"] = model
+    return result
 
 
 # ── Random Forest ────────────────────────────────────────────────────
@@ -253,9 +266,11 @@ def decision_tree(inputs: dict, params: dict) -> dict:
         "test": PortType.TABLE,
     },
     outputs={
-        "predictions": PortType.TABLE,
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
         "model": PortType.MODEL,
-        "metrics": PortType.METRICS,
+        "report": PortType.METRICS,
     },
     params={
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
@@ -333,18 +348,14 @@ The node detects the task type from the target column data:
 - **integer with ≤ 20 unique values** → `RandomForestClassifier`
 - **float / many unique values** → `RandomForestRegressor`
 
-### Feature Importance
-The output `metrics.json` includes `feature_importances` — a ranked list of features by importance (Gini importance). The **Feature Importance** evaluation node can read and visualize this.
-
-### Inputs / Outputs
-| Port | Type | Required | Description |
-|------|------|----------|-------------|
-| train | TABLE | Yes | Training data with features + target |
-| val | TABLE | No | Validation split — predictions + metrics computed if connected |
-| test | TABLE | No | Test split — predictions + metrics computed if connected |
-| predictions | TABLE | Out | Predictions for all connected splits (stacked) |
-| model | MODEL | Out | Trained sklearn model (joblib-serialized) |
-| metrics | METRICS | Out | Accuracy/RMSE per split + feature importances |
+### Outputs
+| Port | Type | Description |
+|------|------|-------------|
+| train_predictions | TABLE | y_true, y_pred (+ y_prob per class for classification) on train split |
+| val_predictions | TABLE | Same format on validation split (if connected) |
+| test_predictions | TABLE | Same format on test split (if connected) |
+| model | MODEL | Trained sklearn model (joblib-serialized) |
+| report | METRICS | Training metadata: task type, features, sample counts, feature importances |
 """,
 )
 def random_forest(inputs: dict, params: dict) -> dict:
@@ -354,13 +365,6 @@ def random_forest(inputs: dict, params: dict) -> dict:
 
     import pandas as pd
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-    from sklearn.metrics import (
-        accuracy_score,
-        f1_score,
-        mean_absolute_error,
-        mean_squared_error,
-        r2_score,
-    )
 
     n_estimators = int(params.get("n_estimators", 100))
     max_depth = int(params.get("max_depth", 10))
@@ -371,9 +375,7 @@ def random_forest(inputs: dict, params: dict) -> dict:
     # ── Read train data ──────────────────────────────────────────
     train_df = pd.read_parquet(inputs["train"])
 
-    # ── Read target column from params ───────────────────────────
     target_col = params.get("target_column", "")
-
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
             f"Target column '{target_col}' not found. "
@@ -390,6 +392,7 @@ def random_forest(inputs: dict, params: dict) -> dict:
         and (train_df[target_col].dropna() % 1 == 0).all()
         and n_unique <= 20
     )
+    task_type = "classification" if is_classification else "regression"
 
     # ── Prepare features and target ──────────────────────────────
     feature_cols = [c for c in train_df.columns if c != target_col]
@@ -416,92 +419,75 @@ def random_forest(inputs: dict, params: dict) -> dict:
 
     model.fit(X_train, y_train)
 
-    # ── Compute metrics per split ────────────────────────────────
-    def _evaluate(df: pd.DataFrame, split_name: str) -> tuple[dict, pd.DataFrame]:
+    # ── Helper: build prediction DataFrame ─────────────────────────
+    def _build_predictions(df: pd.DataFrame) -> pd.DataFrame:
         X = df[feature_cols]
-        y_true = df[target_col]
         y_pred = model.predict(X)
+        pred_data: dict = {"y_true": df[target_col].values, "y_pred": y_pred}
+        if is_classification and hasattr(model, "predict_proba"):
+            y_prob = model.predict_proba(X)
+            for i, cls in enumerate(model.classes_):
+                pred_data[f"y_prob_{cls}"] = y_prob[:, i]
+        return pd.DataFrame(pred_data)
 
-        pred_df = df.copy()
-        pred_df["prediction"] = y_pred
-        pred_df["split"] = split_name
+    # ── Write predictions per split ────────────────────────────────
+    result: dict = {}
+    sample_counts: dict = {"train": len(train_df)}
 
-        if is_classification:
-            return {
-                "accuracy": float(accuracy_score(y_true, y_pred)),
-                "f1_weighted": float(f1_score(y_true, y_pred, average="weighted", zero_division="warn")),
-            }, pred_df
-        else:
-            return {
-                "rmse": float(mean_squared_error(y_true, y_pred) ** 0.5),
-                "mae": float(mean_absolute_error(y_true, y_pred)),
-                "r2": float(r2_score(y_true, y_pred)),
-            }, pred_df
+    train_preds = _build_predictions(train_df)
+    p = _get_output_path("train_predictions", ".parquet")
+    train_preds.to_parquet(p, index=False)
+    result["train_predictions"] = str(p)
 
-    all_predictions: list[pd.DataFrame] = []
-    split_metrics: dict[str, dict] = {}
-
-    # Train metrics
-    train_metrics, train_preds = _evaluate(train_df, "train")
-    split_metrics["train_metrics"] = train_metrics
-    all_predictions.append(train_preds)
-
-    # Val metrics (optional)
-    if inputs.get("val"):
-        val_path = Path(inputs["val"])
-        if val_path.exists():
-            val_df = pd.read_parquet(val_path)
-            val_metrics, val_preds = _evaluate(val_df, "val")
-            split_metrics["val_metrics"] = val_metrics
-            all_predictions.append(val_preds)
-
-    # Test metrics (optional)
-    if inputs.get("test"):
-        test_path = Path(inputs["test"])
-        if test_path.exists():
-            test_df = pd.read_parquet(test_path)
-            test_metrics, test_preds = _evaluate(test_df, "test")
-            split_metrics["test_metrics"] = test_metrics
-            all_predictions.append(test_preds)
+    for split_name in ("val", "test"):
+        if inputs.get(split_name):
+            split_path = Path(inputs[split_name])
+            if split_path.exists():
+                split_df = pd.read_parquet(split_path)
+                if len(split_df) > 0:
+                    preds = _build_predictions(split_df)
+                    p = _get_output_path(f"{split_name}_predictions", ".parquet")
+                    preds.to_parquet(p, index=False)
+                    result[f"{split_name}_predictions"] = str(p)
+                    sample_counts[split_name] = len(split_df)
 
     # ── Feature importances ──────────────────────────────────────
     importances = model.feature_importances_
     feature_importances = sorted(
-        [{"feature": f, "importance": float(imp)} for f, imp in zip(feature_cols, importances)],
+        [{"feature": f, "importance": round(float(imp), 6)}
+         for f, imp in zip(feature_cols, importances)],
         key=lambda x: x["importance"],
         reverse=True,
     )
 
-    # ── Build summary ────────────────────────────────────────────
-    # Use val metrics for summary if available, else train
-    summary_source = split_metrics.get("val_metrics", split_metrics["train_metrics"])
-
-    metrics_output = {
-        "report_type": "random_forest",
-        "task": "classification" if is_classification else "regression",
-        "summary": summary_source,
-        **split_metrics,
-        "feature_importances": feature_importances,
+    # ── Training report ──────────────────────────────────────────
+    report: dict = {
+        "report_type": "training_report",
+        "model_type": "random_forest",
+        "task_type": task_type,
+        "target_column": target_col,
+        "feature_columns": feature_cols,
+        "sample_counts": sample_counts,
         "params": {
             "n_estimators": n_estimators,
             "max_depth": max_depth,
             "min_samples_split": min_samples_split,
             "n_jobs": n_jobs,
         },
+        "feature_importances": feature_importances,
     }
 
-    # ── Write outputs ────────────────────────────────────────────
-    # Predictions
-    predictions_df = pd.concat(all_predictions, ignore_index=True)
-    pred_path = _get_output_path("predictions", ".parquet")
-    predictions_df.to_parquet(pred_path, index=False)
+    if is_classification:
+        classes = model.classes_.tolist()
+        report["classes"] = classes
+        report["target_distribution"] = {
+            str(cls): int((train_df[target_col] == cls).sum())
+            for cls in classes
+        }
 
-    # Metrics
-    metrics_path = _get_output_path("metrics", ".json")
-    metrics_path.write_text(json.dumps(metrics_output, indent=2))
+    report_path = _get_output_path("report", ".json")
+    report_path.write_text(json.dumps(report, indent=2))
+    result["report"] = str(report_path)
 
-    return {
-        "predictions": str(pred_path),
-        "model": model,
-        "metrics": str(metrics_path),
-    }
+    result["model"] = model
+    return result

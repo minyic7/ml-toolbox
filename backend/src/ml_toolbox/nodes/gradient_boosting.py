@@ -26,9 +26,11 @@ def _get_output_path(name: str = "output", ext: str = ".parquet") -> Path:
         "test": PortType.TABLE,
     },
     outputs={
-        "predictions": PortType.TABLE,
+        "train_predictions": PortType.TABLE,
+        "val_predictions": PortType.TABLE,
+        "test_predictions": PortType.TABLE,
         "model": PortType.MODEL,
-        "metrics": PortType.METRICS,
+        "report": PortType.METRICS,
     },
     params={
         "target_column": Text(default="", description="Target column (auto-detected from schema)"),
@@ -125,6 +127,15 @@ Early stopping monitors performance on the **validation set** and halts training
 The node automatically detects whether to run **classification** or **regression** based on the target column:
 - Integer target with ≤ 20 unique values → classification
 - Otherwise → regression
+
+### Outputs
+| Port | Type | Description |
+|------|------|-------------|
+| train_predictions | TABLE | y_true, y_pred (+ y_prob per class for classification) on train split |
+| val_predictions | TABLE | Same format on validation split (if connected) |
+| test_predictions | TABLE | Same format on test split (if connected) |
+| model | MODEL | Trained model (joblib-serialized) |
+| report | METRICS | Training metadata: task type, features, sample counts, feature importances, early stopping info |
 """,
 )
 def gradient_boosting_train(inputs: dict, params: dict) -> dict:
@@ -212,69 +223,10 @@ def gradient_boosting_train(inputs: dict, params: dict) -> dict:
         except ImportError:
             return {}
 
-    def compute_metrics(
-        model: Any,
-        X_tr: np.ndarray,
-        y_tr: np.ndarray,
-        xv: np.ndarray | None,
-        yv: np.ndarray | None,
-        feat_cols: list[str],
-        is_cls: bool,
-        task: str,
-    ) -> dict:
-        """Compute training/validation metrics and feature importances."""
-        m: dict = {"task_type": task}
-        m["train_score"] = float(model.score(X_tr, y_tr))
-
-        if xv is not None and yv is not None:
-            m["val_score"] = float(model.score(xv, yv))
-
-        if is_cls:
-            from sklearn.metrics import accuracy_score, f1_score
-
-            tr_preds = model.predict(X_tr)
-            m["train_accuracy"] = float(accuracy_score(y_tr, tr_preds))
-            n_classes = len(np.unique(y_tr))
-            average = "binary" if n_classes == 2 else "weighted"
-            m["train_f1"] = float(f1_score(y_tr, tr_preds, average=average))
-
-            if xv is not None and yv is not None:
-                v_preds = model.predict(xv)
-                m["val_accuracy"] = float(accuracy_score(yv, v_preds))
-                m["val_f1"] = float(f1_score(yv, v_preds, average=average))
-        else:
-            from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-            tr_preds = model.predict(X_tr)
-            m["train_mse"] = float(mean_squared_error(y_tr, tr_preds))
-            m["train_mae"] = float(mean_absolute_error(y_tr, tr_preds))
-
-            if xv is not None and yv is not None:
-                v_preds = model.predict(xv)
-                m["val_mse"] = float(mean_squared_error(yv, v_preds))
-                m["val_mae"] = float(mean_absolute_error(yv, v_preds))
-
-        importances = model.feature_importances_
-        importance_pairs = sorted(
-            zip(feat_cols, importances.tolist()),
-            key=lambda x: x[1],
-            reverse=True,
-        )
-        m["feature_importances"] = {name: round(imp, 6) for name, imp in importance_pairs}
-
-        best_iteration = getattr(model, "best_iteration", None)
-        if best_iteration is not None:
-            m["best_iteration"] = int(best_iteration)
-            m["n_estimators_used"] = int(best_iteration) + 1
-
-        return m
-
     # ── Read training data ────────────────────────────────────────
     train_df = pl.read_parquet(inputs["train"])
 
-    # ── Read target column from params ───────────────────────────
     target_col = params.get("target_column", "")
-
     if not target_col or target_col not in train_df.columns:
         raise ValueError(
             f"Target column '{target_col}' not found. "
@@ -332,50 +284,88 @@ def gradient_boosting_train(inputs: dict, params: dict) -> dict:
         **fit_kwargs(model, X_val, y_val, use_early_stopping),
     )
 
-    # ── Generate predictions on all splits ────────────────────────
-    all_predictions: list[pl.DataFrame] = []
-    for split_name in ("train", "val", "test"):
+    # ── Helper: build prediction DataFrame ─────────────────────────
+    def _build_predictions(split_df: pl.DataFrame) -> pl.DataFrame:
+        X = split_df.select(feature_cols).to_pandas().values
+        y_true = split_df[target_col].to_list()
+        y_pred = model.predict(X)
+        cols: dict = {"y_true": y_true, "y_pred": y_pred.tolist()}
+        if is_classification and hasattr(model, "predict_proba"):
+            y_prob = model.predict_proba(X)
+            classes = model.classes_ if hasattr(model, "classes_") else np.unique(y_train)
+            for i, cls in enumerate(classes):
+                cols[f"y_prob_{cls}"] = y_prob[:, i].tolist()
+        return pl.DataFrame(cols)
+
+    # ── Write predictions per split ────────────────────────────────
+    result: dict = {}
+    sample_counts: dict = {"train": train_df.height}
+
+    train_preds = _build_predictions(train_df)
+    p = _get_output_path("train_predictions", ".parquet")
+    train_preds.write_parquet(p)
+    result["train_predictions"] = str(p)
+
+    for split_name in ("val", "test"):
         split_path = inputs.get(split_name)
         if not split_path or not Path(split_path).exists():
             continue
         split_df = pl.read_parquet(split_path)
         if split_df.height == 0:
             continue
-        X_split = split_df.select(feature_cols).to_pandas().values
-        preds = model.predict(X_split)
-        pred_df = pl.DataFrame({
-            "split": [split_name] * len(preds),
-            "prediction": preds.tolist(),
-            "actual": split_df[target_col].to_list(),
-        })
-        all_predictions.append(pred_df)
+        preds = _build_predictions(split_df)
+        p = _get_output_path(f"{split_name}_predictions", ".parquet")
+        preds.write_parquet(p)
+        result[f"{split_name}_predictions"] = str(p)
+        sample_counts[split_name] = split_df.height
 
-    predictions_df = pl.concat(all_predictions) if all_predictions else pl.DataFrame()
-
-    # ── Compute metrics ───────────────────────────────────────────
-    metrics = compute_metrics(
-        model=model,
-        X_tr=X_train,
-        y_tr=y_train,
-        xv=X_val,
-        yv=y_val,
-        feat_cols=feature_cols,
-        is_cls=is_classification,
-        task=task_type,
+    # ── Feature importances ──────────────────────────────────────
+    importances = model.feature_importances_
+    feature_importances = sorted(
+        [{"feature": f, "importance": round(float(imp), 6)}
+         for f, imp in zip(feature_cols, importances.tolist())],
+        key=lambda x: x["importance"],
+        reverse=True,
     )
 
-    # ── Save outputs ──────────────────────────────────────────────
-    pred_path = _get_output_path("predictions", ".parquet")
-    predictions_df.write_parquet(pred_path)
+    # ── Training report ──────────────────────────────────────────
+    report: dict = {
+        "report_type": "training_report",
+        "model_type": "gradient_boosting",
+        "task_type": task_type,
+        "target_column": target_col,
+        "feature_columns": feature_cols,
+        "sample_counts": sample_counts,
+        "params": {
+            "learning_rate": learning_rate,
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "subsample": subsample,
+            "early_stopping_rounds": early_stopping_rounds,
+        },
+        "feature_importances": feature_importances,
+    }
 
+    if is_classification:
+        classes = model.classes_ if hasattr(model, "classes_") else np.unique(y_train)
+        report["classes"] = [int(c) if isinstance(c, (np.integer,)) else c for c in classes]
+        report["target_distribution"] = {
+            str(cls): int(np.sum(y_train == cls))
+            for cls in classes
+        }
+
+    best_iteration = getattr(model, "best_iteration", None)
+    if best_iteration is not None:
+        report["best_iteration"] = int(best_iteration)
+        report["n_estimators_used"] = int(best_iteration) + 1
+
+    report_path = _get_output_path("report", ".json")
+    report_path.write_text(json.dumps(report, indent=2))
+    result["report"] = str(report_path)
+
+    # ── Save model ───────────────────────────────────────────────
     model_path = _get_output_path("model", ".joblib")
     joblib.dump(model, model_path)
+    result["model"] = str(model_path)
 
-    metrics_path = _get_output_path("metrics", ".json")
-    metrics_path.write_text(json.dumps(metrics, indent=2))
-
-    return {
-        "predictions": str(pred_path),
-        "model": str(model_path),
-        "metrics": str(metrics_path),
-    }
+    return result
