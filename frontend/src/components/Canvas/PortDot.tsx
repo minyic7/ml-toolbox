@@ -17,12 +17,7 @@ export default function PortDot({ port, side }: PortDotProps) {
   const isMatch = isDragging && port.type === draggingPortType;
   const isMismatch = isDragging && port.type !== draggingPortType;
 
-  // Build className for hover pseudo-class styling
-  const className = isMatch
-    ? "port-dot-match"
-    : isMismatch
-      ? "port-dot-mismatch"
-      : "";
+  const className = isMismatch ? "port-dot-mismatch" : "";
 
   return (
     <Handle
@@ -38,10 +33,10 @@ export default function PortDot({ port, side }: PortDotProps) {
         backgroundColor: color,
         border: "2px solid var(--node-bg)",
         boxShadow: isMatch
-          ? `0 0 0 1px ${color}, 0 0 6px 2px ${color}`
+          ? `0 0 0 2px ${color}, 0 0 8px 3px ${color}`
           : `0 0 0 1px ${color}`,
         opacity: isMismatch ? 0.4 : 1,
-        transition: "box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease",
+        transition: "box-shadow 0.15s ease, opacity 0.15s ease",
       }}
     />
   );
