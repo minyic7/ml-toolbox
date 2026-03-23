@@ -80,6 +80,9 @@ export function ProfileReport({ data, analysis }: ProfileReportProps) {
     case "confusion_matrix":
       return <ConfusionMatrixReport data={data} analysis={analysis} />;
     case "training_metrics":
+    case "training_report":
+    case "classification_metrics":
+    case "regression_metrics":
       return <TrainingMetricsReport data={data} analysis={analysis} />;
     case "feature_importance":
       return <FeatureImportanceReport data={data} analysis={analysis} />;
