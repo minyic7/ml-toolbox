@@ -318,7 +318,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
-                padding: "6px 8px",
+                padding: "6px 8px 6px 14px",
               }}
             >
               {inputs.map((inp) => (
@@ -369,7 +369,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
-                padding: "6px 8px",
+                padding: "6px 14px 6px 8px",
               }}
             >
               {outputs.map((out) => (
