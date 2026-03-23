@@ -154,7 +154,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        width: 260,
+        width: 300,
         background: "var(--node-bg)",
         borderRadius: "0 8px 8px 0",
         borderLeft: `4px solid ${accentColor}`,
@@ -342,6 +342,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      minWidth: 0,
                     }}
                   >
                     {inp.name}
@@ -394,6 +395,7 @@ function NodeCard({ id, data, selected }: NodeProps & { data: NodeCardData }) {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      minWidth: 0,
                     }}
                   >
                     {out.name}
