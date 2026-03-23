@@ -788,28 +788,33 @@ def _build_prediction_summary(df: Any) -> dict[str, Any]:
     """Build a prediction summary for tables with y_true + y_pred columns."""
     import numpy as np
 
-    y_true = df["y_true"].values
-    y_pred = df["y_pred"].values
+    # Force standard numpy arrays (pyarrow-backed pandas returns ExtensionArrays)
+    y_true = np.asarray(df["y_true"], dtype=float)
+    y_pred = np.asarray(df["y_pred"], dtype=float)
     n = len(y_true)
 
-    # Detect classification vs regression
-    unique_true = np.unique(y_true[~np.isnan(y_true)] if np.issubdtype(y_true.dtype, np.floating) else y_true)
-    is_classification = len(unique_true) <= 20
+    # Drop NaN rows
+    valid = ~(np.isnan(y_true) | np.isnan(y_pred))
+    y_true = y_true[valid]
+    y_pred = y_pred[valid]
+
+    # Detect classification: y_true has few unique integer-like values
+    unique_true = np.unique(y_true)
+    all_integer = np.all(np.equal(np.mod(unique_true, 1), 0))
+    is_classification = all_integer and len(unique_true) <= 20
 
     if is_classification:
-        # Round y_pred to nearest class if float (e.g. linear regression on class target)
-        if np.issubdtype(y_pred.dtype, np.floating):
-            y_pred_cls = np.round(y_pred).astype(y_true.dtype)
-        else:
-            y_pred_cls = y_pred
+        # Cast to int for clean labels
+        y_true_int = y_true.astype(int)
+        y_pred_int = np.round(y_pred).astype(int)
 
-        classes = sorted(set(unique_true.tolist()) | set(np.unique(y_pred_cls).tolist()), key=str)
+        classes = sorted(set(y_true_int.tolist()) | set(y_pred_int.tolist()))
         class_labels = [str(c) for c in classes]
         n_classes = len(classes)
         label_to_idx = {c: i for i, c in enumerate(classes)}
 
         cm = np.zeros((n_classes, n_classes), dtype=int)
-        for t, p in zip(y_true, y_pred_cls):
+        for t, p in zip(y_true_int, y_pred_int):
             ti = label_to_idx.get(t)
             pi = label_to_idx.get(p)
             if ti is not None and pi is not None:
@@ -871,7 +876,10 @@ def _file_metadata(output_file: Path) -> dict[str, Any]:
 
             # Prediction table summary (y_true + y_pred columns)
             if "y_true" in df.columns and "y_pred" in df.columns:
-                meta["preview"]["prediction_summary"] = _build_prediction_summary(df)
+                try:
+                    meta["preview"]["prediction_summary"] = _build_prediction_summary(df)
+                except Exception as exc:
+                    logger.warning("prediction_summary failed: %s", exc)
         except Exception:
             pass
     elif ext == ".csv":
