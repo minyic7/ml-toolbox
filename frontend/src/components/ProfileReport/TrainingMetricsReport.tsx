@@ -65,9 +65,11 @@ export function TrainingMetricsReport({ data }: TrainingMetricsReportProps) {
     return <div className="output-empty">No metrics computed</div>;
   }
 
-  // Collect all metric keys (excluding "support")
+  // Collect all metric keys (excluding "support" and nested objects like "per_label")
   const firstSplit = splits[splitOrder[0]];
-  const metricKeys = Object.keys(firstSplit).filter((k) => k !== "support");
+  const metricKeys = Object.keys(firstSplit).filter(
+    (k) => k !== "support" && typeof firstSplit[k] !== "object",
+  );
 
   // Summary cards: total samples, task type, split count
   const totalSamples = splitOrder.reduce(
