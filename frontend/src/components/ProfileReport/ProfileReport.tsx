@@ -10,6 +10,7 @@ import { ConfusionMatrixReport } from "./ConfusionMatrixReport";
 import { TrainingMetricsReport } from "./TrainingMetricsReport";
 import { FeatureImportanceReport } from "./FeatureImportanceReport";
 import { ModelComparisonReport } from "./ModelComparisonReport";
+import { TrainingReportView } from "./TrainingReportView";
 
 interface ProfileReportProps {
   data: Record<string, unknown>;
@@ -79,8 +80,9 @@ export function ProfileReport({ data, analysis }: ProfileReportProps) {
       return <RocPrReport data={data} analysis={analysis} />;
     case "confusion_matrix":
       return <ConfusionMatrixReport data={data} analysis={analysis} />;
-    case "training_metrics":
     case "training_report":
+      return <TrainingReportView data={data} />;
+    case "training_metrics":
     case "classification_metrics":
     case "regression_metrics":
       return <TrainingMetricsReport data={data} analysis={analysis} />;

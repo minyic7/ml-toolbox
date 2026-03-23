@@ -1,5 +1,6 @@
 import type { CcAnalysis } from "../../lib/types";
 import { SummaryCards } from "./SummaryCards";
+import { TrainingCurve } from "./TrainingCurve";
 import { WarningList } from "./WarningList";
 
 interface TrainingMetricsReportProps {

@@ -22,6 +22,7 @@ def _get_output_path(name: str = "output", ext: str = ".json") -> Path:
 _TRAINING_NODES = [
     "decision_tree", "random_forest",
     "linear_regression", "logistic_regression", "gradient_boosting_train",
+    "xgboost_train",
 ]
 
 _ALLOWED_TEST_UPSTREAM = [
