@@ -327,6 +327,17 @@ export function getEdaContext(
   );
 }
 
+export function getSchemaContext(
+  pipelineId: string,
+  nodeId: string,
+  runId?: string,
+) {
+  const params = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  return request<{ schema_context: Record<string, unknown> | null }>(
+    `/api/pipelines/${pipelineId}/outputs/${nodeId}/schema-context${params}`,
+  );
+}
+
 export function updateMetadata(
   pipelineId: string,
   nodeId: string,

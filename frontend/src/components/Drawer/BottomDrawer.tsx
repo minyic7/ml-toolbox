@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Table2, BarChart3 } from "lucide-react";
 import { useExecutionStore } from "../../store/executionStore";
-import { getMetadata, getEdaContext } from "../../lib/api";
+import { getMetadata, getEdaContext, getSchemaContext } from "../../lib/api";
 import type { NodeInstance, NodeDefinition, Edge } from "../../lib/types";
 import DrawerHeader from "./DrawerHeader";
 import { ParamsTab } from "./ParamsTab";
@@ -66,13 +66,19 @@ export default function BottomDrawer({
 
   const isIngestNode = definition?.category === "Ingest";
 
-  // Fetch metadata for schema button (all nodes)
+  // Fetch metadata for schema button: own .meta.json first, then BFS upstream
   const { data: metadata } = useQuery({
     queryKey: ["metadata", pipelineId, node?.id],
     queryFn: async () => {
+      // Try own .meta.json first (ingest nodes)
       const res = await getMetadata(pipelineId, node!.id);
       if (res.metadata && typeof res.metadata === "object" && "columns" in res.metadata) {
         return res.metadata as { columns: Record<string, unknown> };
+      }
+      // Fall back to BFS upstream schema context
+      const ctx = await getSchemaContext(pipelineId, node!.id);
+      if (ctx.schema_context && typeof ctx.schema_context === "object" && "columns" in ctx.schema_context) {
+        return ctx.schema_context as { columns: Record<string, unknown> };
       }
       return null;
     },
