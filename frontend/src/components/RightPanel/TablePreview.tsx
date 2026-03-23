@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { PredictionSummary } from "../../lib/types";
 import { SummaryCards } from "../ProfileReport/SummaryCards";
 
 const NUMERIC_DTYPES = new Set([
@@ -12,21 +13,6 @@ const NUMERIC_DTYPES = new Set([
 
 function isNumericDtype(dtype: string): boolean {
   return NUMERIC_DTYPES.has(dtype) || /^(int|uint|float)\d*$/i.test(dtype);
-}
-
-interface PredictionSummary {
-  task: "classification" | "regression";
-  n_samples: number;
-  // Classification fields
-  n_classes?: number;
-  class_labels?: string[];
-  confusion_matrix?: number[][];
-  accuracy?: number;
-  correct?: number;
-  // Regression fields
-  mae?: number;
-  rmse?: number;
-  r2?: number;
 }
 
 interface TablePreviewProps {

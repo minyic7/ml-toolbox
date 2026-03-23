@@ -100,6 +100,21 @@ export interface PipelineSummary {
 
 // ── Output & Run ────────────────────────────────────────────────────
 
+export interface PredictionSummary {
+  task: "classification" | "regression";
+  n_samples: number;
+  // Classification
+  n_classes?: number;
+  class_labels?: string[];
+  confusion_matrix?: number[][];
+  accuracy?: number;
+  correct?: number;
+  // Regression
+  mae?: number;
+  rmse?: number;
+  r2?: number;
+}
+
 export interface OutputPortPreview {
   file: string;
   type: string;
@@ -116,6 +131,7 @@ export interface OutputPortPreview {
     total_elements?: number;
     format?: string;
     file_size?: number;
+    prediction_summary?: PredictionSummary;
   } | null;
 }
 
@@ -137,6 +153,8 @@ export interface OutputPreview {
     // MODEL / TENSOR previews
     format?: string;
     file_size?: number;
+    // Prediction table summary
+    prediction_summary?: PredictionSummary;
   } | null;
   error: string | null;
   logs?: string | null;
