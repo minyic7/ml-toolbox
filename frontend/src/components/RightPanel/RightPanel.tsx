@@ -145,13 +145,23 @@ export function RightPanel({
                   onBlur={saveEdit}
                   onKeyDown={handleKeyDown}
                   maxLength={50}
-                  className="text-sm font-semibold bg-transparent border border-[var(--border-selected)] rounded px-1 py-0.5 outline-none w-full"
-                  style={{ color: "var(--text-primary)" }}
+                  className="bg-transparent border border-[var(--border-selected)] rounded px-1 py-0.5 outline-none w-full"
+                  style={{
+                    fontFamily: "'Manrope', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    color: "var(--text-primary)",
+                  }}
                 />
               ) : (
                 <span
-                  className="text-sm font-semibold cursor-pointer truncate block"
+                  className="cursor-pointer truncate block"
                   style={{
+                    fontFamily: "'Manrope', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    textTransform: "uppercase",
                     color: "var(--text-primary)",
                     maxWidth: "22ch",
                   }}
